@@ -37,6 +37,7 @@ export const PALETTE = {
   core: ['#FFF6D6', '#FFC857'],
   gold: { base: '#C8922E', mid: '#E8B64C', edge: '#FFE7A3', glint: '#FFF3C4' },
   firefly: '#FFE08A', hearts: ['#FF6F91', '#FF8FAB'], goldHearts: ['#E8B64C', '#FFE7A3'],
+  black: '#000000',
   seed: '#FFC857', seedCore: '#FFF6D6', pollen: '#FFF1E4',
   stars: ['#FFF1E4', '#FFE1F0', '#A9D3F5'],
   butterflies: [['#A9D3F5', '#9B7CFF'], ['#F7B6DA', '#FF7AD9']],
@@ -79,11 +80,43 @@ export const TOD = {
       glow: 0.9, darken: 0.05, autoShooting: false, themeColor: '#2F2C5C',
     },
   },
-  skyStops: [0, 0.5, 0.86],      // zenith, mid, low as fractions of the ground line
-  horizonBand: [0.62, 0.93],     // horizon glow band, fraction of ground line
-  horizonAlpha: 0.55,
   sunRadiusU: 5, sunAlpha: 0.5, sunX: 0.28,
   nearHillMix: 0.55,             // near hills blend from far hills toward ground
+};
+
+// Prerendered sprites. Glow stops approximate a soft gaussian falloff.
+export const SPRITE = {
+  glowPx: 128, smallGlowPx: 40,
+  glowStops: [[0, 1], [0.18, 0.78], [0.36, 0.46], [0.54, 0.22], [0.72, 0.08], [0.86, 0.025], [1, 0]],
+  starStops: [[0, 1], [0.2, 0.7], [0.5, 0.16], [1, 0]],
+  stableFrames: 2, cacheScale: 1.15, cachePad: 1.35,
+  streak: [256, 10],
+};
+
+// Landscape shapes as fractions of height. Waves are [cycles across width, weight].
+export const WORLD = {
+  skyStops: [0, 0.36, 0.6, 0.745],
+  horizonGlow: { y: 0.745, rx: 0.85, ry: 0.16, alpha: 0.5 },
+  farHill: { y: 0.735, amp: 0.024, waves: [[1.3, 1], [3.1, 0.45], [7.3, 0.18]] },
+  nearHill: { y: 0.778, amp: 0.016, waves: [[1.9, 1], [4.3, 0.4], [9.1, 0.15]] },
+  bands: [{ y: 0.806, amp: 0.006, mix: 0.2, waves: [[2.3, 1], [6.1, 0.3]] }, { y: 0.842, amp: 0.005, mix: 0.62, waves: [[2.9, 1], [7.7, 0.3]] }],
+  bandHillMix: 0.45,
+  backBlades: { perPx: 0.55, hU: [0.1, 0.26], wU: 0.03, alpha: 0.5, lift: 0.12, lean: 0.3, depth: 0.6, ctrl: [0.4, 0.6, 0.3, 0.5] },
+  groundFade: 0.45, groundTopU: 0.3, groundStop: 0.18,
+  ridgeStepPx: 6,
+  stars: { maxY: 0.66, pow: 1.35, moonClear: 2.6, sizeGlow: 3.2, depth: [0.25, 0.7], alpha: [0.35, 0.95], delay: [0, 1.8], topBias: 0.5, twinkleUp: 1 },
+  front: {
+    perPx: 0.75, hU: [0.25, 0.95], wU: [0.06, 0.12], rootY: [0.874, 1.02], rootPow: 1.6,
+    shades: [[0.45, 0.2], [0.15, 0.42], [0, 0.62]],   // [grass mix, darken toward ground]
+    swayU: 0.06, swayHz: [0.25, 0.5], clumpSpreadU: 0.32, clumpHU: [0.45, 0.9], clumpRootY: [0.876, 0.9],
+    bowLean: 0.5, gustLean: 0.55, tipCurve: 0.45, baseCurve: 0.3,
+  },
+  moon: {
+    haloStops: [[0, 1], [0.35, 0.35], [1, 0]], haloInner: 0.9,
+    light: [-0.3, -0.3, 0.1], edgeMix: 0.62,
+    craters: [[-0.3, -0.2, 0.18], [0.25, 0.1, 0.13], [-0.05, 0.38, 0.1], [0.35, -0.32, 0.08]],
+    craterDark: 0.35, craterAlpha: 0.07, rimAlpha: 0.35, rimW: 0.04, rimAt: 0.98,
+  },
 };
 
 // Seconds from load for the full show.
@@ -92,7 +125,7 @@ export const BEATS = {
   starsSpread: 1.8,
   seed: { appear: 0.8, land: 2, startY: 0.04, trailU: 0.9 },
   pulse: { start: 2, dur: 0.9, radiusU: 1.5, alpha: 0.35 },
-  grassBow: { dur: 1.6, reachU: 3.2, maxPx: 0.35 },
+  grassBow: { dur: 1.8, reachU: 2.6, lean: 0.4, attack: 0.06 },
   fantasyStem: [2.2, 3.6],
   roseStems: { start: 2.5, stagger: 0.26, dur: 2.2 },
   wildStems: { start: 3.2, stagger: 0.11, dur: 1.4 },
@@ -164,7 +197,10 @@ export const HEART = {
 
 export const GOLD = { chance: 1 / 8, guaranteeBy: 4, glints: 6, glintHz: 0.55, spinHz: 0.03, glowAlpha: 0.3 };
 
-export const SHOOTING = { dur: 1.1, lengthU: 2.6, travelU: 4.2, alpha: 0.75, dayAlpha: 0.35, angle: [0.35, 0.75] };
+export const SHOOTING = {
+  dur: 1.1, lengthU: 2.6, travelU: 4.2, alpha: 0.75, dayAlpha: 0.35, angle: [0.35, 0.75],
+  headU: 0.18, headAlpha: 0.9, grow: 3, shrink: 0.5, thick: 0.5,
+};
 
 export const LAYOUT = {
   unitW: 9, unitH: 12, dprMax: 2,

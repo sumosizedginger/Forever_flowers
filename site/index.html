@@ -127,6 +127,7 @@ const PALETTE = {
   core: ['#FFF6D6', '#FFC857'],
   gold: { base: '#C8922E', mid: '#E8B64C', edge: '#FFE7A3', glint: '#FFF3C4' },
   firefly: '#FFE08A', hearts: ['#FF6F91', '#FF8FAB'], goldHearts: ['#E8B64C', '#FFE7A3'],
+  black: '#000000',
   seed: '#FFC857', seedCore: '#FFF6D6', pollen: '#FFF1E4',
   stars: ['#FFF1E4', '#FFE1F0', '#A9D3F5'],
   butterflies: [['#A9D3F5', '#9B7CFF'], ['#F7B6DA', '#FF7AD9']],
@@ -169,11 +170,43 @@ const TOD = {
       glow: 0.9, darken: 0.05, autoShooting: false, themeColor: '#2F2C5C',
     },
   },
-  skyStops: [0, 0.5, 0.86],      // zenith, mid, low as fractions of the ground line
-  horizonBand: [0.62, 0.93],     // horizon glow band, fraction of ground line
-  horizonAlpha: 0.55,
   sunRadiusU: 5, sunAlpha: 0.5, sunX: 0.28,
   nearHillMix: 0.55,             // near hills blend from far hills toward ground
+};
+
+// Prerendered sprites. Glow stops approximate a soft gaussian falloff.
+const SPRITE = {
+  glowPx: 128, smallGlowPx: 40,
+  glowStops: [[0, 1], [0.18, 0.78], [0.36, 0.46], [0.54, 0.22], [0.72, 0.08], [0.86, 0.025], [1, 0]],
+  starStops: [[0, 1], [0.2, 0.7], [0.5, 0.16], [1, 0]],
+  stableFrames: 2, cacheScale: 1.15, cachePad: 1.35,
+  streak: [256, 10],
+};
+
+// Landscape shapes as fractions of height. Waves are [cycles across width, weight].
+const WORLD = {
+  skyStops: [0, 0.36, 0.6, 0.745],
+  horizonGlow: { y: 0.745, rx: 0.85, ry: 0.16, alpha: 0.5 },
+  farHill: { y: 0.735, amp: 0.024, waves: [[1.3, 1], [3.1, 0.45], [7.3, 0.18]] },
+  nearHill: { y: 0.778, amp: 0.016, waves: [[1.9, 1], [4.3, 0.4], [9.1, 0.15]] },
+  bands: [{ y: 0.806, amp: 0.006, mix: 0.2, waves: [[2.3, 1], [6.1, 0.3]] }, { y: 0.842, amp: 0.005, mix: 0.62, waves: [[2.9, 1], [7.7, 0.3]] }],
+  bandHillMix: 0.45,
+  backBlades: { perPx: 0.55, hU: [0.1, 0.26], wU: 0.03, alpha: 0.5, lift: 0.12, lean: 0.3, depth: 0.6, ctrl: [0.4, 0.6, 0.3, 0.5] },
+  groundFade: 0.45, groundTopU: 0.3, groundStop: 0.18,
+  ridgeStepPx: 6,
+  stars: { maxY: 0.66, pow: 1.35, moonClear: 2.6, sizeGlow: 3.2, depth: [0.25, 0.7], alpha: [0.35, 0.95], delay: [0, 1.8], topBias: 0.5, twinkleUp: 1 },
+  front: {
+    perPx: 0.75, hU: [0.25, 0.95], wU: [0.06, 0.12], rootY: [0.874, 1.02], rootPow: 1.6,
+    shades: [[0.45, 0.2], [0.15, 0.42], [0, 0.62]],   // [grass mix, darken toward ground]
+    swayU: 0.06, swayHz: [0.25, 0.5], clumpSpreadU: 0.32, clumpHU: [0.45, 0.9], clumpRootY: [0.876, 0.9],
+    bowLean: 0.5, gustLean: 0.55, tipCurve: 0.45, baseCurve: 0.3,
+  },
+  moon: {
+    haloStops: [[0, 1], [0.35, 0.35], [1, 0]], haloInner: 0.9,
+    light: [-0.3, -0.3, 0.1], edgeMix: 0.62,
+    craters: [[-0.3, -0.2, 0.18], [0.25, 0.1, 0.13], [-0.05, 0.38, 0.1], [0.35, -0.32, 0.08]],
+    craterDark: 0.35, craterAlpha: 0.07, rimAlpha: 0.35, rimW: 0.04, rimAt: 0.98,
+  },
 };
 
 // Seconds from load for the full show.
@@ -182,7 +215,7 @@ const BEATS = {
   starsSpread: 1.8,
   seed: { appear: 0.8, land: 2, startY: 0.04, trailU: 0.9 },
   pulse: { start: 2, dur: 0.9, radiusU: 1.5, alpha: 0.35 },
-  grassBow: { dur: 1.6, reachU: 3.2, maxPx: 0.35 },
+  grassBow: { dur: 1.8, reachU: 2.6, lean: 0.4, attack: 0.06 },
   fantasyStem: [2.2, 3.6],
   roseStems: { start: 2.5, stagger: 0.26, dur: 2.2 },
   wildStems: { start: 3.2, stagger: 0.11, dur: 1.4 },
@@ -254,7 +287,10 @@ const HEART = {
 
 const GOLD = { chance: 1 / 8, guaranteeBy: 4, glints: 6, glintHz: 0.55, spinHz: 0.03, glowAlpha: 0.3 };
 
-const SHOOTING = { dur: 1.1, lengthU: 2.6, travelU: 4.2, alpha: 0.75, dayAlpha: 0.35, angle: [0.35, 0.75] };
+const SHOOTING = {
+  dur: 1.1, lengthU: 2.6, travelU: 4.2, alpha: 0.75, dayAlpha: 0.35, angle: [0.35, 0.75],
+  headU: 0.18, headAlpha: 0.9, grow: 3, shrink: 0.5, thick: 0.5,
+};
 
 const LAYOUT = {
   unitW: 9, unitH: 12, dprMax: 2,
@@ -318,7 +354,7 @@ const STORAGE = { visits: 'ff.visits', gold: 'ff.goldSeen', seed: 'ff.seed' };
 
 const PERF = { samples: 1200 };
 
-return { TUNE, TUNE_RANGES, PALETTE, TOD, BEATS, WAKE, PREVIEW, MOTION, INPUT, HEART, GOLD, SHOOTING, LAYOUT, UI, SIZE, COUNTS, AUDIO, STORAGE, PERF };
+return { TUNE, TUNE_RANGES, PALETTE, TOD, SPRITE, WORLD, BEATS, WAKE, PREVIEW, MOTION, INPUT, HEART, GOLD, SHOOTING, LAYOUT, UI, SIZE, COUNTS, AUDIO, STORAGE, PERF };
 })();
 __m["params.js"] = (() => {
 // URL test hooks. Without a param nothing she sees changes.
@@ -347,25 +383,913 @@ function readParams(search) {
 
 return { readParams };
 })();
+__m["util.js"] = (() => {
+// Small shared helpers: seeded randomness, easing, math, color.
+const { PALETTE } = __m["config.js"];
+
+const TAU = Math.PI * 2;
+
+function makeRng(seed) {
+  let s = seed >>> 0;
+  const next = () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  return {
+    next,
+    range: (a, b) => a + (b - a) * next(),
+    int: (a, b) => a + Math.floor(next() * (b - a + 1)),
+    pick: (arr) => arr[Math.floor(next() * arr.length)],
+    chance: (p) => next() < p,
+    sign: () => (next() < 0.5 ? -1 : 1),
+    fork: () => makeRng(Math.floor(next() * 4294967296)),
+  };
+}
+
+const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
+const lerp = (a, b, t) => a + (b - a) * t;
+const invLerp = (a, b, x) => clamp01((x - a) / (b - a));
+const smooth = (x) => { const t = clamp01(x); return t * t * (3 - 2 * t); };
+const smoothstep = (a, b, x) => smooth((x - a) / (b - a));
+const mod = (x, m) => ((x % m) + m) % m;
+const hyp = Math.hypot;
+
+const easeInOutSine = (x) => -(Math.cos(Math.PI * clamp01(x)) - 1) / 2;
+const easeInQuad = (x) => { const t = clamp01(x); return t * t; };
+const easeInCubic = (x) => { const t = clamp01(x); return t * t * t; };
+const easeOutCubic = (x) => { const t = 1 - clamp01(x); return 1 - t * t * t; };
+const easeInOutCubic = (x) => {
+  const t = clamp01(x);
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+};
+function easeOutBack(x, c1) {
+  const t = clamp01(x);
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+// CSS style cubic-bezier(x1, y1, x2, y2) as a function of progress.
+function cubicBezier(x1, y1, x2, y2) {
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
+  const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  const sx = (t) => ((ax * t + bx) * t + cx) * t;
+  const sy = (t) => ((ay * t + by) * t + cy) * t;
+  const dx = (t) => (3 * ax * t + 2 * bx) * t + cx;
+  const EPS = 1e-6;
+  return (x) => {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    let t = x;
+    for (let i = 0; i < 8; i++) {
+      const e = sx(t) - x;
+      if (Math.abs(e) < EPS) return sy(t);
+      const d = dx(t);
+      if (Math.abs(d) < EPS) break;
+      t -= e / d;
+    }
+    let lo = 0, hi = 1;
+    t = x;
+    for (let i = 0; i < 24; i++) {
+      const v = sx(t);
+      if (Math.abs(v - x) < EPS) break;
+      if (v < x) lo = t; else hi = t;
+      t = (lo + hi) / 2;
+    }
+    return sy(t);
+  };
+}
+
+// Progress of a window [start, start + dur] at time t, 0..1.
+const win = (t, start, dur) => (dur <= 0 ? (t >= start ? 1 : 0) : clamp01((t - start) / dur));
+
+// ---- color ----
+const HEX_RE = /^#?([0-9a-f]{6})$/i;
+function hexToRgb(hex) {
+  const m = HEX_RE.exec(hex);
+  const n = m ? parseInt(m[1], 16) : 0;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+const h2 = (v) => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0');
+const rgbToHex = (r, g, b) => '#' + h2(r) + h2(g) + h2(b);
+
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return [h / 6, s, l];
+}
+function hslToRgb(h, s, l) {
+  if (s === 0) return [l * 255, l * 255, l * 255];
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const f = (t) => {
+    t = mod(t, 1);
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return [f(h + 1 / 3) * 255, f(h) * 255, f(h - 1 / 3) * 255];
+}
+
+// Clamp a color to the brief's lightness ceiling.
+function safe(hex) {
+  const [r, g, b] = hexToRgb(hex);
+  const [h, s, l] = rgbToHsl(r, g, b);
+  if (l <= PALETTE.maxLightness) return rgbToHex(r, g, b);
+  const [r2, g2, b2] = hslToRgb(h, s, PALETTE.maxLightness);
+  return rgbToHex(r2, g2, b2);
+}
+function lightnessOf(r, g, b) { return rgbToHsl(r, g, b)[2]; }
+
+function mix(a, b, t) {
+  const A = hexToRgb(a), B = hexToRgb(b);
+  return safe(rgbToHex(lerp(A[0], B[0], t), lerp(A[1], B[1], t), lerp(A[2], B[2], t)));
+}
+const darker = (hex, t) => mix(hex, '#000000', t);
+function rgba(hex, a) {
+  const [r, g, b] = hexToRgb(safe(hex));
+  return `rgba(${r},${g},${b},${clamp01(a)})`;
+}
+
+return { TAU, makeRng, clamp, clamp01, lerp, invLerp, smooth, smoothstep, mod, hyp, easeInOutSine, easeInQuad, easeInCubic, easeOutCubic, easeInOutCubic, easeOutBack, cubicBezier, win, hexToRgb, rgbToHex, safe, lightnessOf, mix, darker, rgba };
+})();
+__m["clock.js"] = (() => {
+// App clock in seconds. Pauses completely while hidden and resumes exactly
+// where it left off. ?t freezes it.
+const { MOTION } = __m["config.js"];
+
+function makeClock(frozenAt) {
+  return { T: frozenAt === null ? 0 : frozenAt, frozen: frozenAt !== null, paused: false, last: null };
+}
+
+function tick(clock, nowMs) {
+  if (clock.paused || clock.last === null) {
+    clock.last = nowMs;
+    return 0;
+  }
+  const raw = (nowMs - clock.last) / 1000;
+  clock.last = nowMs;
+  if (clock.frozen) return 0;
+  const dt = Math.min(Math.max(raw, 0), MOTION.dtMax);
+  clock.T += dt;
+  return dt;
+}
+
+function pauseClock(clock) { clock.paused = true; }
+function resumeClock(clock) { clock.paused = false; clock.last = null; }
+
+return { makeClock, tick, pauseClock, resumeClock };
+})();
+__m["layout.js"] = (() => {
+// Composition from the brief: U = min(w / 9, h / 12), ground at 88%, the
+// fantasy head near 34%, the moon at 82% across and 14% down clear of the buttons.
+const { LAYOUT, UI } = __m["config.js"];
+
+function readSafe(el) {
+  const cs = getComputedStyle(el);
+  const px = (v) => parseFloat(v) || 0;
+  return { t: px(cs.paddingTop), r: px(cs.paddingRight), b: px(cs.paddingBottom), l: px(cs.paddingLeft) };
+}
+
+function computeLayout(W, H, safe) {
+  const sw = W - safe.l - safe.r;
+  const sh = H - safe.t - safe.b;
+  const U = Math.min(sw / LAYOUT.unitW, sh / LAYOUT.unitH);
+  const cx = safe.l + sw / 2;
+  const fieldW = Math.min(sw * LAYOUT.fieldSpan, U * LAYOUT.fieldMaxU);
+  const wildW = Math.min(sw * LAYOUT.wildSpan, U * LAYOUT.wildSpanMaxU);
+
+  const right = W - safe.r - UI.margin;
+  const top = safe.t + UI.margin;
+  const zone = {
+    x0: right - UI.size * 2 - UI.gap - UI.zonePad,
+    y0: top - UI.zonePad,
+    x1: right + UI.zonePad,
+    y1: top + UI.size + UI.zonePad,
+  };
+
+  const mr = U * LAYOUT.moon.rU;
+  const clear = mr + LAYOUT.moon.clearPx;
+  let mx = W * LAYOUT.moon.x;
+  let my = H * LAYOUT.moon.y;
+  const hits = (x, y) => x + clear > zone.x0 && x - clear < zone.x1 && y + clear > zone.y0 && y - clear < zone.y1;
+  if (hits(mx, my)) {
+    const below = zone.y1 + clear;
+    if (below < H * LAYOUT.branch.maxY) my = below;
+    else mx = zone.x0 - clear;
+  }
+  mx = Math.min(Math.max(mx, safe.l + clear), W - safe.r - clear);
+  my = Math.max(my, safe.t + clear);
+
+  return {
+    W, H, U, safe, sw, sh, cx,
+    portrait: H >= W,
+    groundY: H * LAYOUT.groundY,
+    horizonY: H * LAYOUT.horizonY,
+    fieldL: cx - fieldW / 2, fieldW,
+    wildL: cx - wildW / 2, wildW,
+    minX: safe.l + LAYOUT.edgeMarginPx,
+    maxX: W - safe.r - LAYOUT.edgeMarginPx,
+    minY: safe.t + LAYOUT.edgeMarginPx,
+    zone,
+    moon: { x: mx, y: my, r: mr },
+    fantasy: { x: cx, headY: H * LAYOUT.fantasyY },
+  };
+}
+
+// Keep a head of radius r (plus sway headroom) inside the safe viewport.
+function clampHeadX(L, x, r, headroom) {
+  return Math.min(Math.max(x, L.minX + r + headroom), L.maxX - r - headroom);
+}
+
+return { readSafe, computeLayout, clampHeadX };
+})();
+__m["theme.js"] = (() => {
+// Time of day. Night is the hero palette; the others tint the field toward
+// their sky and stay soft and dim.
+const { TOD, PALETTE } = __m["config.js"];
+const { mix, safe } = __m["util.js"];
+
+const ORDER = ['night', 'dawn', 'day', 'eve'];
+
+function todFromHour(h) {
+  for (const name of ORDER) {
+    const [a, b] = TOD.hours[name];
+    if (a < b ? h >= a && h < b : h >= a || h < b) return name;
+  }
+  return 'night';
+}
+
+function currentTod(params) {
+  return params.tod || todFromHour(new Date().getHours());
+}
+
+function buildTheme(name) {
+  const th = TOD.themes[name];
+  const tint = (hex) => (th.tintAmt > 0 ? mix(hex, th.tint, th.tintAmt) : safe(hex));
+  const roses = {};
+  for (const k of Object.keys(PALETTE.roses)) roses[k] = tint(PALETTE.roses[k]);
+  return {
+    name,
+    ...th,
+    tint,
+    roses,
+    wild: PALETTE.wild.map(tint),
+    wildCenter: PALETTE.wildCenter.map(tint),
+    sakuraEdge: tint(PALETTE.sakuraEdge), sakuraCenter: tint(PALETTE.sakuraCenter),
+    stamen: tint(PALETTE.stamen), branch: tint(PALETTE.branch),
+    grass: th.grass.map(safe), leaf: th.leaf.map(safe), stem: safe(th.stem),
+  };
+}
+
+return { todFromHour, currentTod, buildTheme };
+})();
+__m["sprites.js"] = (() => {
+// Offscreen sprites prerendered once and drawn as cached images. Glows are
+// radial gradients baked here, then drawn with additive blending.
+const { SPRITE } = __m["config.js"];
+const { rgba, safe } = __m["util.js"];
+
+const glowCache = new Map();
+
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.ceil(w));
+  c.height = Math.max(1, Math.ceil(h));
+  return c;
+}
+
+function radial(color, px, stops) {
+  const c = makeCanvas(px, px);
+  const g = c.getContext('2d');
+  const r = px / 2;
+  const grad = g.createRadialGradient(r, r, 0, r, r, r);
+  for (const [at, a] of stops) grad.addColorStop(at, rgba(color, a));
+  g.fillStyle = grad;
+  g.fillRect(0, 0, px, px);
+  return c;
+}
+
+function glow(color, px = SPRITE.glowPx) {
+  const key = `g${safe(color)}${px}`;
+  if (!glowCache.has(key)) glowCache.set(key, radial(color, px, SPRITE.glowStops));
+  return glowCache.get(key);
+}
+
+function starSprite(color) {
+  const key = `s${safe(color)}`;
+  if (!glowCache.has(key)) glowCache.set(key, radial(color, SPRITE.smallGlowPx, SPRITE.starStops));
+  return glowCache.get(key);
+}
+
+// A horizontal streak, bright at the right end, for shooting stars.
+function streakSprite(color) {
+  const key = `k${safe(color)}`;
+  if (glowCache.has(key)) return glowCache.get(key);
+  const [w, h] = SPRITE.streak;
+  const c = makeCanvas(w, h);
+  const g = c.getContext('2d');
+  const lin = g.createLinearGradient(0, 0, w, 0);
+  lin.addColorStop(0, rgba(color, 0));
+  lin.addColorStop(0.7, rgba(color, 0.35));
+  lin.addColorStop(1, rgba(color, 1));
+  const v = g.createLinearGradient(0, 0, 0, h);
+  g.fillStyle = lin;
+  g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = 'destination-in';
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(0.5, 'rgba(0,0,0,1)');
+  v.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = v;
+  g.fillRect(0, 0, w, h);
+  glowCache.set(key, c);
+  return c;
+}
+
+// Draw an image centered at (x, y) with rotation and scale, in CSS px.
+function place(ctx, dpr, x, y, rot, sx, sy) {
+  const c = Math.cos(rot), s = Math.sin(rot);
+  ctx.setTransform(dpr * c * sx, dpr * s * sx, -dpr * s * sy, dpr * c * sy, dpr * x, dpr * y);
+}
+
+function resetTransform(ctx, dpr) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+
+function drawGlow(ctx, sprite, x, y, r, alpha) {
+  if (alpha <= 0.002 || r <= 0) return;
+  ctx.globalAlpha = alpha > 1 ? 1 : alpha;
+  ctx.drawImage(sprite, x - r, y - r, r * 2, r * 2);
+}
+
+// Per object cache for anything that has stopped changing. The draw function
+// renders centered on the origin within radius r (CSS px).
+function makeHeadCache() { return { canvas: null, key: null, pending: null, stable: 0, r: 0 }; }
+
+function cachedImage(cache, key, r, dpr, draw) {
+  if (cache.key === key && cache.canvas) return cache;
+  if (cache.pending !== key) { cache.pending = key; cache.stable = 0; return null; }
+  if (++cache.stable < SPRITE.stableFrames) return null;
+  const rr = r * SPRITE.cachePad;
+  const scale = dpr * SPRITE.cacheScale;
+  const px = Math.ceil(rr * 2 * scale);
+  if (!cache.canvas || cache.canvas.width !== px) cache.canvas = makeCanvas(px, px);
+  const g = cache.canvas.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, px, px);
+  g.setTransform(scale, 0, 0, scale, px / 2, px / 2);
+  draw(g);
+  cache.key = key;
+  cache.r = rr;
+  return cache;
+}
+
+function dropCache(cache) { cache.key = null; cache.pending = null; cache.stable = 0; }
+
+return { makeCanvas, glow, starSprite, streakSprite, place, resetTransform, drawGlow, makeHeadCache, cachedImage, dropCache };
+})();
+__m["sky.js"] = (() => {
+// Sky, horizon glow, far hills and the layered field, baked once per layout
+// and time of day. Stars, moon and shooting stars are drawn per frame from sprites.
+const { WORLD, TOD, SHOOTING, COUNTS, SIZE, PALETTE, SPRITE, LAYOUT } = __m["config.js"];
+const { TAU, mix, rgba, darker, clamp, clamp01, win, easeOutCubic, makeRng } = __m["util.js"];
+const { makeCanvas, starSprite, streakSprite, glow, place, resetTransform, drawGlow } = __m["sprites.js"];
+
+function ridgePath(g, W, H, spec, phases) {
+  const total = spec.waves.reduce((a, w) => a + w[1], 0);
+  g.beginPath();
+  g.moveTo(0, H);
+  for (let x = 0; x <= W + WORLD.ridgeStepPx; x += WORLD.ridgeStepPx) {
+    let v = 0;
+    spec.waves.forEach(([f, w], i) => { v += w * Math.sin((x / W) * f * TAU + phases[i]); });
+    g.lineTo(x, H * (spec.y + (spec.amp * v) / total));
+  }
+  g.lineTo(W, H);
+  g.closePath();
+}
+
+function ellipseGlow(g, x, y, rx, ry, color, alpha) {
+  g.save();
+  g.translate(x, y);
+  g.scale(1, ry / rx);
+  const grad = g.createRadialGradient(0, 0, 0, 0, 0, rx);
+  SPRITE.glowStops.forEach(([at, a]) => grad.addColorStop(at, rgba(color, a * alpha)));
+  g.fillStyle = grad;
+  g.fillRect(-rx, -rx, rx * 2, rx * 2);
+  g.restore();
+}
+
+function backBlades(g, rng, W, H, U, band, col, theme) {
+  const bb = WORLD.backBlades;
+  const [cx, cy, cw, cy2] = bb.ctrl;
+  g.fillStyle = rgba(mix(col, theme.grass[1], bb.lift * (1 + band.mix)), bb.alpha);
+  g.beginPath();
+  const n = Math.round(W * bb.perPx);
+  for (let i = 0; i < n; i++) {
+    const x = rng.range(0, W);
+    const y = H * band.y + rng.range(-1, 1) * H * band.amp + U * rng.range(0, bb.hU[0]);
+    const h = U * rng.range(bb.hU[0], bb.hU[1]) * (bb.depth + band.mix);
+    const w = U * bb.wU;
+    const lean = rng.range(-1, 1) * h * bb.lean;
+    g.moveTo(x - w, y);
+    g.quadraticCurveTo(x + lean * cx, y - h * cy, x + lean, y - h);
+    g.quadraticCurveTo(x + lean * cx + w * cw, y - h * cy2, x + w, y);
+  }
+  g.fill();
+}
+
+function buildBackground(app) {
+  const { L, theme, dpr } = app;
+  const { W, H, U } = L;
+  const rng = makeRng(app.seed ^ 0x5eed);
+  const c = makeCanvas(W * dpr, H * dpr);
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const stops = WORLD.skyStops;
+  const last = stops[stops.length - 1];
+  const sky = g.createLinearGradient(0, 0, 0, H * last);
+  const cols = [theme.sky[0], theme.sky[1], theme.sky[2], theme.horizon];
+  stops.forEach((s, i) => sky.addColorStop(s / last, cols[i]));
+  g.fillStyle = sky;
+  g.fillRect(0, 0, W, H);
+
+  const hg = WORLD.horizonGlow;
+  ellipseGlow(g, L.cx, H * hg.y, W * hg.rx, H * hg.ry, theme.horizon, hg.alpha);
+  if (theme.sun > 0) {
+    const r = U * TOD.sunRadiusU;
+    ellipseGlow(g, W * TOD.sunX, H * hg.y, r, r * hg.ry * 2, theme.sunColor, TOD.sunAlpha * theme.sun);
+  }
+
+  const phases = (spec) => spec.waves.map(() => rng.range(0, TAU));
+  g.fillStyle = theme.hills;
+  ridgePath(g, W, H, WORLD.farHill, phases(WORLD.farHill));
+  g.fill();
+  const nearHill = mix(theme.hills, theme.ground, TOD.nearHillMix);
+  g.fillStyle = nearHill;
+  ridgePath(g, W, H, WORLD.nearHill, phases(WORLD.nearHill));
+  g.fill();
+
+  for (const band of WORLD.bands) {
+    const col = mix(mix(theme.grass[0], theme.grass[1], band.mix), nearHill, WORLD.bandHillMix * (1 - band.mix));
+    g.fillStyle = col;
+    ridgePath(g, W, H, band, phases(band));
+    g.fill();
+    backBlades(g, rng, W, H, U, band, col, theme);
+  }
+
+  const top = L.groundY - U * WORLD.groundTopU;
+  const ground = g.createLinearGradient(0, top, 0, H);
+  ground.addColorStop(0, rgba(theme.ground, 0));
+  ground.addColorStop(WORLD.groundStop, theme.ground);
+  ground.addColorStop(1, darker(theme.ground, WORLD.groundFade));
+  g.fillStyle = ground;
+  g.fillRect(0, top, W, H - top);
+  return c;
+}
+
+// ---- stars ----
+function buildStars(app) {
+  const { L } = app;
+  const { W, H } = L;
+  const rng = makeRng(app.seed ^ 0x57a2);
+  const st = WORLD.stars;
+  const n = clamp(Math.round(W * H * COUNTS.starsPerPx), COUNTS.stars[0], COUNTS.stars[1]);
+  const stars = [];
+  for (let i = 0; i < n * 2 && stars.length < n; i++) {
+    const x = rng.range(0, W);
+    const y = Math.pow(rng.next(), st.pow) * H * st.maxY;
+    if (Math.hypot(x - L.moon.x, y - L.moon.y) < L.moon.r * st.moonClear) continue;
+    const core = rng.range(SIZE.starPx[0], SIZE.starPx[1]);
+    stars.push({
+      x, y, r: core * st.sizeGlow,
+      a: rng.range(st.alpha[0], st.alpha[1]) * (1 - (y / (H * st.maxY)) * st.topBias),
+      hz: rng.range(COUNTS.starTwinkleHz[0], COUNTS.starTwinkleHz[1]),
+      ph: rng.range(0, TAU), depth: rng.range(st.depth[0], st.depth[1]),
+      delay: rng.range(st.delay[0], st.delay[1]),
+      sprite: starSprite(rng.pick(PALETTE.stars)),
+    });
+  }
+  return stars;
+}
+
+// reveal is seconds since the stars started twinkling up, or null when settled.
+function drawStars(ctx, app, reveal) {
+  const vis = app.theme.stars * app.skyVis;
+  if (vis <= 0.01) return;
+  const T = app.clock.T;
+  for (const s of app.stars) {
+    const up = reveal === null ? 1 : win(reveal, s.delay, WORLD.stars.twinkleUp);
+    if (up <= 0) continue;
+    const tw = 1 - s.depth + s.depth * (0.5 + 0.5 * Math.sin(TAU * s.hz * T + s.ph));
+    drawGlow(ctx, s.sprite, s.x, s.y, s.r, s.a * tw * up * vis);
+  }
+}
+
+// ---- moon ----
+function buildMoon(app) {
+  const { dpr, L } = app;
+  const m = WORLD.moon;
+  const r = L.moon.r;
+  const R = Math.max(L.U * LAYOUT.moon.haloU, r);
+  const c = makeCanvas(R * 2 * dpr, R * 2 * dpr);
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, R * dpr, R * dpr);
+  const halo = g.createRadialGradient(0, 0, r * m.haloInner, 0, 0, R);
+  m.haloStops.forEach(([at, a]) => halo.addColorStop(at, rgba(PALETTE.moonHalo, PALETTE.moonHaloAlpha * a)));
+  g.fillStyle = halo;
+  g.fillRect(-R, -R, R * 2, R * 2);
+  const [lx, ly, li] = m.light;
+  const disc = g.createRadialGradient(lx * r, ly * r, li * r, 0, 0, r);
+  disc.addColorStop(0, rgba(PALETTE.moon, 1));
+  disc.addColorStop(1, mix(PALETTE.moon, PALETTE.moonHalo, m.edgeMix));
+  g.fillStyle = disc;
+  g.beginPath();
+  g.arc(0, 0, r, 0, TAU);
+  g.fill();
+  g.fillStyle = rgba(darker(PALETTE.moonHalo, m.craterDark), m.craterAlpha);
+  for (const [cx, cy, cr] of m.craters) {
+    g.beginPath();
+    g.arc(cx * r, cy * r, cr * r, 0, TAU);
+    g.fill();
+  }
+  g.strokeStyle = rgba(PALETTE.moonHalo, m.rimAlpha);
+  g.lineWidth = r * m.rimW;
+  g.beginPath();
+  g.arc(0, 0, r * m.rimAt, 0, TAU);
+  g.stroke();
+  return { canvas: c, R };
+}
+
+function drawMoon(ctx, app) {
+  const a = app.theme.moon * app.skyVis;
+  if (a <= 0.01 || !app.moon) return;
+  const { x, y } = app.L.moon;
+  const R = app.moon.R;
+  ctx.globalAlpha = a;
+  ctx.drawImage(app.moon.canvas, x - R, y - R, R * 2, R * 2);
+}
+
+// ---- shooting stars ----
+function spawnShootingStar(app, x, y) {
+  const r = app.live;
+  const dir = x > app.L.cx ? -1 : 1;
+  const ang = r.range(SHOOTING.angle[0], SHOOTING.angle[1]);
+  app.fx.shooting.push({ t0: app.clock.T, x, y, dx: Math.cos(ang) * dir, dy: Math.sin(ang) });
+}
+
+function drawShooting(ctx, app) {
+  const list = app.fx.shooting;
+  if (!list.length) return;
+  const { dpr, L } = app;
+  const T = app.clock.T;
+  const streak = streakSprite(PALETTE.stars[0]);
+  const head = glow(PALETTE.stars[0]);
+  const base = app.theme.stars > 0 ? SHOOTING.alpha : SHOOTING.dayAlpha;
+  const thick = SPRITE.streak[1] * SHOOTING.thick;
+  for (let i = list.length - 1; i >= 0; i--) {
+    const s = list[i];
+    const p = (T - s.t0) / SHOOTING.dur;
+    if (p >= 1) { list.splice(i, 1); continue; }
+    if (p < 0) continue;
+    const e = easeOutCubic(p);
+    const hx = s.x + s.dx * L.U * SHOOTING.travelU * e;
+    const hy = s.y + s.dy * L.U * SHOOTING.travelU * e;
+    const a = Math.sin(Math.PI * p) * base * app.skyVis;
+    const len = L.U * SHOOTING.lengthU * clamp01(p * SHOOTING.grow) * (1 - p * SHOOTING.shrink);
+    place(ctx, dpr, hx, hy, Math.atan2(s.dy, s.dx), 1, 1);
+    ctx.globalAlpha = a;
+    ctx.drawImage(streak, -len, -thick / 2, len, thick);
+    resetTransform(ctx, dpr);
+    drawGlow(ctx, head, hx, hy, L.U * SHOOTING.headU, a * SHOOTING.headAlpha);
+  }
+}
+
+return { buildBackground, buildStars, drawStars, buildMoon, drawMoon, spawnShootingStar, drawShooting };
+})();
+__m["wind.js"] = (() => {
+// Shared air: the slow breeze, the outward bow when the seed lands, and the
+// exhale gust that rolls left to right.
+const { MOTION, BEATS } = __m["config.js"];
+const { TAU, clamp01, smoothstep } = __m["util.js"];
+
+function breeze(x, T) {
+  const s = MOTION.sway;
+  return 1 + s.breezeDepth * Math.sin(TAU * s.breezeHz * T - x * s.phasePerPx);
+}
+
+// Outward lean, as a fraction of blade height, while the seed's pulse spreads.
+function seedBow(app, x) {
+  if (app.show.mode !== 'full') return 0;
+  const b = BEATS.grassBow;
+  const L = app.L;
+  const dist = Math.abs(x - L.cx) / L.U;
+  if (dist > b.reachU) return 0;
+  const speed = BEATS.pulse.radiusU / BEATS.pulse.dur;
+  const tau = app.s - BEATS.seed.land - dist / speed;
+  if (tau <= 0 || tau >= b.dur) return 0;
+  const env = (1 - Math.exp(-tau / b.attack)) * Math.pow(1 - tau / b.dur, 2);
+  const fall = 1 - smoothstep(0, b.reachU, dist);
+  return Math.sign(x - L.cx) * b.lean * env * fall;
+}
+
+// Gust strength 0..1 at x (positive bows to the right), with a small rebound.
+function gust(app, x) {
+  if (app.show.mode !== 'full') return 0;
+  const e = BEATS.exhale;
+  const p = (app.s - e.start) / e.dur;
+  if (p < 0 || p > 2) return 0;
+  const L = app.L;
+  const sigma = e.widthU * L.U;
+  const x0 = -sigma * 2, x1 = L.W + sigma * 2;
+  const front = x0 + (x1 - x0) * p;
+  const u = (front - x) / sigma;
+  return Math.exp(-u * u) - e.rebound * Math.exp(-(u - 2) * (u - 2)) * clamp01(p);
+}
+
+
+return { breeze, seedBow, gust };
+})();
+__m["grass.js"] = (() => {
+// Dark foreground grass drawn in front of every stem base. Blades are built
+// once per layout and batched into one path per shade each frame.
+const { WORLD, MOTION, COUNTS } = __m["config.js"];
+const { TAU, mix, makeRng, clamp01, lerp } = __m["util.js"];
+const { breeze, seedBow, gust } = __m["wind.js"];
+
+function buildGrass(app, bases) {
+  const { L, theme } = app;
+  const { W, H, U } = L;
+  const f = WORLD.front;
+  const rng = makeRng(app.seed ^ 0x62a5);
+  const shades = f.shades.length;
+  const blades = f.shades.map(() => []);
+  const add = (x, y, h) => {
+    const depth = clamp01((y - L.groundY) / (H - L.groundY));
+    const i = Math.min(shades - 1, Math.floor(depth * shades));
+    blades[i].push({
+      x, y, h, w: U * rng.range(f.wU[0], f.wU[1]) / 2,
+      hz: rng.range(f.swayHz[0], f.swayHz[1]),
+      ph: x * MOTION.sway.phasePerPx + rng.range(0, TAU),
+    });
+  };
+  const n = Math.round(W * f.perPx);
+  for (let i = 0; i < n; i++) {
+    const y = H * lerp(f.rootY[0], f.rootY[1], Math.pow(rng.next(), f.rootPow));
+    const depth = clamp01((y - L.groundY) / (H - L.groundY));
+    add(rng.range(0, W), y, U * lerp(f.hU[0], f.hU[1], (depth + rng.next()) / 2));
+  }
+  for (const bx of bases) {
+    for (let k = 0; k < COUNTS.grassClump; k++) {
+      add(bx + rng.range(-1, 1) * U * f.clumpSpreadU, H * rng.range(f.clumpRootY[0], f.clumpRootY[1]), U * rng.range(f.clumpHU[0], f.clumpHU[1]));
+    }
+  }
+  const colors = f.shades.map(([gm, dk]) => mix(mix(theme.grass[0], theme.grass[1], gm), theme.ground, dk));
+  return { blades, colors };
+}
+
+function drawGrass(ctx, app) {
+  const g = app.grass;
+  if (!g) return;
+  const f = WORLD.front;
+  const T = app.clock.T;
+  const U = app.L.U;
+  const sway = U * f.swayU;
+  for (let s = 0; s < g.blades.length; s++) {
+    ctx.fillStyle = g.colors[s];
+    ctx.beginPath();
+    for (const b of g.blades[s]) {
+      const bow = seedBow(app, b.x) * f.bowLean + gust(app, b.x) * f.gustLean;
+      const lean = sway * Math.sin(TAU * b.hz * T + b.ph) * breeze(b.x, T) + bow * b.h;
+      const tipX = b.x + lean;
+      const tipY = b.y - b.h;
+      ctx.moveTo(b.x - b.w, b.y);
+      ctx.quadraticCurveTo(b.x - b.w * f.baseCurve + lean * f.tipCurve, b.y - b.h * f.tipCurve, tipX, tipY);
+      ctx.quadraticCurveTo(b.x + b.w * f.baseCurve + lean * f.tipCurve, b.y - b.h * f.tipCurve, b.x + b.w, b.y);
+    }
+    ctx.fill();
+  }
+}
+
+return { buildGrass, drawGrass };
+})();
+__m["render.js"] = (() => {
+// The frame, back to front.
+const { PALETTE } = __m["config.js"];
+const { resetTransform } = __m["sprites.js"];
+const { drawStars, drawMoon, drawShooting } = __m["sky.js"];
+const { drawGrass } = __m["grass.js"];
+
+const layers = { mid: [], front: [], top: [] };
+
+// Later modules register draw passes: mid sits between sky and grass,
+// front sits in front of the grass, top is drawn over the dim overlay.
+function addLayer(where, fn) { layers[where].push(fn); }
+
+function render(app) {
+  const { ctx, dpr, L } = app;
+  resetTransform(ctx, dpr);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.drawImage(app.bg, 0, 0, L.W, L.H);
+  if (app.bgPrev && app.bgMix < 1) {
+    ctx.globalAlpha = 1 - app.bgMix;
+    ctx.drawImage(app.bgPrev, 0, 0, L.W, L.H);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.globalCompositeOperation = 'lighter';
+  drawStars(ctx, app, app.starReveal);
+  ctx.globalCompositeOperation = 'source-over';
+  drawMoon(ctx, app);
+  ctx.globalCompositeOperation = 'lighter';
+  drawShooting(ctx, app);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+
+  for (const fn of layers.mid) { fn(ctx, app); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; resetTransform(ctx, dpr); }
+  drawGrass(ctx, app);
+  for (const fn of layers.front) { fn(ctx, app); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; resetTransform(ctx, dpr); }
+
+  if (app.overlay > 0.002) {
+    ctx.globalAlpha = Math.min(1, app.overlay);
+    ctx.fillStyle = PALETTE.black;
+    ctx.fillRect(0, 0, L.W, L.H);
+    ctx.globalAlpha = 1;
+  }
+  for (const fn of layers.top) { fn(ctx, app); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; resetTransform(ctx, dpr); }
+}
+
+return { addLayer, render };
+})();
+__m["update.js"] = (() => {
+// Per frame logic. Show time s is seconds since the show (re)started.
+const { BEATS, WAKE, TOD, WORLD } = __m["config.js"];
+const { win, clamp01 } = __m["util.js"];
+
+const steps = [];
+
+// Later modules register per frame steps in the order main.js adds them.
+function addStep(fn) { steps.push(fn); }
+
+function update(app, dt) {
+  app.prevS = app.s;
+  app.s = app.clock.T - app.show.start;
+  const s = app.s;
+  const wake = app.show.mode === 'wake';
+  const fade = wake ? win(s, 0, WAKE.fadeIn) : win(s, BEATS.fadeIn[0], BEATS.fadeIn[1]);
+  app.fadeIn = fade;
+  app.starReveal = !wake && s < BEATS.fadeIn[1] + WORLD.stars.delay[1] + WORLD.stars.twinkleUp ? s : null;
+  if (app.bgPrev) {
+    app.bgMix = clamp01(app.bgMix + dt / TOD.crossfadeS);
+    if (app.bgMix >= 1) app.bgPrev = null;
+  }
+  for (const fn of steps) fn(app, dt);
+  app.overlay = Math.max(1 - fade, 1 - (1 - (app.darken || 0)) * (1 - app.theme.darken));
+}
+
+return { addStep, update };
+})();
+__m["testhooks.js"] = (() => {
+// Frame time stats and, with ?test only, window.__ff for the harness.
+const { PERF } = __m["config.js"];
+
+function makeStats() {
+  return { dt: new Float32Array(PERF.samples), work: new Float32Array(PERF.samples), n: 0, i: 0, last: null };
+}
+
+function recordFrame(stats, now, work) {
+  if (stats.last !== null) {
+    stats.dt[stats.i] = now - stats.last;
+    stats.work[stats.i] = work;
+    stats.i = (stats.i + 1) % PERF.samples;
+    stats.n = Math.min(stats.n + 1, PERF.samples);
+  }
+  stats.last = now;
+}
+
+function pct(arr, n, p) {
+  if (!n) return 0;
+  const a = Array.from(arr.subarray(0, n)).sort((x, y) => x - y);
+  return a[Math.min(n - 1, Math.floor(p * (n - 1) + 0.5))];
+}
+
+function frameSummary(stats) {
+  const n = stats.n;
+  return {
+    count: n,
+    median: pct(stats.dt, n, 0.5), p95: pct(stats.dt, n, 0.95),
+    workMedian: pct(stats.work, n, 0.5), workP95: pct(stats.work, n, 0.95),
+  };
+}
+
+function resetStats(stats) { stats.n = 0; stats.i = 0; stats.last = null; }
+
+// extra is a map of getters and functions added by later modules.
+function installTestHooks(app, extra) {
+  if (!app.params.test) return;
+  const api = {
+    get state() { return app.state; },
+    get showTime() { return app.s; },
+    get mode() { return app.show.mode; },
+    get tod() { return app.tod; },
+    get layout() { return app.L; },
+    frames: () => frameSummary(app.stats),
+    resetFrames: () => resetStats(app.stats),
+  };
+  for (const [k, d] of Object.entries(Object.getOwnPropertyDescriptors(extra))) Object.defineProperty(api, k, d);
+  window.__ff = api;
+}
+
+return { makeStats, recordFrame, frameSummary, resetStats, installTestHooks };
+})();
 __m["main.js"] = (() => {
-// Boot and render loop.
-const { LAYOUT } = __m["config.js"];
+// Boot, layout, and the render loop.
+const { LAYOUT, PREVIEW } = __m["config.js"];
 const { readParams } = __m["params.js"];
+const { makeRng } = __m["util.js"];
+const { makeClock, tick, pauseClock, resumeClock } = __m["clock.js"];
+const { readSafe, computeLayout } = __m["layout.js"];
+const { currentTod, buildTheme } = __m["theme.js"];
+const { buildBackground, buildStars, buildMoon } = __m["sky.js"];
+const { buildGrass } = __m["grass.js"];
+const { render } = __m["render.js"];
+const { update } = __m["update.js"];
+const { makeStats, recordFrame, installTestHooks } = __m["testhooks.js"];
 
 const params = readParams(location.search);
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d', { alpha: false });
+const seed = params.seed !== null ? params.seed >>> 0 : (Math.random() * 4294967296) >>> 0;
 
-function size() {
-  const dpr = Math.min(window.devicePixelRatio || 1, LAYOUT.dprMax);
-  canvas.width = Math.round(innerWidth * dpr);
-  canvas.height = Math.round(innerHeight * dpr);
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+const app = {
+  params, canvas, ctx, seed,
+  dpr: 1, L: null, tod: null, theme: null,
+  live: makeRng(seed ^ 0x11fe),
+  clock: makeClock(params.t),
+  show: { mode: 'full', start: 0 },
+  state: 'INTRO', s: 0, prevS: 0, fadeIn: 0, overlay: 1, darken: 0, skyVis: 1, starReveal: 0,
+  bg: null, bgPrev: null, bgMix: 1,
+  stars: [], moon: null, grass: null,
+  fx: { shooting: [] },
+  stats: makeStats(),
+  needsLayout: true,
+};
+if (params.preview && params.t === null) app.show.start = -PREVIEW.showTime;
+
+app.tod = currentTod(params);
+app.theme = buildTheme(app.tod);
+
+function rebuildWorld() {
+  app.bg = buildBackground(app);
+  app.stars = buildStars(app);
+  app.moon = buildMoon(app);
+  app.grass = buildGrass(app, []);
 }
-size();
-addEventListener('resize', size);
-if (params.test) window.__ff = { state: 'INTRO' };
+
+function relayout() {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  app.dpr = Math.min(window.devicePixelRatio || 1, LAYOUT.dprMax);
+  canvas.width = Math.round(W * app.dpr);
+  canvas.height = Math.round(H * app.dpr);
+  app.L = computeLayout(W, H, readSafe(document.getElementById('safe')));
+  rebuildWorld();
+}
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (app.needsLayout) { app.needsLayout = false; relayout(); }
+  const t0 = performance.now();
+  const dt = tick(app.clock, now);
+  update(app, dt);
+  render(app);
+  recordFrame(app.stats, now, performance.now() - t0);
+}
+
+const onResize = () => { app.needsLayout = true; };
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', onResize);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', onResize);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pauseClock(app.clock);
+  else resumeClock(app.clock);
+});
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+
+installTestHooks(app, {});
+requestAnimationFrame(frame);
 
 return {  };
 })();

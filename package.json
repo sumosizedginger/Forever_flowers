@@ -1,0 +1,12 @@
+{
+  "name": "forever-flowers",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "verify": "node verify.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}
