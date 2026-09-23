@@ -1,0 +1,10 @@
+# private brief and working notes, never pushed
+CLAUDE.md
+PROGRESS.md
+
+# dependencies and harness output
+node_modules/
+package-lock.json
+harness/
+test-results/
+*.log

@@ -1,0 +1,45 @@
+/* Sizes and timings are set from config.js as custom properties at boot. */
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%;
+  overflow: hidden; overscroll-behavior: none;
+  background: #07061A;
+}
+body {
+  position: fixed; inset: 0;
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+canvas#c {
+  position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+  display: block; touch-action: none; outline: none;
+}
+#ui {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + var(--btn-margin));
+  right: calc(env(safe-area-inset-right, 0px) + var(--btn-margin));
+  display: flex; gap: var(--btn-gap);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity var(--btn-fade) ease, visibility 0s linear var(--btn-fade);
+}
+#ui.on { opacity: var(--btn-opacity); visibility: visible; pointer-events: auto; transition: opacity var(--btn-fade) ease, visibility 0s; }
+#ui.on.dim { opacity: var(--btn-dim-opacity); }
+#ui button {
+  width: var(--btn-size); height: var(--btn-size); margin: 0; padding: 0;
+  border-radius: 50%; border: 1px solid var(--btn-line);
+  background: var(--btn-bg); color: var(--btn-ink);
+  display: grid; place-items: center; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+#ui button svg { width: var(--btn-icon); height: var(--btn-icon); display: block; }
+#ui button:focus { outline: none; }
+#ui button:focus-visible { outline: 2px solid var(--btn-focus); outline-offset: 3px; }
+#snd .on { display: none; }
+#snd[aria-pressed="true"] .on { display: inline; }
+#snd[aria-pressed="true"] .off { display: none; }
+#safe {
+  position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
