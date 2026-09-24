@@ -10,13 +10,13 @@ export const WINGS = {
   perch: [3.2, 7.5], perchLift: 0.22, legs: 40, bodyTilt: [-0.35, 0.35],
   flutter: [[2.3, 0.1], [1.1, 0.08]], enterY: 0.52, enterU: 2.2, poolGapU: 0.35, minHop: 1.2,
   body: { w: 0.075, l: 0.46, head: 0.07, antenna: 0.34, antennaW: 1.1, club: 0.035, bend: 0.3 },
-  edge: 0.07, edgeAlpha: 0.85, veinAlpha: 0.22, veinW: 1.4, glowAlpha: 0.12, glowU: 1,
+  edge: 0.045, edgeAlpha: 0.7, veinAlpha: 0.22, veinW: 1.4, glowAlpha: 0.12, glowU: 1,
   // day: forewing and hindwing, then marginal spots
   butterfly: {
     fore: [[0.25, -0.95], [0.95, -1.12], [1.02, -0.52], [0.72, 0.02]],
     hind: [[0.62, 0.12], [0.98, 0.5], [0.72, 0.92], [0.18, 0.62]],
     spots: [[0.82, -0.62], [0.72, -0.34], [0.66, 0.62], [0.48, 0.74]], spotR: 3.2, spotAlpha: 0.75,
-    rootDark: 0.35, flushAt: 0.7, edgeDark: 0.55, body: '#3A2436',
+    rootDark: 0.35, flushAt: 0.7, edgeDark: 0.38, body: '#3A2436',
   },
   // night: luna moths, pale green with long tails, a maroon leading edge and eyespots
   moth: {

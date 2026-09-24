@@ -7,7 +7,7 @@ export const PETAL = {
   poleGuard: 0.95, capL: 0.93,
   nu: 8, uPow: 1.3, topSamples: 4, seam: 0.05,
   shadeAt: [0, 0.5, 1], aoReach: 0.5,
-  contactW: 0.07, veinW: 0.012, veinAt: [0.25, 0.5, 0.75], toothPow: 0.7,
+  contactW: 0.05, veinW: 0.012, veinAt: [0.25, 0.5, 0.75], toothPow: 0.7,
   boundV: [-1, -0.5, 0, 0.5, 1], glossPow: 18, discHi: 0.4,
   stamenW: 0.012, stamenAlpha: 0.8, stamenMin: 0.55, stamenMix: 7,
   hashA: 12.9898, hashB: 78.233, hashC: 43758.5453, dewU: [0.45, 0.8], dewV: 0.5, dewHi: 0.35, dewCore: 0.3, dewDot: 0.28,
@@ -55,7 +55,7 @@ export const ROSE3D = {
   strips: [2, 3],
   ao: [0.5, 0.92],
   shade: { deep: 0.42, edge: 0.3, back: 0.1, lip: 0.28, edgeTo: '#FFF1E4', goldDeep: 0.3 },
-  lip: 0.5, lipW: 0.016, lipFrom: 0.66, contact: 0.26, shadow: 0.62,
+  lip: 0.5, lipW: 0.016, lipFrom: 0.66, contact: 0.16, shadow: 0.55,
   sepals: {
     n: 5, len: 0.6, wid: 0.075, open: [0.28, 2.35], curl: [0, 0.7], z: -0.03, ring: 0.08, cup: [0.5, 0.2], ao: 0.8, backDark: 0.35, bias: -0.6,
     shape: { base: 0.5, peak: 0.22, rise: 0.8, blunt: 1.8, tipW: 0 },
