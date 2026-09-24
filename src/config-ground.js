@@ -10,6 +10,7 @@ export const GRASS = {
   curve: [-0.28, 0.28], swayU: 0.06, swayHz: [0.25, 0.5],
   clumpSpreadU: 0.3, clumpHU: [0.55, 1.1], clumpRootY: [0.876, 0.9],
   bowLean: 0.5, gustLean: 0.55, tipCurve: 0.5, bendCurve: 0.35, edge: 0.3,
+  stillShades: 3, liveMax: 520,   // far rows drawn once; the moving row capped
 };
 
 // Mist in the valleys between the hills: [x, y, half width (of W), half height (of H), alpha].

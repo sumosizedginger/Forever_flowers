@@ -3,8 +3,8 @@
 // Each is rendered small and scaled up, which blurs it for free, and tinted by
 // the time of day so nothing turns into a black cutout under a light sky.
 import { LENS } from './config-ground.js';
-import { SHAPE } from './config.js';
-import { TAU, makeRng, mix } from './util.js';
+import { SHAPE, BEATS, WAKE } from './config.js';
+import { TAU, makeRng, mix, win, smooth } from './util.js';
 import { makeCanvas, glow, drawGlow, place, resetTransform } from './sprites.js';
 import { makePose } from './light3d.js';
 import { renderHead } from './petal3d.js';
@@ -72,8 +72,10 @@ export function drawFront(ctx, app) {
     place(ctx, dpr, f.x, f.y, rot, 1, 1);
     ctx.drawImage(fr.sprite, -w / 2, -f.len, w, f.len);
   }
+  // the flowers at the lens bloom in with her favorites
   const fa = isDay(app.theme) ? LENS.flowerAlpha.day : LENS.flowerAlpha.night;
-  ctx.globalAlpha = fa * app.fadeIn;
+  const bloom = app.show.mode === 'wake' ? win(app.s, 0, WAKE.span) : win(app.s, BEATS.favBloom.start, BEATS.favBloom.dur);
+  ctx.globalAlpha = fa * app.fadeIn * smooth(bloom);
   for (const f of fr.flowers) {
     const r = f.rU * L.U;
     place(ctx, dpr, L.W * f.x, L.H * f.y, f.rot + LENS.flowerSway * Math.sin(TAU * LENS.flowerHz * T + f.ph), 1, 1);

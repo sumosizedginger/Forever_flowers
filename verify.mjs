@@ -1,5 +1,6 @@
 // Verification harness: contact sheet, performance under 4x CPU throttling,
-// interaction tests, clipping, the shadowBlur/filter grep and console errors.
+// interaction tests, clipping, art checks (verify-art.mjs), the
+// shadowBlur/filter grep and console errors.
 // Usage: node verify.mjs            (writes harness/contact.png and harness/report.json)
 import { createServer } from 'node:http';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
@@ -7,6 +8,7 @@ import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { chromium } from 'playwright';
+import { gardenAndSleep, artChecks } from './verify-art.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const SITE = join(ROOT, 'site');
@@ -14,6 +16,7 @@ const OUT = join(ROOT, 'harness');
 const PHONE = { width: 390, height: 844, dpr: 2 };
 const DESK = { width: 1280, height: 800, dpr: 1 };
 const LAND = { width: 844, height: 390, dpr: 2 };
+const WIDE = { width: 1864, height: 953, dpr: 1 };   // the owner's own window
 const LIMITS = { median: 20, p95: 33, lightness: 0.95 };
 const TIMES = [1, 3, 6, 9, 12, 14, 16, 18];
 
@@ -99,6 +102,7 @@ async function capture(label, vp, query, prep) {
 
 for (const t of TIMES) await capture(`t=${t}`, PHONE, `?full&seed=1&test&tod=night&t=${t}`);
 await capture('1280x800 finished', DESK, '?full&seed=1&test&tod=night&t=40');
+await capture('1864x953 day', WIDE, '?full&seed=1&test&tod=day&t=40');
 for (const tod of ['night', 'dawn', 'day', 'eve']) await capture(tod, PHONE, `?full&seed=1&test&tod=${tod}&t=40`);
 await capture('golden rose', PHONE, '?full&seed=1&test&tod=night&gold&t=40');
 await capture('heart mid hold', PHONE, '?full&seed=1&test&tod=night&t=40', '__ff.triggerHeart(3.65)');
@@ -120,7 +124,7 @@ check('palette', 'no pixel above 95% lightness', overTotal === 0, { maxL: worst.
   const html = `<!doctype html><html><body style="margin:0;background:#111;color:#ddd;font:14px system-ui,sans-serif">
   <div style="padding:12px 12px 4px">Forever Flowers contact sheet</div>
   <div style="display:flex;gap:12px;padding:8px 12px;align-items:flex-start">${row1}</div>
-  <div style="display:flex;gap:12px;padding:8px 12px 16px;align-items:flex-start">${row2}</div>
+  <div style="display:flex;flex-wrap:wrap;gap:12px;padding:8px 12px 16px;align-items:flex-start">${row2}</div>
   <style>figure{margin:0}figcaption{padding-top:4px;text-align:center}img{display:block;border-radius:6px}</style></body></html>`;
   const context = await browser.newContext({ viewport: { width: 1900, height: 600 }, deviceScaleFactor: 1 });
   const page = await context.newPage();
@@ -150,6 +154,7 @@ async function perf(vp, label, query = '?preview&seed=1&test') {
 const perfPhone = await perf(PHONE, '390x844@2x 4x throttle');
 const perfDesk = await perf(DESK, '1280x800 4x throttle');
 const perfGarden = await perf(PHONE, '390x844@2x 4x throttle, 120 day garden', '?preview&seed=1&test&day=120');
+const perfWide = await perf(WIDE, '1864x953 4x throttle');
 
 // ---------- interactions ----------
 async function tap(page, x, y, ms = 60) {
@@ -311,46 +316,8 @@ async function live(vp = PHONE) {
   check('living', 'works with storage blocked', m === 'full', { mode: m });
   await blocked.close();
 }
-{
-  // the garden: one flower per day, eight in the middle then the far meadow, capped at 120
-  const g = {};
-  for (const d of [0, 5, 60, 500]) {
-    const { page, context } = await open(PHONE, '?preview&seed=1&test&day=' + d);
-    g[d] = await ffv(page, () => window.__ff.garden);
-    await context.close();
-  }
-  const ok = g[0].days === 0 && g[5].days === 5 && g[5].mid === 5 && g[60].mid === 8 && g[60].far === 52 && g[500].days === 120;
-  check('garden', 'one new flower per day: first eight mid field, then the far meadow, capped at 120', ok, { day0: g[0].days, day5: g[5], day60: g[60], day500: g[500].days });
-}
-{
-  // asleep: the field folds and dims, the fantasy flower stays lit, frames drop to half rate
-  const { page, context } = await open(PHONE, '?preview&seed=1&test&tod=night');
-  await sleep(600);
-  const lum = () => page.evaluate(() => {
-    const c = document.getElementById('c');
-    const g = c.getContext('2d');
-    const box = (x, y, r) => {
-      const d = g.getImageData((x - r) * 2, (y - r) * 2, r * 4, r * 4).data;
-      let s = 0;
-      for (let i = 0; i < d.length; i += 4) s += (Math.max(d[i], d[i + 1], d[i + 2]) + Math.min(d[i], d[i + 1], d[i + 2])) / 510;
-      return s / (d.length / 4);
-    };
-    const f = window.__ff.fantasy;
-    const r = window.__ff.heads.find((h) => h.kind === 'rose');
-    return { fantasy: box(f.x, f.y, f.r * 0.4), rose: box(r.x + r.w / 2, r.y + r.h / 2, r.w * 0.3) };
-  });
-  const awake = await lum();
-  await ffv(page, () => window.__ff.forceDim());
-  await sleep(6800);
-  await ffv(page, () => window.__ff.resetFrames());
-  await sleep(1500);
-  const slept = await lum();
-  const fr = await ffv(page, () => ({ frames: window.__ff.frames(), dim: window.__ff.dim, low: window.__ff.lowPower }));
-  const keep = slept.fantasy / awake.fantasy, fold = slept.rose / awake.rose;
-  check('sleep', 'asleep, the field dims and the fantasy flower stays lit as a nightlight', fr.dim === 1 && keep > 0.85 && fold < 0.9, { fantasyKept: +keep.toFixed(2), roseKept: +fold.toFixed(2) });
-  check('sleep', 'asleep, frames drop to half rate', fr.low === true && fr.frames.median > 25, { median: +fr.frames.median.toFixed(1), low: fr.low });
-  await context.close();
-}
+const H = { open, check, ffv, sleep, PHONE, DESK, WIDE };
+await gardenAndSleep(H);
 
 // ---------- tuning panel ----------
 {
@@ -399,6 +366,8 @@ async function clipping(vp, label) {
 await clipping(PHONE, '390x844');
 await clipping(DESK, '1280x800');
 await clipping(LAND, '844x390 landscape');
+await clipping(WIDE, '1864x953');
+await artChecks(H);
 
 // ---------- grep ----------
 {
@@ -417,6 +386,6 @@ check('console', 'zero console errors, page errors or external requests across e
 await browser.close();
 server.close();
 const failed = results.filter((r) => !r.ok);
-writeFileSync(join(OUT, 'report.json'), JSON.stringify({ when: new Date().toISOString(), perf: { phone: perfPhone, desktop: perfDesk, garden: perfGarden }, results, errors }, null, 2));
+writeFileSync(join(OUT, 'report.json'), JSON.stringify({ when: new Date().toISOString(), perf: { phone: perfPhone, desktop: perfDesk, garden: perfGarden, wide: perfWide }, results, errors }, null, 2));
 console.log(`\n${results.length - failed.length}/${results.length} checks passed${failed.length ? ', FAILED: ' + failed.map((f) => f.name).join('; ') : ''}`);
 process.exit(failed.length ? 1 : 0);

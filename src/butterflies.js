@@ -218,13 +218,14 @@ function pose(app, b, tt, T) {
   return { x, y, tilt: clamp(vx / (U * 2), -1, 1) * 0.35, perched: false };
 }
 
-// Where each creature is right now, for the harness: null until it has entered.
-export function butterflySpots(app) {
+// Where each creature is at show time s (now by default), for the harness: null until it has entered.
+export function butterflySpots(app, s) {
   const times = app.show.mode === 'wake' ? WAKE.butterflies : BEATS.butterflies;
+  const at0 = s === undefined ? app.s : s;
   return (app.butterflies || []).map((b) => {
-    const tt = app.s - times[b.i];
+    const tt = at0 - times[b.i];
     if (tt < 0) return null;
-    const at = pose(app, b, tt, app.clock.T);
+    const at = pose(app, b, tt, app.clock.T + (at0 - app.s));
     return { x: at.x, y: at.y, perched: at.perched };
   });
 }

@@ -216,6 +216,14 @@ installTestHooks(app, {
   get hint() { return hintPose(app); },
   get butterflies() { return butterflySpots(app); },
   get fieldLit() { return app.fieldLit; },
+  butterfliesAt: (s) => butterflySpots(app, s),
+  // the art checks: tall stems and the small flowers near them, and which way each head faces
+  get stems() {
+    const fl = app.flowers;
+    const small = fl.favs.concat(fl.wilds, fl.side.filter((f) => !f.hidden), fl.daily.filter((f) => !f.far));
+    return { U: app.L.U, heroes: fl.roses.map((f) => f.x).concat(app.L.fantasy.x), small: small.map((f) => ({ x: f.x, r: f.r, kind: f.kind })) };
+  },
+  get poses() { return app.flowers.roses.concat(app.flowers.favs).map((f) => ({ species: f.species, pitch: f.model.pitch, yaw: f.model.yaw })); },
   get tune() { return { ...TUNE }; },
   replay: () => replay(),
   novaLength: NOVA_LENGTH,

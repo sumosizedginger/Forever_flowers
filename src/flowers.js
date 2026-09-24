@@ -170,7 +170,9 @@ function placeSide(app) {
   }
 }
 
-// Small flowers keep clear of the tall stems, so none seems to grow out of another.
+// Small flowers keep clear of the tall stems, so none seems to grow out of
+// another: each moves to the nearest place that is clear of every tall stem
+// and still on screen.
 function keepClear(app) {
   const fl = app.flowers;
   const L = app.L;
@@ -178,14 +180,23 @@ function keepClear(app) {
   const list = fl.favs.concat(fl.wilds, fl.daily.filter((f) => !f.far), fl.side.filter((f) => !f.hidden));
   for (const f of list) {
     const gap = Math.max(CLEAR.gapU * L.U, f.r * CLEAR.gapR);
-    for (let pass = 0; pass < CLEAR.passes; pass++) {
-      for (const hx of heroes) {
-        const d = f.x - hx;
-        if (Math.abs(d) < gap) f.x = hx + (d >= 0 ? gap : -gap);
+    const reach = f.r * headExtent(f, app.theme);
+    const lo = L.minX + reach, hi = L.maxX - reach;
+    const room = (x) => Math.min(...heroes.map((h) => Math.abs(x - h)));
+    const want = clamp(f.x, lo, hi);
+    let best = want, bestD = room(want) >= gap ? 0 : Infinity, bestRoom = room(want);
+    if (bestD !== 0) {
+      for (const h of heroes) {
+        for (const x of [h - gap * CLEAR.margin, h + gap * CLEAR.margin]) {
+          if (x < lo || x > hi) continue;
+          const r = room(x);
+          const d = Math.abs(x - want);
+          if (r >= gap && d < bestD) { best = x; bestD = d; }
+          else if (bestD === Infinity && r > bestRoom) { best = x; bestRoom = r; }
+        }
       }
     }
-    const reach = f.r * headExtent(f, app.theme);
-    f.x = clamp(f.x, L.minX + reach, L.maxX - reach);
+    f.x = best;
     f.phase = f.x * MOTION.sway.phasePerPx + f.phaseRand;
     dropCache(f.cache);
   }

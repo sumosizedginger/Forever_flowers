@@ -1,11 +1,13 @@
 // Foreground grass in front of every stem base: thin curved blades in a few
 // shades, darker and taller toward her, their tips catching the moon or sun.
-// The breeze shows as a brighter band rolling across the tips. Blades are
-// built once per layout and batched into a few paths each frame.
+// The breeze shows as a brighter band rolling across the tips. The short far
+// rows barely move and are drawn once into an image; the near rows are
+// batched into a few paths each frame.
 import { MOTION, COUNTS } from './config.js';
 import { GRASS } from './config-ground.js';
 import { TAU, mix, makeRng, clamp01, lerp } from './util.js';
 import { breeze, seedBow, gust } from './wind.js';
+import { makeCanvas } from './sprites.js';
 
 export function buildGrass(app, bases) {
   const { L, theme, light } = app;
@@ -33,11 +35,43 @@ export function buildGrass(app, bases) {
       add(bx + rng.range(-1, 1) * U * G.clumpSpreadU, H * rng.range(G.clumpRootY[0], G.clumpRootY[1]), U * rng.range(G.clumpHU[0], G.clumpHU[1]));
     }
   }
+  // the blades that move each frame are capped, so a very wide screen costs no more than a laptop
+  for (let s = G.stillShades; s < n; s++) {
+    const live = blades[s];
+    if (live.length <= G.liveMax) continue;
+    live.sort((a, b) => a.x - b.x);
+    const step = live.length / G.liveMax;
+    blades[s] = Array.from({ length: G.liveMax }, (_, i) => live[Math.floor(i * step)]);
+  }
   const colors = G.shades.map(([gm, dk]) => mix(mix(theme.grass[0], theme.grass[1], gm), theme.ground, dk));
   const tips = colors.map((c, i) => mix(c, light.rimColor, G.tipMix[i]));
   const shine = colors.map((c, i) => mix(c, light.rimColor, G.tipMix[i] + G.shineMix));
   const scratch = blades.map((l) => ({ leans: new Float32Array(l.length), lit: new Uint8Array(l.length) }));
-  return { blades, colors, tips, shine, scratch };
+  const grass = { blades, colors, tips, shine, scratch, from: G.stillShades };
+  grass.still = stillRows(app, grass);
+  return grass;
+}
+
+// The far rows, drawn once at rest with their lit tips.
+function stillRows(app, g) {
+  const { L, dpr } = app;
+  let top = L.H;
+  for (let s = 0; s < g.from; s++) for (const b of g.blades[s]) top = Math.min(top, b.y - b.h - Math.abs(b.bend));
+  top = Math.floor(Math.max(0, top));
+  const c = makeCanvas(L.W * dpr, (L.H - top) * dpr);
+  const ctx = c.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, -top * dpr);
+  for (let s = 0; s < g.from; s++) {
+    ctx.fillStyle = g.colors[s];
+    ctx.beginPath();
+    for (const b of g.blades[s]) blade(ctx, b, 0, false);
+    ctx.fill();
+    ctx.fillStyle = g.tips[s];
+    ctx.beginPath();
+    for (const b of g.blades[s]) blade(ctx, b, 0, true);
+    ctx.fill();
+  }
+  return { canvas: c, top };
 }
 
 // One blade as a curved sliver; `part` draws only the top of it, for the lit tip.
@@ -64,7 +98,9 @@ export function drawGrass(ctx, app) {
   const G = GRASS;
   const T = app.clock.T;
   const sway = app.L.U * G.swayU;
-  for (let s = 0; s < g.blades.length; s++) {
+  const L = app.L;
+  ctx.drawImage(g.still.canvas, 0, g.still.top, L.W, L.H - g.still.top);
+  for (let s = g.from; s < g.blades.length; s++) {
     const list = g.blades[s];
     const { leans, lit } = g.scratch[s];
     for (let i = 0; i < list.length; i++) {

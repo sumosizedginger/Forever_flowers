@@ -99,7 +99,7 @@ export const SLEEP = {
 // A firefly that settles on the fantasy flower and pulses on the beat, until she finds the heart.
 export const HINT = {
   startS: 8, cycle: 45, flyIn: 2.6, stay: 5.2, flyOut: 2.2, fade: 0.6, fromU: 3.5, fromDrop: 0.35, wobble: 0.5, arc: 0.6,
-  sizeU: 0.17, halo: 2.8, haloAlpha: 0.5, pulseMin: 0.5, pulseDecay: 4, perch: [0.86, -0.66],
+  sizeU: 0.17, halo: 2.8, haloAlpha: 0.5, pulseMin: 0.5, pulseDecay: 4, perch: [0.6, -0.2],
 };
 
 export const AUTOHEART = { charge: 19.37, giveUp: 21 };
@@ -111,4 +111,4 @@ export const SIDE = {
   minU: 1.2, marginU: 0.35, jitter: 0.3, orderMod: 10, densityU: 1.05,
   fy: { cosmos: [0.56, 0.66], daisy: [0.66, 0.75], wild: [0.745, 0.815] },
 };
-export const CLEAR = { gapU: 0.42, gapR: 1.05, passes: 2 };
+export const CLEAR = { gapU: 0.42, gapR: 1.05, margin: 1.02 };
