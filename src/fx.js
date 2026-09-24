@@ -1,5 +1,6 @@
 // The falling seed and its pulse ring, fireflies at night, pollen by day.
 import { BEATS, WAKE, SEED, FIREFLY, POLLEN, MOTION, PALETTE, INPUT, HEART } from './config.js';
+import { MUSIC } from './config-music.js';
 import { TAU, makeRng, lerp, clamp01, win, easeInCubic, easeOutCubic, rgba, mod } from './util.js';
 import { glow, drawGlow, streakSprite, place, resetTransform } from './sprites.js';
 
@@ -62,6 +63,7 @@ export function buildFireflies(app) {
       wx: TAU * rng.range(F.wanderHz[0], F.wanderHz[1]), wy: TAU * rng.range(F.wanderHz[0], F.wanderHz[1]),
       px: rng.range(0, TAU), py: rng.range(0, TAU),
       hz: rng.range(F.hz[0], F.hz[1]), ph: rng.range(0, TAU), size: U * rng.range(F.sizeU[0], F.sizeU[1]),
+      lag: rng.range(-FIREFLY.sync.lag, FIREFLY.sync.lag),
     });
   }
   const pollen = [];
@@ -89,13 +91,20 @@ export function drawFireflies(ctx, app) {
   const T = app.clock.T;
   const spr = glow(PALETTE.firefly);
   const F = FIREFLY;
+  // the longer she watches, the more they flash together, on the lullaby's downbeat
+  const bar = (60 / MUSIC.bpm) * MUSIC.beatsPerBar;
+  const since = app.s - (app.show.mode === 'wake' ? WAKE.fireflies[0] : BEATS.fireflies[0]);
+  const sync = since > 0 ? 1 - Math.exp(-since / F.sync.tau) : 0;
   // while the heart is out their soft halos swell; the bright cores stay as they are
   const boost = 1 + HEART.fireflyBoost * ((app.heart && app.heart.react) || 0);
   ctx.globalCompositeOperation = app.theme.glowBlend;
   for (const f of ff.list) {
     const x = f.hx + f.R * Math.sin(f.wx * T + f.px);
     const y = f.hy + f.R * F.ySquash * Math.sin(f.wy * T + f.py);
-    const pulse = Math.pow((1 + Math.sin(TAU * f.hz * T + f.ph)) / 2, F.pulsePow);
+    const free = Math.pow((1 + Math.sin(TAU * f.hz * T + f.ph)) / 2, F.pulsePow);
+    const t = mod(app.s - f.lag, bar);
+    const flash = Math.min(1, t / F.sync.attack) * Math.exp(-t / F.sync.decay);
+    const pulse = lerp(free, flash, sync * F.sync.max);
     drawGlow(ctx, spr, x, y, f.size * F.haloMul * boost, Math.min(MOTION.glowMax, F.haloAlpha * pulse * vis * boost));
     drawGlow(ctx, spr, x, y, f.size * F.coreMul, F.coreAlpha * pulse * vis);
   }

@@ -5,7 +5,7 @@ import { makeRng } from './util.js';
 import { makeClock, tick, pauseClock, resumeClock } from './clock.js';
 import { readSafe, computeLayout } from './layout.js';
 import { currentTod, buildTheme, buildHazeTheme } from './theme.js';
-import { buildBackground, buildStars, buildMoon } from './sky.js';
+import { buildBackground, buildStars, buildMoon, buildVignette } from './sky.js';
 import { buildGrass } from './grass.js';
 import { buildLeaves } from './leaves.js';
 import { createFlowers, placeFlowers, stemBases, updateFlowers, drawRoseLayer, drawCosmosLayer, drawFrontLayer, drawMeadowLayer, headBoxes } from './flowers.js';
@@ -72,6 +72,7 @@ app.audio = makeAudio(app);
 function rebuildWorld() {
   app.light = makeLight(app.tod);
   app.bg = buildBackground(app);
+  app.vignette = buildVignette(app);
   app.stars = buildStars(app);
   app.moon = buildMoon(app);
   app.leaves = buildLeaves(app.theme, app.light);
@@ -214,6 +215,7 @@ installTestHooks(app, {
   get soundWanted() { return app.soundWanted; },
   get hint() { return hintPose(app); },
   get butterflies() { return butterflySpots(app); },
+  get fieldLit() { return app.fieldLit; },
   get tune() { return { ...TUNE }; },
   replay: () => replay(),
   novaLength: NOVA_LENGTH,

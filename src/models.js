@@ -56,7 +56,7 @@ export function roseParts(f, e, pal, lod) {
       kind: 'petal', az: f.petalRot + ((i + 0.5) * TAU) / sep.n, r0: sep.ring, z0: sep.z, len: sep.len, wid: sep.wid,
       open: lerp(sep.open[0], sep.open[1], se), curl: lerp(sep.curl[0], sep.curl[1], se), curlPow: S.curlPow,
       cup0: sep.cup[0], cup1: sep.cup[1], shape: sep.shape, strips: 1, ao: sep.ao,
-      front: () => green, back: () => mixc(green, pal.shadow, sep.backDark), mat: MATERIAL.leafy, contact: 0, lip: 0, bias: sep.bias,
+      front: () => green, back: () => mixc(green, pal.shadow, sep.backDark), mat: MATERIAL.leafy, contact: 0, lip: 0, bias: sep.bias, noDew: true,
     });
   }
   parts.push({ kind: 'ball', z: S.hip.z, rad: S.hip.rad, rgb: green, mat: MATERIAL.leafy, bias: S.hip.bias });
@@ -105,7 +105,7 @@ function whorl(parts, w, e) {
       open: lerp(w.open[0], w.open[1], local) + j.open * local, curl: w.curl * local, curlPow: w.curlPow,
       cup0: w.cup[0], cup1: w.cup[1], shape: w.shape, teeth: w.teeth, teethDepth: w.teethDepth, tipOpen: !!w.teeth || w.shape.tipW > 0,
       strips: w.strips, ao: w.ao, front: w.front, back: w.back, mat: w.mat, bias: w.bias,
-      contact: w.contact, shadowRgb: w.shadowRgb, veins: w.veins, veinRgb: w.veinRgb, lip: 0,
+      contact: w.contact, shadowRgb: w.shadowRgb, veins: w.veins, veinRgb: w.veinRgb, lip: 0, noDew: w.noDew,
     });
   }
 }
@@ -126,7 +126,7 @@ function posed(rng, pose) {
 const bractsOf = (B, jit, az0, green, e) => ({
   n: B.n, jit, az0, ring: B.ring, z0: B.z, len: B.len, wid: B.wid, budLen: 1, open: B.open, curl: 0, curlPow: 2,
   cup: B.cup, shape: ROSE3D.sepals.shape, strips: 1, ao: B.ao, front: () => green, back: () => green,
-  mat: MATERIAL.leafy, contact: 0, bias: B.bias, e: smooth(clamp01(e * B.early)),
+  mat: MATERIAL.leafy, contact: 0, bias: B.bias, noDew: true, e: smooth(clamp01(e * B.early)),
 });
 
 // ---- daisies ----

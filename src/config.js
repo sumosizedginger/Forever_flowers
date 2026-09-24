@@ -325,7 +325,10 @@ export const SEED = {
   sink: 1.4, trailW: 0.12, ringSquash: 0.34, ringW: 1.6, ringColor: '#FFE08A',
 };
 
-export const FIREFLY = { haloMul: 2.4, haloAlpha: 0.3, coreMul: 0.55, coreAlpha: 0.85, pulsePow: 1.5, yRange: [0.44, 0.86], ySquash: 0.6 };
+export const FIREFLY = {
+  haloMul: 2.4, haloAlpha: 0.3, coreMul: 0.55, coreAlpha: 0.85, pulsePow: 1.5, yRange: [0.44, 0.86], ySquash: 0.6,
+  sync: { tau: 45, max: 0.92, lag: 0.07, attack: 0.09, decay: 0.55 },
+};
 export const POLLEN = { yRange: [0.3, 0.86], hz: [0.03, 0.07], riseU: 0.12, riseMul: [0.5, 1], sizeU: [0.035, 0.07], alpha: 0.35 };
 
 export const STORAGE = {

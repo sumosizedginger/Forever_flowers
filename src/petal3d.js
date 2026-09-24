@@ -4,7 +4,7 @@
 // strip by strip with gradients.
 import { PETAL } from './config-flora.js';
 import { TAU, GOLDEN, lerp, smooth } from './util.js';
-import { view, shade, css, mixc } from './light3d.js';
+import { view, shade, css, mixc, rgbOf } from './light3d.js';
 
 // ---- petals ----
 function widthAt(sh, u) {
@@ -144,8 +144,18 @@ function petalStrips(p, M, light, R, out) {
     surfAt(p, sp, 1 - tipCut(p, vm), vm, tmp, 0);
     view(M, tmp[0], tmp[1], tmp[2], tmp, 0);
     const gx1 = tmp[0] * R, gy1 = -tmp[2] * R;
+    // at dawn a few petals carry a drop of dew
+    let drops = null;
+    if (light.dew && !p.noDew && facing > 0) {
+      const h = Math.abs(Math.sin(p.az * PETAL.hashA + s * PETAL.hashB) * PETAL.hashC) % 1;
+      if (h < light.dew.chance) {
+        surfAt(p, sp, lerp(PETAL.dewU[0], PETAL.dewU[1], h / light.dew.chance), (h * 2 - 1) * PETAL.dewV, tmp, 0);
+        view(M, tmp[0], tmp[1], tmp[2], tmp, 0);
+        drops = [tmp[0] * R, -tmp[2] * R, light.dew.r * R];
+      }
+    }
     out.push({
-      kind: 'strip', p, pts, depth: depth / (pts.length / 2) + (p.bias || 0), cols, g: [gx0, gy0, gx1, gy1],
+      kind: 'strip', p, pts, drops, dew: light.dew, depth: depth / (pts.length / 2) + (p.bias || 0), cols, g: [gx0, gy0, gx1, gy1],
       edgeL: s === 0, edgeR: s === ns - 1, nSide: n, nTop: nTop + 1, back: facing < 0, lipFrom: sampleIndex(p.lipFrom || 0),
     });
   }
@@ -194,6 +204,7 @@ function drawStrip(g, st, R) {
   tracePts(g, st.pts);
   g.fill();
   if (p.veins && !st.back) drawVeins(g, st, R);
+  if (st.drops) drawDew(g, st);
   if (p.lip > 0) {
     g.strokeStyle = css(st.back ? p.lipBackRgb : p.lipRgb, p.lip);
     g.lineWidth = R * p.lipW;
@@ -202,6 +213,24 @@ function drawStrip(g, st, R) {
     traceEdges(g, st, st.lipFrom);
     g.stroke();
   }
+}
+
+// A drop of dew: a darker lens with a bright point of the sky in it.
+function drawDew(g, st) {
+  const [x, y, r] = st.drops;
+  const D = st.dew;
+  const c = st.cols[1];
+  const grad = g.createRadialGradient(x - r * PETAL.dewHi, y - r * PETAL.dewHi, 0, x, y, r);
+  grad.addColorStop(0, css(c.map((v) => v * (1 - D.shade * PETAL.dewCore))));
+  grad.addColorStop(1, css(c.map((v) => v * (1 - D.shade)), D.rimAlpha));
+  g.fillStyle = grad;
+  g.beginPath();
+  g.arc(x, y, r, 0, TAU);
+  g.fill();
+  g.fillStyle = css(rgbOf(D.shine), D.shineAlpha);
+  g.beginPath();
+  g.arc(x - r * PETAL.dewHi, y - r * PETAL.dewHi, r * PETAL.dewDot, 0, TAU);
+  g.fill();
 }
 
 // Fine veins from the base toward the tip, following the strip.

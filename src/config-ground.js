@@ -35,3 +35,10 @@ export const LENS = {
 };
 
 export const GROUND = { lift: 0.35, fade: 0.2 };
+
+// The finish: a soft darkening toward the edges in the sky's own deepest color,
+// and a fine grain in the sky so its gradient never breaks into bands.
+export const FINISH = {
+  vignettePx: 64, inner: 0.52, darken: 0.45, alpha: { night: 0.34, dawn: 0.22, day: 0.14, eve: 0.24 },
+  grain: 1.5,
+};

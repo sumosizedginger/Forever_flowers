@@ -12,6 +12,7 @@ export function addLayer(where, fn) { layers[where].push(fn); }
 
 export function render(app) {
   const { ctx, dpr, L } = app;
+  app.fieldLit = 0;
   resetTransform(ctx, dpr);
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
@@ -34,6 +35,7 @@ export function render(app) {
   for (const fn of layers.mid) { fn(ctx, app); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; resetTransform(ctx, dpr); }
   drawGrass(ctx, app);
   for (const fn of layers.front) { fn(ctx, app); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; resetTransform(ctx, dpr); }
+  if (app.vignette) ctx.drawImage(app.vignette, 0, 0, L.W, L.H);
 
   // asleep, the scene dims toward the night indigo rather than toward black
   if (app.darken > 0.002) {

@@ -10,6 +10,7 @@ import { breeze, gust } from './wind.js';
 import { shapeStem, makeLeaves, strokeStems, fillTapered, drawLeaves } from './stem.js';
 import { makeModel, headImage, headBox, headExtent, hasBud } from './species.js';
 import { drawSheen, drawGlints } from './gold.js';
+import { drawFieldLight } from './fieldlight.js';
 
 const DEG = Math.PI / 180;
 
@@ -288,6 +289,7 @@ function drawHeads(ctx, app, list, theme) {
     ctx.drawImage(c.canvas, c.x, c.y, c.w, c.h);
     resetTransform(ctx, dpr);
     f.headImage = c;
+    drawFieldLight(ctx, app, f, c, s * pop);
   }
   ctx.globalAlpha = 1;
 }

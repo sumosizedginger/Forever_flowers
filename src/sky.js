@@ -3,7 +3,7 @@
 import { WORLD, TOD, SHOOTING, COUNTS, SIZE, PALETTE, SPRITE, LAYOUT } from './config.js';
 import { TAU, mix, rgba, darker, clamp, clamp01, win, easeOutCubic, makeRng } from './util.js';
 import { makeCanvas, starSprite, streakSprite, glow, place, resetTransform, drawGlow } from './sprites.js';
-import { MIST, GROUND } from './config-ground.js';
+import { MIST, GROUND, FINISH } from './config-ground.js';
 
 function ridgePath(g, W, H, spec, phases) {
   const total = spec.waves.reduce((a, w) => a + w[1], 0);
@@ -101,6 +101,38 @@ export function buildBackground(app) {
   ground.addColorStop(1, darker(soil, GROUND.fade));
   g.fillStyle = ground;
   g.fillRect(0, top, W, H - top);
+  addGrain(c, app.seed);
+  return c;
+}
+
+// A fine grain over the sky and ground, the same in every channel, so a dim
+// screen shows a smooth gradient rather than bands.
+function addGrain(c, seed) {
+  const g = c.getContext('2d');
+  const img = g.getImageData(0, 0, c.width, c.height);
+  const d = img.data;
+  let s = (seed | 0) || 1;
+  const amp = FINISH.grain * 2;
+  for (let i = 0; i < d.length; i += 4) {
+    s ^= s << 13; s ^= s >>> 17; s ^= s << 5;
+    const n = ((s & 255) / 255 - 0.5) * amp;
+    d[i] += n; d[i + 1] += n; d[i + 2] += n;
+  }
+  g.putImageData(img, 0, 0);
+}
+
+// The edges darken softly toward the sky's deepest color.
+export function buildVignette(app) {
+  const px = FINISH.vignettePx;
+  const c = makeCanvas(px, px);
+  const g = c.getContext('2d');
+  const col = darker(app.theme.sky[0], FINISH.darken);
+  const a = FINISH.alpha[app.theme.name] || 0;
+  const grad = g.createRadialGradient(px / 2, px / 2, (px / 2) * FINISH.inner, px / 2, px / 2, (px / 2) * Math.SQRT2);
+  grad.addColorStop(0, rgba(col, 0));
+  grad.addColorStop(1, rgba(col, a));
+  g.fillStyle = grad;
+  g.fillRect(0, 0, px, px);
   return c;
 }
 

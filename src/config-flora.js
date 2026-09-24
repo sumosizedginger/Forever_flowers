@@ -10,6 +10,7 @@ export const PETAL = {
   contactW: 0.07, veinW: 0.012, veinAt: [0.25, 0.5, 0.75], toothPow: 0.7,
   boundV: [-1, -0.5, 0, 0.5, 1], glossPow: 18, discHi: 0.4,
   stamenW: 0.012, stamenAlpha: 0.8, stamenMin: 0.55, stamenMix: 7,
+  hashA: 12.9898, hashB: 78.233, hashC: 43758.5453, dewU: [0.45, 0.8], dewV: 0.5, dewHi: 0.35, dewCore: 0.3, dewDot: 0.28,
   lodStrips: 1,            // strips per petal while a head is still moving
   openStep: 1 / 48,        // opening is rendered in steps this fine
 };
@@ -19,7 +20,10 @@ export const PETAL = {
 // above and the bounce from below, rim the edge light where petals turn away.
 export const LIGHTS = {
   night: { dir: [0.55, -0.5, 0.67], key: 0.34, keyRgb: [0.94, 0.94, 1.08], ambTop: 1, ambLow: 0.66, rim: 0.85, rimColor: '#D6D2FF', sky: '#2A2260', ground: '#0C0814' },
-  dawn: { dir: [-0.75, -0.25, 0.4], key: 0.42, keyRgb: [1.08, 0.98, 0.9], ambTop: 0.98, ambLow: 0.7, rim: 0.7, rimColor: '#FFD2B8', sky: '#9A7FA4', ground: '#1C1B30' },
+  dawn: {
+    dir: [-0.75, -0.25, 0.4], key: 0.42, keyRgb: [1.08, 0.98, 0.9], ambTop: 0.98, ambLow: 0.7, rim: 0.7, rimColor: '#FFD2B8', sky: '#9A7FA4', ground: '#1C1B30',
+    dew: { chance: 0.4, r: 0.06, shade: 0.4, shine: '#FFF1E4', shineAlpha: 1, rimAlpha: 0.6 },
+  },
   day: { dir: [-0.42, 0.52, 0.74], key: 0.4, keyRgb: [1.05, 1.01, 0.95], ambTop: 0.97, ambLow: 0.72, rim: 0.4, rimColor: '#FFF1DE', sky: '#9DBED4', ground: '#34483A' },
   eve: { dir: [-0.7, -0.4, 0.35], key: 0.44, keyRgb: [1.1, 0.93, 0.82], ambTop: 0.96, ambLow: 0.66, rim: 0.9, rimColor: '#FFB27A', sky: '#95506E', ground: '#1C1422' },
 };
@@ -162,3 +166,6 @@ export const BRANCH = {
   rimAlpha: 0.4, rimW: 0.3, rimAt: 0.38, rimMix: 0.45, lenticels: { per: 0.9, len: 0.22, w: 0.022, alpha: 0.2, mix: 0.4, off: 0.3 },
   swayDeg: 0.6, swayHz: 0.13, shakeDeg: 2.2, pad: 1.3,
 };
+
+// The glass flower's light on the flowers around it, and the heart's pink on all of them.
+export const FIELD_LIGHT = { rangeU: 6, fall: 1.5, alpha: 0.5, far: 0.08, flareBoost: 1, heartFloor: 0.5, min: 0.004, dirSteps: 8 };
