@@ -1,71 +1,21 @@
-// The heart of the piece: a tall luminous flower with three rings of stained
-// glass petals that drift through color, a burning core and orbiting motes.
-// Petals are cached sprites per ring and color, crossfaded and transformed.
-import { FANTASY, SIZE, BEATS, WAKE, MOTION, TUNE, SHAPE, PALETTE, INPUT, HEART } from './config.js';
-import { TAU, makeRng, lerp, clamp01, win, smooth, easeInOutSine, mix, darker, rgba, mod } from './util.js';
+// The heart of the piece: a tall luminous flower, a lily of stained glass lit
+// from its burning core, drifting through color, with motes orbiting it. The
+// glass head is rendered in 3D (glass3d.js) into cached images, one per color
+// in the cycle, and crossfaded; while it opens it is rendered as it moves.
+import { FANTASY, SIZE, BEATS, WAKE, MOTION, TUNE, SHAPE, PALETTE, INPUT, HEART, SPRITE } from './config.js';
+import { GLASS } from './config-flora.js';
+import { TAU, makeRng, lerp, clamp01, win, smooth, easeInOutSine, mix, rgba, mod } from './util.js';
 import { LIGHT, SLEEP } from './config-garden.js';
 import { makeCanvas, glow, drawGlow, place, resetTransform } from './sprites.js';
 import { shapeStem, makeLeaves, drawLeaves, fillTapered, pointAt } from './stem.js';
 import { breeze, gust } from './wind.js';
 import { bloomEase } from './choreo.js';
+import { makePose } from './light3d.js';
+import { headBounds } from './petal3d.js';
+import { glassModel, glassParts, glassColor, renderGlass, corePoint } from './glass3d.js';
 
 const DEG = Math.PI / 180;
 let sprites = null;
-
-function petalSprite(ring, color) {
-  const F = FANTASY;
-  const [w, h] = F.sprite;
-  const c = makeCanvas(w, h);
-  const g = c.getContext('2d');
-  const m = w / 2;
-  const [a, b, cc, d] = ring.shape;
-  const path = () => {
-    g.beginPath();
-    g.moveTo(m, h);
-    g.bezierCurveTo(m + m * a, h * b, m + m * cc, h * d, m, 0);
-    g.bezierCurveTo(m - m * cc, h * d, m - m * a, h * b, m, h);
-    g.closePath();
-  };
-  // Stained glass lit from the core: brightest at the base, deepening outward,
-  // panes a shade apart, a soft light band inside the lead, dark lead over all.
-  const G = F.glass;
-  const edge = mix(PALETTE.fantasyEdge, color, F.edgeMix);
-  const grad = g.createLinearGradient(0, h, 0, 0);
-  grad.addColorStop(0, mix(color, PALETTE.core[0], G.baseLight));
-  grad.addColorStop(F.midAt, color);
-  grad.addColorStop(1, mix(color, edge, G.tipMix));
-  g.globalAlpha = F.alpha;
-  g.fillStyle = grad;
-  path();
-  g.fill();
-  g.globalAlpha = 1;
-  g.globalCompositeOperation = 'source-atop';
-  g.fillStyle = rgba(PALETTE.core[0], G.paneLight);
-  g.fillRect(0, 0, m, h);
-  g.fillStyle = rgba(darker(color, G.paneDark), G.paneShade);
-  g.fillRect(m, 0, m, h);
-  g.strokeStyle = rgba(edge, G.innerAlpha);
-  g.lineWidth = G.innerW;
-  path();
-  g.stroke();
-  g.globalCompositeOperation = 'source-over';
-  g.strokeStyle = rgba(PALETTE.lead, G.leadAlpha);
-  g.lineCap = 'round';
-  g.lineWidth = G.paneW;
-  g.beginPath();
-  g.moveTo(m, h);
-  g.lineTo(m, h * G.spineTo);
-  for (const [at, bow] of G.cross) {
-    const y = h * at;
-    g.moveTo(m - m * G.crossReach, y + h * bow);
-    g.quadraticCurveTo(m, y - h * bow, m + m * G.crossReach, y + h * bow);
-  }
-  g.stroke();
-  g.lineWidth = G.leadW;
-  path();
-  g.stroke();
-  return c;
-}
 
 function coreSprite() {
   const px = FANTASY.corePx;
@@ -85,7 +35,6 @@ function coreSprite() {
 function ensureSprites() {
   if (sprites) return sprites;
   sprites = {
-    rings: FANTASY.rings.map((ring) => PALETTE.fantasy.map((col) => petalSprite(ring, col))),
     halos: PALETTE.fantasy.map((col) => glow(col)),
     core: coreSprite(),
     coreGlow: glow(PALETTE.core[1]),
@@ -102,15 +51,13 @@ export function createFantasy(app) {
     kind: 'fantasy', idx: 0, size: 1, bend: rng.range(-1, 1) * F.stillness,
     tilt: 0, swayHz: rng.range(s.hz[0], s.hz[1]), swayAmp: rng.range(s.amp[0], s.amp[1]),
     phaseRand: rng.range(0, s.phaseRand), spring: { x: 0, v: 0, dir: 1 }, leanPx: 0,
-    grow: 0, swell: 0, rings: F.rings.map(() => 0), halo: 0, core: 0, scale: 1, ang: 0,
-    leaves: makeLeaves(rng, SHAPE.leaf.fantasy), petals: [], motes: [],
+    grow: 0, swell: 0, rings: GLASS.rings.map(() => 0), halo: 0, core: 0, scale: 1, ang: 0,
+    leaves: makeLeaves(rng, SHAPE.leaf.fantasy), motes: [],
+    glass: glassModel(rng), pose: makePose(GLASS.pitch, 0),
+    images: { key: null, still: 0, live: null, variants: PALETTE.fantasy.map(() => null) },
   };
-  F.rings.forEach((ring, k) => {
-    for (let i = 0; i < ring.n; i++) {
-      const a = ring.off + (i * TAU) / ring.n;
-      f.petals.push({ k, ang: Math.atan2(Math.sin(a), Math.cos(a)), ph: rng.next() * F.petalPhase + k * F.ringPhase });
-    }
-  });
+  f.box = headBounds(glassParts(f.glass, GLASS.rings.map(() => 1)), f.pose);
+  f.corePt = corePoint(f.pose);
   for (let i = 0; i < F.motes; i++) {
     f.motes.push({
       r: rng.range(F.moteRU[0], F.moteRU[1]), hz: rng.range(F.moteHz[0], F.moteHz[1]) * rng.sign(),
@@ -274,55 +221,81 @@ export function drawFantasyNight(ctx, app) {
   ctx.globalAlpha = 1;
 }
 
-// The core glow, the glass petals and the burning core, every alpha scaled by mul.
+// ---- the glass head's images ----
+function glassGlow(f) {
+  return lerp(GLASS.budGlow, 1, Math.max(f.core, f.swell * FANTASY.swellGlow));
+}
+
+function renderImage(c, app, f, rings, colorOf, glowK) {
+  const b = f.box;
+  const m = GLASS.pad;
+  const r = f.r;
+  const w = (b.x1 - b.x0 + m * 2) * r, h = (b.y1 - b.y0 + m * 2) * r;
+  const scale = app.dpr * SPRITE.cacheScale;
+  const pw = Math.ceil(w * scale), ph = Math.ceil(h * scale);
+  const canvas = c && c.canvas.width === pw && c.canvas.height === ph ? c.canvas : makeCanvas(pw, ph);
+  const g = canvas.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, pw, ph);
+  g.setTransform(scale, 0, 0, scale, (m - b.x0) * r * scale, (m - b.y0) * r * scale);
+  renderGlass(g, glassParts(f.glass, rings), f.pose, r, colorOf, glowK);
+  // drawn so the core, not the stem tip, sits on the head point
+  return { canvas, x: (b.x0 - m - f.corePt[0]) * r, y: (b.y0 - m - f.corePt[1]) * r, w, h };
+}
+
+function drawGlassHead(ctx, app, f, phase, s, mul) {
+  const I = f.images;
+  const q = (v) => Math.round(clamp01(v) / GLASS.step) * GLASS.step;
+  const rings = f.ringsEff.map(q);
+  const glowK = q(glassGlow(f));
+  const key = `${rings.join(',')}|${glowK}|${f.r.toFixed(2)}|${app.dpr}`;
+  if (I.key !== key) { I.key = key; I.still = 0; } else if (I.still < GLASS.settle) I.still++;
+  place(ctx, app.dpr, f.hx, f.hy, f.ang, s, s);
+  const nC = PALETTE.fantasy.length;
+  if (I.still < GLASS.settle) {
+    // still opening: one image in the colors of this moment
+    I.live = renderImage(I.live, app, f, rings, (m) => glassColor(m, phase), glowK);
+    ctx.globalAlpha = mul;
+    ctx.drawImage(I.live.canvas, I.live.x, I.live.y, I.live.w, I.live.h);
+  } else {
+    const a = Math.floor(mod(phase, nC)), w = smooth(mod(phase, nC) - a);
+    for (const [k, alpha] of [[a, 1], [(a + 1) % nC, w]]) {
+      let v = I.variants[k];
+      if (!v || v.key !== key) { v = renderImage(v, app, f, rings, (m) => glassColor(m, k), glowK); v.key = key; I.variants[k] = v; }
+      ctx.globalAlpha = alpha * mul;
+      if (alpha > 0.002) ctx.drawImage(v.canvas, v.x, v.y, v.w, v.h);
+    }
+  }
+  resetTransform(ctx, app.dpr);
+  ctx.globalAlpha = 1;
+}
+
+// The core glow, the glass head and the burning core, every alpha scaled by mul.
 function drawHead(ctx, app, f, mul) {
   const S = ensureSprites();
   const F = FANTASY;
-  const { dpr, L } = app;
-  const U = L.U;
+  const U = app.L.U;
   const T = app.clock.T;
   const hs = app.heart || {};
   const flare = hs.flare || 0;
   const stretch = hs.stretch || 0;
   const cx = f.hx, cy = f.hy;
   const breathe = 1 + F.breathe[1] * Math.sin(TAU * F.breathe[0] * T);
-  const r = f.r * f.scale * breathe * (1 + F.budSwell * f.swell * (1 - f.open));
-  const phase = (T / F.cycleS) * PALETTE.fantasy.length;
+  const s = f.scale * breathe * (1 + F.budSwell * f.swell * (1 - f.open)) * (1 + stretch + HEART.flarePetals * flare);
   const nC = PALETTE.fantasy.length;
   const glowMul = TUNE.glow * app.theme.glow;
-  ctx.globalCompositeOperation = app.theme.glowBlend;
-  // the burning core's glow sits behind the glass so it lights the petals from inside
   let flick = 1;
   for (const [hz, amt] of F.flicker) flick += amt * Math.sin(TAU * hz * T);
   const coreMul = 1 + HEART.flareCore * flare;
+  // the burning core's glow sits behind the glass so it lights the petals from inside
+  ctx.globalCompositeOperation = app.theme.glowBlend;
   if (f.core > 0) drawGlow(ctx, S.coreGlow, cx, cy, F.coreGlowU * U * coreMul, F.coreGlowAlpha * f.core * flick * glowMul * coreMul * mul);
   ctx.globalCompositeOperation = 'source-over';
-
-  // petals, back ring first
-  const q = F.squash;
-  const [sw, sh] = F.sprite;
-  const petalMul = 1 + stretch + HEART.flarePetals * flare;
-  for (const p of f.petals) {
-    const ring = F.rings[p.k];
-    const e = clamp01(f.ringsEff[p.k]);
-    const over = Math.max(0, f.ringsEff[p.k] - 1);
-    const ang = lerp(p.ang * F.budSpread, p.ang, e) + f.ang;
-    const len = r * ring.len * lerp(F.budLen, 1, e) * (1 + over) * petalMul;
-    const wid = len * ring.w;
-    const cs = Math.cos(ang), sn = Math.sin(ang);
-    const sx = wid / sw, sy = len / sh;
-    ctx.setTransform(dpr * cs * sx, dpr * sn * sx * q, -dpr * sn * sy, dpr * cs * sy * q, dpr * cx, dpr * cy);
-    const c = mod(phase + p.ph * nC, nC);
-    const ia = Math.floor(c), w = smooth(c - ia);
-    const set = S.rings[p.k];
-    ctx.globalAlpha = mul;
-    ctx.drawImage(set[ia], -sw / 2, -sh, sw, sh);
-    ctx.globalAlpha = w * mul;
-    ctx.drawImage(set[(ia + 1) % nC], -sw / 2, -sh, sw, sh);
-  }
-  resetTransform(ctx, dpr);
-
-  // the burning core itself, over the glass
+  drawGlassHead(ctx, app, f, (T / F.cycleS) * nC, s, mul);
+  // its light spilling over the glass around it, blended so it never adds toward white
+  const lit = Math.max(f.core, f.swell * F.swellGlow);
+  if (lit > 0) drawGlow(ctx, S.coreGlow, cx, cy, GLASS.spill.rU * U * coreMul * s, GLASS.spill.alpha * lit * flick * mul);
+  // the burning core itself, inside the cup
   if (f.core > 0) {
     const cr = SIZE.fantasy.coreU * U * f.scale * lerp(1, coreMul, F.coreFlareSize) * flick;
     ctx.globalAlpha = clamp01(f.core) * mul;
@@ -374,14 +347,16 @@ function drawPool(ctx, app, f) {
 
 export function fantasyRadius(app) {
   const f = app.fantasy;
-  return f.r * FANTASY.rings[0].len;
+  return f.r * GLASS.reach;
 }
 
 export function fantasyBox(app) {
   const f = app.fantasy;
   if (!f || f.grow <= 0) return null;
-  const r = fantasyRadius(app) * Math.max(1, f.scale);
-  return { kind: 'fantasy', idx: 0, x: f.hx - r, y: f.hy - r * FANTASY.squash, w: r * 2, h: r * 2 * FANTASY.squash };
+  const b = f.box;
+  const s = f.r * Math.max(1, f.scale);
+  const x0 = f.hx + (b.x0 - f.corePt[0]) * s, y0 = f.hy + (b.y0 - f.corePt[1]) * s;
+  return { kind: 'fantasy', idx: 0, x: x0, y: y0, w: (b.x1 - b.x0) * s, h: (b.y1 - b.y0) * s };
 }
 
 export function hitFantasy(app, x, y, pad) {

@@ -32,7 +32,7 @@ export const FAVS = {
     florets: 30, floretR: 0.085, floretAt: 0.86, jitter: 0.05, lenJitter: 0.09, centerBud: 0.7, shadeFrom: 0.5,
     budR: 0.28, budCap: 0.55, budUntil: 0.22, rimAlpha: 0.35,
   },
-  budTall: 1.15, budCapH: 0.9, jitN: 8, lenJitN: 7,
+  budTall: 1.15, budCapH: 0.9, jitN: 8, lenJitN: 7, popScale: 2.5,
   rU: { cosmos: [0.4, 0.48], daisy: [0.32, 0.38] },
   stemW: { cosmos: 0.032, daisy: 0.038 },
   // hero spots: fx across the field span, fy head height as a fraction of H

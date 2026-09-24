@@ -26,6 +26,7 @@ import { fantasyRadius } from './fantasy.js';
 import { flowerTimes, showTimes } from './choreo.js';
 import { bootLife, watchClock, setThemeColor } from './life.js';
 import { makeAudio } from './music.js';
+import { makeLight } from './light3d.js';
 import { setupUI, updateUI } from './ui.js';
 import { setupTune } from './tune.js';
 import { render, addLayer } from './render.js';
@@ -69,6 +70,7 @@ app.fantasy = createFantasy(app);
 app.audio = makeAudio(app);
 
 function rebuildWorld() {
+  app.light = makeLight(app.tod);
   app.bg = buildBackground(app);
   app.stars = buildStars(app);
   app.moon = buildMoon(app);

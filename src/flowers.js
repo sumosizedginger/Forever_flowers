@@ -2,16 +2,14 @@
 // flowers: per flower variance, placement, sway, lean, tap springs, and the
 // stem, leaf and head draw passes.
 import { LAYOUT, SIZE, MOTION, TUNE, SHAPE, GOLD, INPUT, PALETTE, BEATS } from './config.js';
-import { FAVS, MEADOW } from './config-garden.js';
+import { FAVS, MEADOW, FAV_PALETTE } from './config-garden.js';
 import { makeRng, TAU, lerp, clamp, clamp01, easeInOutSine, easeOutBack, win, mix } from './util.js';
-import { makeHeadCache, cachedImage, dropCache, place, resetTransform, glow, drawGlow, sparkleSprite } from './sprites.js';
+import { makeHeadCache, dropCache, place, resetTransform, glow, drawGlow, sparkleSprite } from './sprites.js';
 import { clampHeadX } from './layout.js';
 import { breeze, gust } from './wind.js';
 import { shapeStem, makeLeaves, strokeStems, fillTapered, drawLeaves } from './stem.js';
-import { roseDetails, drawGlints } from './rose.js';
-import { favDetails } from './favs.js';
-import { drawHead, headKey, headExtent, hasBud } from './species.js';
-import { drawSheen } from './gold.js';
+import { makeModel, headImage, headBox, headExtent, hasBud } from './species.js';
+import { drawSheen, drawGlints } from './gold.js';
 
 const DEG = Math.PI / 180;
 
@@ -39,9 +37,10 @@ export function makeFlower(rng, species, fx, fy, type) {
   f.rMul = rng.next();
   if (species === 'wild') f.leaves = makeLeaves(rng, SHAPE.leaf.wild);
   else {
-    favDetails(rng, f);
+    f.color = rng.int(0, FAV_PALETTE.cosmos.length - 1);
     f.leaves = makeLeaves(rng, FAVS.leaves[species]);
   }
+  makeModel(rng, f);
   return f;
 }
 
@@ -75,7 +74,7 @@ export function createFlowers(app) {
   wilds.slice().sort((a, b) => Math.abs(a.fx - 0.5) - Math.abs(b.fx - 0.5)).forEach((f, j) => { f.order = j; });
   // her favorites, from their own stream so the rest of the field stays put
   const frng = makeRng(app.seed ^ 0xfa7e);
-  for (const f of roses) roseDetails(frng, f);
+  for (const f of roses) makeModel(frng, f);
   const favs = FAVS.cosmosSpots.map(([fx, fy]) => makeFlower(frng, 'cosmos', fx, fy))
     .concat(FAVS.daisySpots.map(([fx, fy]) => makeFlower(frng, 'daisy', fx, fy)));
   favs.forEach((f, i) => { f.idx = i; });
@@ -89,10 +88,11 @@ function favRadius(f, U) {
   return lerp(a, b, f.rMul) * U * f.size;
 }
 
-function placeOne(L, f, headX, headY, baseY) {
+function placeOne(app, f, headX, headY, baseY) {
+  const L = app.L;
   f.baseY = baseY === undefined ? L.groundY : baseY;
   f.h = Math.max(f.baseY - headY, f.far ? MEADOW.lift[0] * L.H : L.U * INPUT.plantMinU);
-  const hx = clampHeadX(L, headX, f.r * headExtent(f), f.h * LAYOUT.swayMargin);
+  const hx = clampHeadX(L, headX, f.r * headExtent(f, app.theme), f.h * LAYOUT.swayMargin);
   f.x = hx - f.bend * f.h * SHAPE.stem.restLean;
   f.phase = f.x * MOTION.sway.phasePerPx + f.phaseRand;
   dropCache(f.cache);
@@ -105,30 +105,30 @@ export function placeFlowers(app) {
   for (const f of fl.roses) {
     f.r = SIZE.rose.rU * U * f.size;
     f.gold = f.colorName === 'crimson' && app.gold;
-    placeOne(L, f, L.fieldL + f.fx * L.fieldW, L.H * f.fy);
+    placeOne(app, f, L.fieldL + f.fx * L.fieldW, L.H * f.fy);
   }
   for (const f of fl.favs) {
     f.r = favRadius(f, U);
-    placeOne(L, f, L.fieldL + f.fx * L.fieldW, L.H * f.fy);
+    placeOne(app, f, L.fieldL + f.fx * L.fieldW, L.H * f.fy);
   }
   for (const f of fl.wilds) {
     f.r = favRadius(f, U);
-    placeOne(L, f, L.wildL + f.fx * L.wildW, L.H * f.fy);
+    placeOne(app, f, L.wildL + f.fx * L.wildW, L.H * f.fy);
   }
   for (const f of fl.daily) {
     if (f.far) continue;
     f.r = favRadius(f, U);
-    placeOne(L, f, L.fieldL + f.fx * L.fieldW, L.H * f.fy);
+    placeOne(app, f, L.fieldL + f.fx * L.fieldW, L.H * f.fy);
   }
   const span = L.maxX - L.minX;
   for (const f of fl.meadow.concat(fl.daily.filter((d) => d.far))) {
     f.r = lerp(MEADOW.rU[0], MEADOW.rU[1], f.rMul) * U;
-    placeOne(L, f, L.minX + f.fx * span, L.H * (f.fb - f.lift), L.H * f.fb);
+    placeOne(app, f, L.minX + f.fx * span, L.H * (f.fb - f.lift), L.H * f.fb);
   }
   for (const f of fl.planted) {
     f.r = favRadius(f, U);
     const headY = clamp(f.py * L.H, L.groundY - U * INPUT.plantMaxU, L.groundY - U * INPUT.plantMinU);
-    placeOne(L, f, f.px * L.W, headY);
+    placeOne(app, f, f.px * L.W, headY);
   }
 }
 
@@ -219,12 +219,13 @@ function drawHeads(ctx, app, list, theme) {
     if (f.grow <= 0 || f.gone) continue;
     const open = f.openEff;
     if (!hasBud(f) && open <= 0.001) continue;
-    const draw = (g) => drawHead(g, f, open, theme);
-    const c = cachedImage(f.cache, headKey(f, open, theme), f.r, dpr, draw);
-    place(ctx, dpr, f.hx, f.hy, f.ang, f.scale, f.scale);
+    const c = headImage(f, open, theme, app.light, dpr);
+    // the bloom's little overshoot past open shows as a brief swell
+    const s = f.scale * (1 + Math.max(0, open - 1));
+    const pop = hasBud(f) ? 1 : Math.min(1, open * FAVS.popScale);
+    place(ctx, dpr, f.hx, f.hy, f.ang, s * pop, s * pop);
     ctx.globalAlpha = f.fade === undefined ? 1 : f.fade;
-    if (c) ctx.drawImage(c.canvas, -c.r, -c.r, c.r * 2, c.r * 2);
-    else draw(ctx);
+    ctx.drawImage(c.canvas, c.x, c.y, c.w, c.h);
     resetTransform(ctx, dpr);
     f.headImage = c;
   }
@@ -291,7 +292,7 @@ export function drawRoseLayer(ctx, app) {
     if (!f.gold || f.grow <= 0 || f.openEff <= 0) continue;
     // sheen and glints sit on light gold, so they blend normally rather than add toward white
     drawSheen(ctx, app, f);
-    drawGlints(ctx, app, f, sparkleSprite(PALETTE.gold.glint));
+    drawGlints(ctx, app, f, sparkleSprite(PALETTE.gold.glint), headRect(app, f));
     ctx.globalAlpha = 1;
   }
 }
@@ -304,15 +305,22 @@ export function drawFrontLayer(ctx, app) {
   drawHeads(ctx, app, list, app.theme);
 }
 
-// Head extents at full bloom, for hit tests and the clipping check.
-export function headRadius(f) {
-  return f.r * headExtent(f) * Math.max(1, f.scale);
+// Where a head's bloom sits on screen, around its stem tip: its middle and half size.
+export function headRect(app, f) {
+  const b = headBox(f, app.theme);
+  const s = f.r * Math.max(1, f.scale);
+  return { cx: f.hx + ((b.x0 + b.x1) / 2) * s, cy: f.hy + ((b.y0 + b.y1) / 2) * s, hw: ((b.x1 - b.x0) / 2) * s, hh: ((b.y1 - b.y0) / 2) * s };
+}
+
+export function headRadius(app, f) {
+  const k = headRect(app, f);
+  return Math.max(k.hw, k.hh);
 }
 
 export function headBoxes(app) {
   return allFlowers(app).filter((f) => f.grow > 0 && !f.fading).map((f) => {
-    const r = headRadius(f);
-    return { kind: f.kind, idx: f.idx, x: f.hx - r, y: f.hy - r, w: r * 2, h: r * 2 };
+    const k = headRect(app, f);
+    return { kind: f.kind, idx: f.idx, x: k.cx - k.hw, y: k.cy - k.hh, w: k.hw * 2, h: k.hh * 2 };
   });
 }
 
@@ -321,8 +329,9 @@ export function hitFlower(app, x, y) {
   let best = null, bestD = Infinity;
   for (const f of allFlowers(app)) {
     if (f.fading || f.open < INPUT.bloomedAt || f.grow < 1) continue;
-    const d = Math.hypot(x - f.hx, y - f.hy);
-    if (d < headRadius(f) * INPUT.hitPad && d < bestD) { best = f; bestD = d; }
+    const k = headRect(app, f);
+    const d = Math.hypot(x - k.cx, y - k.cy);
+    if (d < Math.max(k.hw, k.hh) * INPUT.hitPad && d < bestD) { best = f; bestD = d; }
   }
   return best;
 }

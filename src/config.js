@@ -326,7 +326,7 @@ export const FANTASY = {
   stemGlowMix: 0.35, stemGlowAlpha: 0.32, stemGlowW: 0.3,
   motes: 7, moteRU: [1.6, 2.05], moteHz: [0.08, 0.16], moteSizeU: [0.07, 0.12], moteAlpha: 0.75, moteFade: 1,
   moteColor: '#FFE08A', moteTwinkle: 2, moteGrow: 0.5, moteDim: 0.5, breathe: [0.07, 0.02],
-  stillness: 0.3,
+  stillness: 0.3, swellGlow: 0.7,
 };
 
 // The classic parametric heart: x = a sin^3 t, y = b0 cos t - b1 cos 2t - b2 cos 3t - b3 cos 4t.
