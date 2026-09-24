@@ -481,7 +481,10 @@ const BUTTERFLY = {
   wander: { ax: 0.42, mixX: [0.65, 0.35], mulX: 2.3, mixY: [0.6, 0.4], mulY: 1.7, jitter: 0.15 },
 };
 
-const STORAGE = { visits: 'ff.visits', gold: 'ff.goldSeen', seed: 'ff.seed' };
+const STORAGE = {
+  visits: 'ff.visits', gold: 'ff.goldSeen', seed: 'ff.seed', firstDay: 'ff.firstDay', lastDay: 'ff.lastDay',
+  planted: 'ff.planted', heartFound: 'ff.heartFound', sound: 'ff.sound', soundUsed: 'ff.soundUsed',
+};
 
 const PERF = { samples: 1200 };
 
@@ -507,6 +510,7 @@ function readParams(search) {
     preview,
     t: num('t'),
     seed: num('seed'),
+    day: num('day'),
     test: q.has('test'),
     tune: q.has('tune'),
   };
@@ -825,14 +829,23 @@ const CUP = {
 // Distant flowers near the hills. She starts with a few; the daily ones join them.
 const MEADOW = {
   base: 16, band: [0.792, 0.836], lift: [0.018, 0.042], rU: [0.1, 0.17], haze: 0.36, air: 0.5,
+  species: ['daisy', 'cosmos', 'wild'],
   stemW: 0.018, swayMul: 0.35, tufts: 3, tuftU: [0.06, 0.14], tuftW: 0.025, tuftLean: 0.4, edge: 0.03, jitter: 0.4,
 };
 
 // One new flower for every calendar day since her first visit.
 const GARDEN = {
-  maxDaily: 120, midCount: 8, midY: [0.725, 0.765], midJitter: 0.25,
-  grow: [2, 1.4], bloom: [3.4, 1.2], sparkleU: 0.9, sparkleDur: 1.3, sparkleAlpha: 0.32,
-  dayMs: 86400000,
+  maxDaily: 120, species: ['daisy', 'cosmos'], dayHash: 0x9e3779b1, dayMs: 86400000,
+  // the first eight days fill these gaps in the middle of the field, alternating sides
+  midSlots: [[0.12, 0.66], [0.88, 0.665], [0.31, 0.7], [0.68, 0.705], [0.06, 0.745], [0.94, 0.74], [0.37, 0.765], [0.62, 0.76]],
+  midJitter: 0.02, midJitterY: 0.008, farStart: 0.5, golden: 0.6180339887,
+  // the newest flower on a new day: stem [start, dur], bloom [start, dur], seconds into the wake up
+  grow: [2, 1.4], bloom: [3.4, 1.2],
+  // in a full show the whole garden grows inside these windows [start, spread]
+  fullGrow: [3.6, 1.8], fullPop: [5.9, 1.6],
+  sparkleU: 0.9, sparkleDur: 1.3, sparkleAlpha: 0.5, sparkleW: 1.5, sparkleSquash: 0.5,
+  glints: 4, glintSize: 0.35, glintSpin: 1.2, glintBoost: 1.6,
+  savePrecision: 10000, regrowStagger: 0.09,
 };
 
 // Foreground framing: dark fronds low in the corners and soft out of focus lights.
@@ -852,7 +865,11 @@ const SLEEP = {
   timerS: 600, lowPowerS: 30,
 };
 
-const HINT = { startS: 8, cycle: 45, flyIn: 2.6, stay: 5.2, flyOut: 2.2, fromU: 3.5, sizeU: 0.24, perch: [0.18, -0.12] };
+// A firefly that settles on the fantasy flower and pulses on the beat, until she finds the heart.
+const HINT = {
+  startS: 8, cycle: 45, flyIn: 2.6, stay: 5.2, flyOut: 2.2, fade: 0.6, fromU: 3.5, fromDrop: 0.35, wobble: 0.5, arc: 0.6,
+  sizeU: 0.17, halo: 2.8, haloAlpha: 0.5, pulseMin: 0.5, pulseDecay: 4, perch: [0.86, -0.66],
+};
 
 const AUTOHEART = { charge: 19.37, giveUp: 21 };
 
@@ -2425,15 +2442,118 @@ function hitFlower(app, x, y) {
 
 return { vary, makeFlower, createFlowers, placeFlowers, allFlowers, stemBases, kick, plant, plantedCount, updateFlowers, drawMeadowLayer, drawCosmosLayer, drawRoseLayer, drawFrontLayer, headRadius, headBoxes, hitFlower };
 })();
+__m["life.js"] = (() => {
+// Living with it: visits, the wake up on return, the golden rose roll, her
+// local clock, and replay. Storage is optional; everything works without it.
+const { STORAGE, GOLD, TOD } = __m["config.js"];
+const { GARDEN } = __m["config-garden.js"];
+const { todFromHour, buildTheme } = __m["theme.js"];
+
+const store = {
+  get(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* storage blocked is fine */ } },
+};
+
+// Her local calendar day as a whole number, so the garden counts days, not hours.
+const localDay = (d) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / GARDEN.dayMs);
+
+// Calendar days since her first visit, and whether this is the first open today.
+function gardenDays(params) {
+  if (params.day !== null) {
+    const days = Math.max(0, Math.floor(params.day));
+    return { days, newToday: days > 0 && !params.preview };
+  }
+  const today = localDay(new Date());
+  const first = parseInt(store.get(STORAGE.firstDay), 10);
+  const days = Number.isFinite(first) ? Math.max(0, today - first) : 0;
+  if (!Number.isFinite(first)) store.set(STORAGE.firstDay, String(today));
+  const last = parseInt(store.get(STORAGE.lastDay), 10);
+  store.set(STORAGE.lastDay, String(today));
+  return { days, newToday: days > 0 && last !== today };
+}
+
+function markHeartFound(app) {
+  if (app.heartFound) return;
+  app.heartFound = true;
+  store.set(STORAGE.heartFound, '1');
+}
+
+function prefersReducedMotion() {
+  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+}
+
+function bootLife(params) {
+  const reduced = prefersReducedMotion();
+  const visits = (parseInt(store.get(STORAGE.visits) || '0', 10) || 0) + 1;
+  store.set(STORAGE.visits, String(visits));
+
+  let seed;
+  if (params.seed !== null) seed = params.seed >>> 0;
+  else {
+    const kept = parseInt(store.get(STORAGE.seed), 10);
+    seed = Number.isFinite(kept) ? kept >>> 0 : (Math.random() * 4294967296) >>> 0;
+    store.set(STORAGE.seed, String(seed));
+  }
+
+  // Test params never roll gold on their own, so frozen frames stay comparable.
+  // Never on the first visit, so she knows the crimson rose first.
+  const testing = params.seed !== null || params.t !== null || params.preview;
+  let gold = params.gold;
+  if (!gold && !testing && visits > 1) {
+    const seen = store.get(STORAGE.gold) === '1';
+    gold = Math.random() < GOLD.chance || (!seen && visits >= GOLD.guaranteeBy);
+    if (gold) store.set(STORAGE.gold, '1');
+  }
+
+  let mode = 'full';
+  if (!params.full && !params.preview && (reduced || visits > 1)) mode = 'wake';
+  const { days, newToday } = gardenDays(params);
+  return {
+    seed, visits, gold, mode, reduced, days, newToday,
+    heartFound: store.get(STORAGE.heartFound) === '1',
+    soundOn: store.get(STORAGE.sound) === '1',
+    soundUsed: store.get(STORAGE.soundUsed) === '1',
+  };
+}
+
+// Recheck her clock every minute; crossfade the sky when the time of day turns.
+function watchClock(app, rebuild) {
+  let last = performance.now();
+  return () => {
+    if (app.params.tod) return;
+    const now = performance.now();
+    if (now - last < TOD.recheckS * 1000) return;
+    last = now;
+    const tod = todFromHour(new Date().getHours());
+    if (tod === app.tod) return;
+    app.bgPrev = app.bg;
+    app.bgMix = 0;
+    app.tod = tod;
+    app.theme = buildTheme(tod);
+    setThemeColor(app.theme.themeColor);
+    rebuild();
+  };
+}
+
+function setThemeColor(color) {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', color);
+}
+
+return { store, markHeartFound, bootLife, watchClock, setThemeColor };
+})();
 __m["garden.js"] = (() => {
 // The living garden: a distant meadow near the hills, one new flower for every
 // day since her first visit, and the flowers she plants, kept between visits.
 const { MEADOW, GARDEN } = __m["config-garden.js"];
-const { makeRng } = __m["util.js"];
+const { STORAGE, INPUT, PALETTE } = __m["config.js"];
+const { makeRng, TAU, lerp, clamp01, easeOutCubic, rgba } = __m["util.js"];
+const { sparkleSprite } = __m["sprites.js"];
 const { makeFlower } = __m["flowers.js"];
+const { store } = __m["life.js"];
 
 function farFlower(rng, species) {
-  const f = makeFlower(rng, species, rng.next(), 0, rng.int(0, 4));
+  const f = makeFlower(rng, species, rng.next(), 0, rng.int(0, PALETTE.wild.length - 1));
   f.far = true;
   f.kind = 'meadow';
   f.fb = rng.range(MEADOW.band[0], MEADOW.band[1]);
@@ -2445,28 +2565,164 @@ function farFlower(rng, species) {
   return f;
 }
 
+const byCenter = (list) => list.slice().sort((a, b) => Math.abs(a.fx - 0.5) - Math.abs(b.fx - 0.5)).forEach((f, j) => { f.order = j; });
+
 // The few distant flowers she starts with, so the field has depth from the first night.
 function createMeadow(app) {
   const rng = makeRng(app.seed ^ 0x3ead);
-  const species = ['daisy', 'cosmos', 'wild'];
   const list = [];
   for (let i = 0; i < MEADOW.base; i++) {
-    const f = farFlower(rng, species[i % species.length]);
+    const f = farFlower(rng, MEADOW.species[i % MEADOW.species.length]);
     f.fx = (i + 0.5 + rng.range(-MEADOW.jitter, MEADOW.jitter)) / MEADOW.base;
     f.idx = i;
     list.push(f);
   }
-  list.slice().sort((a, b) => Math.abs(a.fx - 0.5) - Math.abs(b.fx - 0.5)).forEach((f, j) => { f.order = j; });
+  byCenter(list);
   app.flowers.meadow = list;
 }
 
-// Days since her first visit, from storage, or forced with ?day=N.
-function gardenDays(app) {
-  return Math.min(GARDEN.maxDaily, Math.max(0, app.days || 0));
+// One flower for every day since her first visit. The first few fill gaps in the
+// middle of the field where she will notice them; the rest gather in the far
+// meadow, spread by the golden ratio so the band fills evenly over the months.
+function createDaily(app) {
+  const days = Math.min(GARDEN.maxDaily, Math.max(0, app.days || 0));
+  const list = [];
+  for (let i = 0; i < days; i++) {
+    const rng = makeRng((app.seed ^ Math.imul(i + 1, GARDEN.dayHash)) >>> 0);
+    const species = GARDEN.species[i % GARDEN.species.length];
+    let f;
+    if (i < GARDEN.midSlots.length) {
+      const [fx, fy] = GARDEN.midSlots[i];
+      f = makeFlower(rng, species, fx + rng.range(-1, 1) * GARDEN.midJitter, fy + rng.range(-1, 1) * GARDEN.midJitterY);
+    } else {
+      f = farFlower(rng, species);
+      f.fx = (GARDEN.farStart + (i - GARDEN.midSlots.length) * GARDEN.golden) % 1;
+    }
+    f.kind = 'daily';
+    f.idx = i;
+    f.isNew = !!app.newToday && i === days - 1;
+    list.push(f);
+  }
+  byCenter(list);
+  app.flowers.daily = list;
 }
 
+// ---- planted flowers, kept between visits ----
+const round = (v) => Math.round(v * GARDEN.savePrecision) / GARDEN.savePrecision;
 
-return { farFlower, createMeadow, gardenDays };
+function savePlanted(app) {
+  const list = app.flowers.planted.filter((f) => !f.fading && !f.gone).map((f) => [round(f.px), round(f.py), f.species, f.type]);
+  store.set(STORAGE.planted, JSON.stringify(list));
+}
+
+function loadPlanted(app) {
+  let list = null;
+  try { list = JSON.parse(store.get(STORAGE.planted) || '[]'); } catch (e) { list = null; }
+  if (!Array.isArray(list)) return;
+  for (const item of list.slice(-INPUT.plantCap)) {
+    if (!Array.isArray(item)) continue;
+    const [px, py, species, type] = item;
+    if (!Number.isFinite(px) || !Number.isFinite(py) || !INPUT.plantSpecies.includes(species)) continue;
+    const rng = makeRng((app.seed ^ Math.imul(Math.round(px * GARDEN.savePrecision) + 1, GARDEN.dayHash) ^ Math.round(py * GARDEN.savePrecision)) >>> 0);
+    const f = makeFlower(rng, species, 0, 0, Number.isFinite(type) ? type : 0);
+    f.kind = 'planted';
+    f.px = px;
+    f.py = py;
+    f.t0 = -Infinity;
+    f.idx = app.flowers.planted.length;
+    app.flowers.planted.push(f);
+  }
+}
+
+// Replay grows her planted flowers back with the rest of the field.
+function regrowPlanted(app, at) {
+  const fl = app.flowers;
+  fl.planted = fl.planted.filter((f) => !f.fading && !f.gone);
+  fl.planted.forEach((f, k) => { f.t0 = at + k * GARDEN.regrowStagger; f.spring.x = 0; f.spring.v = 0; });
+}
+
+// The newest flower of the day arrives with a small ring of light and four glints.
+function drawNewSparkle(ctx, app) {
+  if (app.show.mode !== 'wake') return;
+  const f = app.flowers.daily.find((d) => d.isNew);
+  if (!f || f.grow <= 0) return;
+  const q = (app.s - GARDEN.bloom[0]) / GARDEN.sparkleDur;
+  if (q <= 0 || q >= 1) return;
+  const U = app.L.U;
+  const e = easeOutCubic(q);
+  const a = GARDEN.sparkleAlpha * (1 - q);
+  const R = lerp(f.r, GARDEN.sparkleU * U, e);
+  // blended normally, never adding toward white over pale petals
+  ctx.strokeStyle = rgba(PALETTE.firefly, a);
+  ctx.lineWidth = GARDEN.sparkleW;
+  ctx.beginPath();
+  ctx.ellipse(f.hx, f.hy, R, R * GARDEN.sparkleSquash, 0, 0, TAU);
+  ctx.stroke();
+  const spr = sparkleSprite(PALETTE.gold.glint);
+  const s = f.r * GARDEN.glintSize * (1 - q);
+  ctx.globalAlpha = clamp01(a * GARDEN.glintBoost);
+  for (let k = 0; k < GARDEN.glints; k++) {
+    const ang = (k / GARDEN.glints) * TAU + q * GARDEN.glintSpin;
+    ctx.drawImage(spr, f.hx + Math.cos(ang) * R - s, f.hy + Math.sin(ang) * R * GARDEN.sparkleSquash - s, s * 2, s * 2);
+  }
+  ctx.globalAlpha = 1;
+}
+
+return { farFlower, createMeadow, createDaily, savePlanted, loadPlanted, regrowPlanted, drawNewSparkle };
+})();
+__m["hint.js"] = (() => {
+// Until she has found the heart herself, a firefly now and then drifts over,
+// settles on the fantasy flower and pulses on the music's beat: a quiet
+// invitation to touch it. Its pose is a pure function of show time.
+const { HINT } = __m["config-garden.js"];
+const { PALETTE, HEART } = __m["config.js"];
+const { lerp, smooth, easeInOutCubic, mod } = __m["util.js"];
+const { glow, drawGlow } = __m["sprites.js"];
+
+function hintPose(app) {
+  if (app.heartFound || app.show.mode !== 'wake' || app.state !== 'LIVE') return null;
+  const f = app.fantasy;
+  if (!f || f.open < 1) return null;
+  const t = app.s - HINT.startS;
+  if (t < 0) return null;
+  const c = mod(t, HINT.cycle);
+  const end = HINT.flyIn + HINT.stay + HINT.flyOut;
+  if (c > end) return null;
+  const U = app.L.U;
+  const perch = [f.hx + HINT.perch[0] * f.r, f.hy + HINT.perch[1] * f.r];
+  const from = [f.hx - HINT.fromU * U, f.hy + HINT.fromU * U * HINT.fromDrop];
+  const to = [f.hx + HINT.fromU * U, f.hy - HINT.fromU * U * HINT.fromDrop];
+  let x, y, pulse = 1;
+  if (c < HINT.flyIn) {
+    const e = easeInOutCubic(c / HINT.flyIn);
+    x = lerp(from[0], perch[0], e) + Math.sin(e * Math.PI) * U * HINT.wobble;
+    y = lerp(from[1], perch[1], e) - Math.sin(e * Math.PI) * U * HINT.arc;
+  } else if (c < HINT.flyIn + HINT.stay) {
+    x = perch[0];
+    y = perch[1];
+    const period = 60 / HEART.bpm;
+    pulse = lerp(HINT.pulseMin, 1, Math.exp(-(mod(app.s, period) / period) * HINT.pulseDecay));
+  } else {
+    const e = easeInOutCubic((c - HINT.flyIn - HINT.stay) / HINT.flyOut);
+    x = lerp(perch[0], to[0], e);
+    y = lerp(perch[1], to[1], e) - Math.sin(e * Math.PI) * U * HINT.arc;
+  }
+  const fade = smooth(c / HINT.fade) * (1 - smooth((c - end + HINT.fade) / HINT.fade));
+  return { x, y, a: fade * pulse };
+}
+
+function drawHint(ctx, app) {
+  const p = hintPose(app);
+  if (!p || p.a <= 0.01) return;
+  const U = app.L.U;
+  const spr = glow(PALETTE.firefly);
+  // blended normally: it rests on pale glass
+  drawGlow(ctx, spr, p.x, p.y, HINT.sizeU * U * HINT.halo, HINT.haloAlpha * p.a);
+  drawGlow(ctx, spr, p.x, p.y, HINT.sizeU * U, p.a);
+  ctx.globalAlpha = 1;
+}
+
+return { hintPose, drawHint };
 })();
 __m["front.js"] = (() => {
 // The near side of the field: a few dark fronds rising from the bottom corners
@@ -3015,7 +3271,7 @@ __m["choreo.js"] = (() => {
 // The beat sheet for the field: stem growth and blooms as pure functions of
 // show time, for the full show and the five second wake up.
 const { BEATS, WAKE, TUNE, MOTION } = __m["config.js"];
-const { SLEEP } = __m["config-garden.js"];
+const { SLEEP, GARDEN } = __m["config-garden.js"];
 const { win, lerp, smooth, easeInOutSine, easeOutBack, cubicBezier } = __m["util.js"];
 
 let curve = null;
@@ -3063,6 +3319,17 @@ function flowerTimes(app) {
       f.grow = 1;
       f.open = lerp(WAKE.startOpen, 1, popEase(win(s, wakeStart(f.order, nm), WAKE.dur * f.bloomMul)));
     }
+    // the garden: everything reopens, except today's new flower, which grows in
+    const nd = fl.daily.length;
+    for (const f of fl.daily) {
+      if (f.isNew) {
+        f.grow = easeInOutSine(win(s, GARDEN.grow[0], GARDEN.grow[1]));
+        f.open = bloom(win(s, GARDEN.bloom[0], GARDEN.bloom[1]));
+      } else {
+        f.grow = 1;
+        f.open = lerp(WAKE.startOpen, 1, bloom(win(s, wakeStart(f.order, nd), WAKE.dur * f.bloomMul)));
+      }
+    }
   } else {
     const rs = BEATS.roseStems, ws = BEATS.wildStems, wp = BEATS.wildPop;
     for (const f of fl.roses) {
@@ -3086,11 +3353,18 @@ function flowerTimes(app) {
       f.grow = easeInOutSine(win(s, fs.start + j * fs.stagger, fs.dur));
       f.open = bloom(win(s, fb.start + j * fb.stagger, fb.dur * f.bloomMul));
     }
+    const nd = Math.max(1, fl.daily.length);
+    for (const f of fl.daily) {
+      const k = f.order / nd;
+      f.grow = easeInOutSine(win(s, GARDEN.fullGrow[0] + k * GARDEN.fullGrow[1], ws.dur));
+      f.open = bloom(win(s, GARDEN.fullPop[0] + k * GARDEN.fullPop[1], fb.dur * f.bloomMul));
+    }
   }
   for (const f of fl.roses) f.openEff = f.open * dim;
   for (const f of fl.wilds) f.openEff = f.open * dim;
   for (const f of fl.favs) f.openEff = f.open * dim;
   for (const f of fl.meadow) f.openEff = f.open * dim;
+  for (const f of fl.daily) f.openEff = f.open * dim;
   app.openDim = dim;
   app.fantasyDim = lerp(1, SLEEP.fantasyFold, app.dimLevel);
 }
@@ -4090,6 +4364,8 @@ const { spawnShootingStar } = __m["sky.js"];
 const { spawnHearts } = __m["hearts.js"];
 const { buildGrass } = __m["grass.js"];
 const { pressHeart, cancelHeart, startNova } = __m["heart.js"];
+const { savePlanted } = __m["garden.js"];
+const { markHeartFound } = __m["life.js"];
 
 function makeInput() {
   return {
@@ -4158,6 +4434,7 @@ function resolveTap(app, x, y) {
   }
   if (st === 'LIVE') {
     plant(app, x, y);
+    savePlanted(app);
     app.grass = buildGrass(app, stemBases(app).concat(app.fantasy.x));
     sound(app, 'plant');
   }
@@ -4220,6 +4497,7 @@ function onUp(app, e) {
   if (p.fantasy && (h.phase === 'press' || h.phase === 'charging')) {
     if (h.phase === 'charging' && h.full) {
       startNova(app);
+      markHeartFound(app);
       sound(app, 'nova');
       return;
     }
@@ -4284,74 +4562,6 @@ function updateInput(app, dt) {
 }
 
 return { makeInput, enterDim, wake, resolveTap, attachInput, updateInput };
-})();
-__m["life.js"] = (() => {
-// Living with it: visits, the wake up on return, the golden rose roll, her
-// local clock, and replay. Storage is optional; everything works without it.
-const { STORAGE, GOLD, TOD } = __m["config.js"];
-const { todFromHour, buildTheme } = __m["theme.js"];
-
-const store = {
-  get(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
-  set(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* storage blocked is fine */ } },
-};
-
-function prefersReducedMotion() {
-  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
-}
-
-function bootLife(params) {
-  const reduced = prefersReducedMotion();
-  const visits = (parseInt(store.get(STORAGE.visits) || '0', 10) || 0) + 1;
-  store.set(STORAGE.visits, String(visits));
-
-  let seed;
-  if (params.seed !== null) seed = params.seed >>> 0;
-  else {
-    const kept = parseInt(store.get(STORAGE.seed), 10);
-    seed = Number.isFinite(kept) ? kept >>> 0 : (Math.random() * 4294967296) >>> 0;
-    store.set(STORAGE.seed, String(seed));
-  }
-
-  // Test params never roll gold on their own, so frozen frames stay comparable.
-  const testing = params.seed !== null || params.t !== null || params.preview;
-  let gold = params.gold;
-  if (!gold && !testing) {
-    const seen = store.get(STORAGE.gold) === '1';
-    gold = Math.random() < GOLD.chance || (!seen && visits >= GOLD.guaranteeBy);
-    if (gold) store.set(STORAGE.gold, '1');
-  }
-
-  let mode = 'full';
-  if (!params.full && !params.preview && (reduced || visits > 1)) mode = 'wake';
-  return { seed, visits, gold, mode, reduced };
-}
-
-// Recheck her clock every minute; crossfade the sky when the time of day turns.
-function watchClock(app, rebuild) {
-  let last = performance.now();
-  return () => {
-    if (app.params.tod) return;
-    const now = performance.now();
-    if (now - last < TOD.recheckS * 1000) return;
-    last = now;
-    const tod = todFromHour(new Date().getHours());
-    if (tod === app.tod) return;
-    app.bgPrev = app.bg;
-    app.bgMix = 0;
-    app.tod = tod;
-    app.theme = buildTheme(tod);
-    setThemeColor(app.theme.themeColor);
-    rebuild();
-  };
-}
-
-function setThemeColor(color) {
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', color);
-}
-
-return { store, bootLife, watchClock, setThemeColor };
 })();
 __m["audio.js"] = (() => {
 // Web Audio only, no files, off until she turns it on. Bells are a sine plus an
@@ -4809,7 +5019,7 @@ return { makeStats, recordFrame, frameSummary, resetStats, installTestHooks };
 })();
 __m["main.js"] = (() => {
 // Boot, layout, and the render loop.
-const { LAYOUT, PREVIEW, TUNE } = __m["config.js"];
+const { LAYOUT, PREVIEW, TUNE, BEATS } = __m["config.js"];
 const { readParams } = __m["params.js"];
 const { makeRng } = __m["util.js"];
 const { makeClock, tick, pauseClock, resumeClock } = __m["clock.js"];
@@ -4819,7 +5029,8 @@ const { buildBackground, buildStars, buildMoon } = __m["sky.js"];
 const { buildGrass } = __m["grass.js"];
 const { buildLeafSprite, buildFeatherSprite } = __m["stem.js"];
 const { createFlowers, placeFlowers, stemBases, updateFlowers, drawRoseLayer, drawCosmosLayer, drawFrontLayer, drawMeadowLayer, headBoxes } = __m["flowers.js"];
-const { createMeadow } = __m["garden.js"];
+const { createMeadow, createDaily, loadPlanted, regrowPlanted, drawNewSparkle } = __m["garden.js"];
+const { drawHint, hintPose } = __m["hint.js"];
 const { buildFront, drawFront } = __m["front.js"];
 const { buildCherry, cherryTimes, updateCherry, drawCherry, blossomBoxes } = __m["cherry.js"];
 const { buildPetals, drawPetals } = __m["petals.js"];
@@ -4848,6 +5059,7 @@ const seed = life.seed;
 
 const app = {
   params, canvas, ctx, seed, reduced: life.reduced, visits: life.visits,
+  days: life.days, newToday: life.newToday, heartFound: life.heartFound,
   dpr: 1, L: null, tod: null, theme: null,
   live: makeRng(seed ^ 0x11fe),
   clock: makeClock(params.t),
@@ -4869,6 +5081,8 @@ app.theme = buildTheme(app.tod);
 setThemeColor(app.theme.themeColor);
 app.flowers = createFlowers(app);
 createMeadow(app);
+createDaily(app);
+loadPlanted(app);
 app.fantasy = createFantasy(app);
 app.audio = makeAudio(app);
 
@@ -4890,7 +5104,7 @@ function rebuildWorld() {
   layoutHeart(app);
 }
 
-// Replay returns to the intro and clears planted flowers.
+// Replay returns to the intro; her planted flowers grow back with everything else.
 function replay() {
   app.show.mode = app.reduced ? 'wake' : 'full';
   app.show.start = app.clock.T;
@@ -4898,7 +5112,7 @@ function replay() {
   app.prevS = 0;
   app.state = 'INTRO';
   app.introDone = false;
-  app.flowers.planted.length = 0;
+  regrowPlanted(app, app.clock.T + BEATS.wildStems.start);
   app.fx.hearts.length = 0;
   app.fx.petals.length = 0;
   app.fx.shooting.length = 0;
@@ -4937,6 +5151,8 @@ addLayer('mid', drawRoseLayer);
 addLayer('mid', drawFrontLayer);
 addLayer('mid', drawPetals);
 addLayer('front', drawFront);
+addLayer('front', drawHint);
+addLayer('front', drawNewSparkle);
 addLayer('front', drawButterflies);
 addLayer('front', drawHearts);
 addLayer('front', drawHeartSecret);
@@ -4988,6 +5204,9 @@ installTestHooks(app, {
   get sound() { return app.audio.on; },
   get buttons() { return app.ui.shown; },
   get visits() { return app.visits; },
+  get garden() { const fl = app.flowers; return { days: fl.daily.length, mid: fl.daily.filter((f) => !f.far).length, far: fl.daily.filter((f) => f.far).length, meadow: fl.meadow.length, newToday: fl.daily.some((f) => f.isNew) }; },
+  get heartFound() { return app.heartFound; },
+  get hint() { return hintPose(app); },
   get tune() { return { ...TUNE }; },
   replay: () => replay(),
   novaLength: NOVA_LENGTH,

@@ -17,6 +17,7 @@ export function readParams(search) {
     preview,
     t: num('t'),
     seed: num('seed'),
+    day: num('day'),
     test: q.has('test'),
     tune: q.has('tune'),
   };

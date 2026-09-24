@@ -1,7 +1,7 @@
 // The beat sheet for the field: stem growth and blooms as pure functions of
 // show time, for the full show and the five second wake up.
 import { BEATS, WAKE, TUNE, MOTION } from './config.js';
-import { SLEEP } from './config-garden.js';
+import { SLEEP, GARDEN } from './config-garden.js';
 import { win, lerp, smooth, easeInOutSine, easeOutBack, cubicBezier } from './util.js';
 
 let curve = null;
@@ -49,6 +49,17 @@ export function flowerTimes(app) {
       f.grow = 1;
       f.open = lerp(WAKE.startOpen, 1, popEase(win(s, wakeStart(f.order, nm), WAKE.dur * f.bloomMul)));
     }
+    // the garden: everything reopens, except today's new flower, which grows in
+    const nd = fl.daily.length;
+    for (const f of fl.daily) {
+      if (f.isNew) {
+        f.grow = easeInOutSine(win(s, GARDEN.grow[0], GARDEN.grow[1]));
+        f.open = bloom(win(s, GARDEN.bloom[0], GARDEN.bloom[1]));
+      } else {
+        f.grow = 1;
+        f.open = lerp(WAKE.startOpen, 1, bloom(win(s, wakeStart(f.order, nd), WAKE.dur * f.bloomMul)));
+      }
+    }
   } else {
     const rs = BEATS.roseStems, ws = BEATS.wildStems, wp = BEATS.wildPop;
     for (const f of fl.roses) {
@@ -72,11 +83,18 @@ export function flowerTimes(app) {
       f.grow = easeInOutSine(win(s, fs.start + j * fs.stagger, fs.dur));
       f.open = bloom(win(s, fb.start + j * fb.stagger, fb.dur * f.bloomMul));
     }
+    const nd = Math.max(1, fl.daily.length);
+    for (const f of fl.daily) {
+      const k = f.order / nd;
+      f.grow = easeInOutSine(win(s, GARDEN.fullGrow[0] + k * GARDEN.fullGrow[1], ws.dur));
+      f.open = bloom(win(s, GARDEN.fullPop[0] + k * GARDEN.fullPop[1], fb.dur * f.bloomMul));
+    }
   }
   for (const f of fl.roses) f.openEff = f.open * dim;
   for (const f of fl.wilds) f.openEff = f.open * dim;
   for (const f of fl.favs) f.openEff = f.open * dim;
   for (const f of fl.meadow) f.openEff = f.open * dim;
+  for (const f of fl.daily) f.openEff = f.open * dim;
   app.openDim = dim;
   app.fantasyDim = lerp(1, SLEEP.fantasyFold, app.dimLevel);
 }

@@ -11,6 +11,8 @@ import { spawnShootingStar } from './sky.js';
 import { spawnHearts } from './hearts.js';
 import { buildGrass } from './grass.js';
 import { pressHeart, cancelHeart, startNova } from './heart.js';
+import { savePlanted } from './garden.js';
+import { markHeartFound } from './life.js';
 
 export function makeInput() {
   return {
@@ -79,6 +81,7 @@ export function resolveTap(app, x, y) {
   }
   if (st === 'LIVE') {
     plant(app, x, y);
+    savePlanted(app);
     app.grass = buildGrass(app, stemBases(app).concat(app.fantasy.x));
     sound(app, 'plant');
   }
@@ -141,6 +144,7 @@ function onUp(app, e) {
   if (p.fantasy && (h.phase === 'press' || h.phase === 'charging')) {
     if (h.phase === 'charging' && h.full) {
       startNova(app);
+      markHeartFound(app);
       sound(app, 'nova');
       return;
     }

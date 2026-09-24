@@ -67,14 +67,23 @@ export const CUP = {
 // Distant flowers near the hills. She starts with a few; the daily ones join them.
 export const MEADOW = {
   base: 16, band: [0.792, 0.836], lift: [0.018, 0.042], rU: [0.1, 0.17], haze: 0.36, air: 0.5,
+  species: ['daisy', 'cosmos', 'wild'],
   stemW: 0.018, swayMul: 0.35, tufts: 3, tuftU: [0.06, 0.14], tuftW: 0.025, tuftLean: 0.4, edge: 0.03, jitter: 0.4,
 };
 
 // One new flower for every calendar day since her first visit.
 export const GARDEN = {
-  maxDaily: 120, midCount: 8, midY: [0.725, 0.765], midJitter: 0.25,
-  grow: [2, 1.4], bloom: [3.4, 1.2], sparkleU: 0.9, sparkleDur: 1.3, sparkleAlpha: 0.32,
-  dayMs: 86400000,
+  maxDaily: 120, species: ['daisy', 'cosmos'], dayHash: 0x9e3779b1, dayMs: 86400000,
+  // the first eight days fill these gaps in the middle of the field, alternating sides
+  midSlots: [[0.12, 0.66], [0.88, 0.665], [0.31, 0.7], [0.68, 0.705], [0.06, 0.745], [0.94, 0.74], [0.37, 0.765], [0.62, 0.76]],
+  midJitter: 0.02, midJitterY: 0.008, farStart: 0.5, golden: 0.6180339887,
+  // the newest flower on a new day: stem [start, dur], bloom [start, dur], seconds into the wake up
+  grow: [2, 1.4], bloom: [3.4, 1.2],
+  // in a full show the whole garden grows inside these windows [start, spread]
+  fullGrow: [3.6, 1.8], fullPop: [5.9, 1.6],
+  sparkleU: 0.9, sparkleDur: 1.3, sparkleAlpha: 0.5, sparkleW: 1.5, sparkleSquash: 0.5,
+  glints: 4, glintSize: 0.35, glintSpin: 1.2, glintBoost: 1.6,
+  savePrecision: 10000, regrowStagger: 0.09,
 };
 
 // Foreground framing: dark fronds low in the corners and soft out of focus lights.
@@ -94,6 +103,10 @@ export const SLEEP = {
   timerS: 600, lowPowerS: 30,
 };
 
-export const HINT = { startS: 8, cycle: 45, flyIn: 2.6, stay: 5.2, flyOut: 2.2, fromU: 3.5, sizeU: 0.24, perch: [0.18, -0.12] };
+// A firefly that settles on the fantasy flower and pulses on the beat, until she finds the heart.
+export const HINT = {
+  startS: 8, cycle: 45, flyIn: 2.6, stay: 5.2, flyOut: 2.2, fade: 0.6, fromU: 3.5, fromDrop: 0.35, wobble: 0.5, arc: 0.6,
+  sizeU: 0.17, halo: 2.8, haloAlpha: 0.5, pulseMin: 0.5, pulseDecay: 4, perch: [0.86, -0.66],
+};
 
 export const AUTOHEART = { charge: 19.37, giveUp: 21 };

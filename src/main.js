@@ -1,5 +1,5 @@
 // Boot, layout, and the render loop.
-import { LAYOUT, PREVIEW, TUNE } from './config.js';
+import { LAYOUT, PREVIEW, TUNE, BEATS } from './config.js';
 import { readParams } from './params.js';
 import { makeRng } from './util.js';
 import { makeClock, tick, pauseClock, resumeClock } from './clock.js';
@@ -9,7 +9,8 @@ import { buildBackground, buildStars, buildMoon } from './sky.js';
 import { buildGrass } from './grass.js';
 import { buildLeafSprite, buildFeatherSprite } from './stem.js';
 import { createFlowers, placeFlowers, stemBases, updateFlowers, drawRoseLayer, drawCosmosLayer, drawFrontLayer, drawMeadowLayer, headBoxes } from './flowers.js';
-import { createMeadow } from './garden.js';
+import { createMeadow, createDaily, loadPlanted, regrowPlanted, drawNewSparkle } from './garden.js';
+import { drawHint, hintPose } from './hint.js';
 import { buildFront, drawFront } from './front.js';
 import { buildCherry, cherryTimes, updateCherry, drawCherry, blossomBoxes } from './cherry.js';
 import { buildPetals, drawPetals } from './petals.js';
@@ -38,6 +39,7 @@ const seed = life.seed;
 
 const app = {
   params, canvas, ctx, seed, reduced: life.reduced, visits: life.visits,
+  days: life.days, newToday: life.newToday, heartFound: life.heartFound,
   dpr: 1, L: null, tod: null, theme: null,
   live: makeRng(seed ^ 0x11fe),
   clock: makeClock(params.t),
@@ -59,6 +61,8 @@ app.theme = buildTheme(app.tod);
 setThemeColor(app.theme.themeColor);
 app.flowers = createFlowers(app);
 createMeadow(app);
+createDaily(app);
+loadPlanted(app);
 app.fantasy = createFantasy(app);
 app.audio = makeAudio(app);
 
@@ -80,7 +84,7 @@ function rebuildWorld() {
   layoutHeart(app);
 }
 
-// Replay returns to the intro and clears planted flowers.
+// Replay returns to the intro; her planted flowers grow back with everything else.
 function replay() {
   app.show.mode = app.reduced ? 'wake' : 'full';
   app.show.start = app.clock.T;
@@ -88,7 +92,7 @@ function replay() {
   app.prevS = 0;
   app.state = 'INTRO';
   app.introDone = false;
-  app.flowers.planted.length = 0;
+  regrowPlanted(app, app.clock.T + BEATS.wildStems.start);
   app.fx.hearts.length = 0;
   app.fx.petals.length = 0;
   app.fx.shooting.length = 0;
@@ -127,6 +131,8 @@ addLayer('mid', drawRoseLayer);
 addLayer('mid', drawFrontLayer);
 addLayer('mid', drawPetals);
 addLayer('front', drawFront);
+addLayer('front', drawHint);
+addLayer('front', drawNewSparkle);
 addLayer('front', drawButterflies);
 addLayer('front', drawHearts);
 addLayer('front', drawHeartSecret);
@@ -178,6 +184,9 @@ installTestHooks(app, {
   get sound() { return app.audio.on; },
   get buttons() { return app.ui.shown; },
   get visits() { return app.visits; },
+  get garden() { const fl = app.flowers; return { days: fl.daily.length, mid: fl.daily.filter((f) => !f.far).length, far: fl.daily.filter((f) => f.far).length, meadow: fl.meadow.length, newToday: fl.daily.some((f) => f.isNew) }; },
+  get heartFound() { return app.heartFound; },
+  get hint() { return hintPose(app); },
   get tune() { return { ...TUNE }; },
   replay: () => replay(),
   novaLength: NOVA_LENGTH,

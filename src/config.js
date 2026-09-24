@@ -379,6 +379,9 @@ export const BUTTERFLY = {
   wander: { ax: 0.42, mixX: [0.65, 0.35], mulX: 2.3, mixY: [0.6, 0.4], mulY: 1.7, jitter: 0.15 },
 };
 
-export const STORAGE = { visits: 'ff.visits', gold: 'ff.goldSeen', seed: 'ff.seed' };
+export const STORAGE = {
+  visits: 'ff.visits', gold: 'ff.goldSeen', seed: 'ff.seed', firstDay: 'ff.firstDay', lastDay: 'ff.lastDay',
+  planted: 'ff.planted', heartFound: 'ff.heartFound', sound: 'ff.sound', soundUsed: 'ff.soundUsed',
+};
 
 export const PERF = { samples: 1200 };
