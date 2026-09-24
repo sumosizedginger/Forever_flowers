@@ -110,3 +110,12 @@ export const HINT = {
 };
 
 export const AUTOHEART = { charge: 19.37, giveUp: 21 };
+
+// Wide screens: groups of flowers on each side of the field, as many as the
+// width allows, and small flowers kept clear of the tall stems.
+export const SIDE = {
+  perSide: 9, species: ['cosmos', 'daisy', 'wild', 'daisy', 'cosmos', 'wild', 'daisy', 'wild', 'cosmos'],
+  minU: 1.2, marginU: 0.35, jitter: 0.3, orderMod: 10, densityU: 1.05,
+  fy: { cosmos: [0.56, 0.66], daisy: [0.66, 0.75], wild: [0.745, 0.815] },
+};
+export const CLEAR = { gapU: 0.42, gapR: 1.05, passes: 2 };

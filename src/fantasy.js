@@ -48,7 +48,7 @@ export function createFantasy(app) {
   const s = MOTION.sway;
   const F = FANTASY;
   const f = {
-    kind: 'fantasy', idx: 0, size: 1, bend: rng.range(-1, 1) * F.stillness,
+    kind: 'fantasy', idx: 0, size: 1, bend: rng.range(-1, 1) * F.stillness, wave: rng.range(-1, 1) * F.stillness,
     tilt: 0, swayHz: rng.range(s.hz[0], s.hz[1]), swayAmp: rng.range(s.amp[0], s.amp[1]),
     phaseRand: rng.range(0, s.phaseRand), spring: { x: 0, v: 0, dir: 1 }, leanPx: 0,
     grow: 0, swell: 0, rings: GLASS.rings.map(() => 0), halo: 0, core: 0, scale: 1, ang: 0,
@@ -137,7 +137,7 @@ function drawStem(ctx, app, f) {
   const U = app.L.U;
   const q = f.stem;
   const [w0, w1] = SHAPE.stemTaper.fantasy;
-  fillTapered(ctx, [f], w0 * U, w1 * U, app.theme.stem, mix(app.theme.stem, app.theme.moonRim, SHAPE.stemRim.mix));
+  fillTapered(ctx, [f], w0 * U, w1 * U, app.theme.stem, mix(app.theme.stem, app.light.rimColor, SHAPE.stemRim.mix), Math.sign(app.light.dir[0]) || 1);
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(q[0], q[1]);

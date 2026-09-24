@@ -1,9 +1,8 @@
 // Stems are cubic curves that grow from the base and bend with sway, lean
 // and gust. Leaves are one cached sprite drawn with a transform as they unfurl.
 import { SHAPE, MOTION, TUNE } from './config.js';
-import { FAVS } from './config-garden.js';
 import { rgba, darker, clamp01, lerp, easeOutBack } from './util.js';
-import { makeCanvas, place, resetTransform } from './sprites.js';
+import { place, resetTransform } from './sprites.js';
 
 // Compute the stem for displacement D (px at the head) and growth g.
 // Writes f.full (the whole curve) and f.stem (the grown part), and the head pose.
@@ -13,8 +12,9 @@ export function shapeStem(f, D, g) {
   const rest = f.bend * h * S.restLean;
   const p = f.full || (f.full = new Float32Array(8));
   p[0] = x0; p[1] = y0;
-  p[2] = x0 + f.bend * h * S.c1Bend + D * S.c1Follow; p[3] = y0 - h * S.c1Y;
-  p[4] = x0 + rest * S.c2Rest + D * S.c2Follow; p[5] = y0 - h * S.c2Y;
+  const wave = (f.wave || 0) * h;
+  p[2] = x0 + f.bend * h * S.c1Bend + wave * S.waveC1 + D * S.c1Follow; p[3] = y0 - h * S.c1Y;
+  p[4] = x0 + rest * S.c2Rest - wave * S.waveC2 + D * S.c2Follow; p[5] = y0 - h * S.c2Y;
   p[6] = x0 + rest + D; p[7] = y0 - h + ((D * D) / (2 * h)) * S.arcDrop;
   const q = f.stem || (f.stem = new Float32Array(8));
   const u = 1 - g;
@@ -53,7 +53,7 @@ function stemPath(ctx, list, dx) {
   return any;
 }
 
-// A thin line of moonlight down the right edge of each stem.
+// A thin line of light down the edge of each stem that faces the moon or sun.
 function rimLine(ctx, list, width, color, dx) {
   const R = SHAPE.stemRim;
   ctx.strokeStyle = rgba(color, R.alpha);
@@ -63,19 +63,19 @@ function rimLine(ctx, list, width, color, dx) {
   if (stemPath(ctx, list, dx)) ctx.stroke();
 }
 
-// All stems of one width and color in a single stroke, with an optional moonlit edge.
-export function strokeStems(ctx, list, width, color, rim) {
+// All stems of one width and color in a single stroke, with an optional lit edge on side +1 or -1.
+export function strokeStems(ctx, list, width, color, rim, side) {
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
   ctx.lineCap = 'round';
   ctx.beginPath();
   if (!stemPath(ctx, list, 0)) return;
   ctx.stroke();
-  if (rim) rimLine(ctx, list, width, rim, width * SHAPE.stemRim.dx);
+  if (rim) rimLine(ctx, list, width, rim, width * SHAPE.stemRim.dx * (side || 1));
 }
 
 // Thicker stems that taper from base to head, filled as one path.
-export function fillTapered(ctx, list, w0, w1, color, rim) {
+export function fillTapered(ctx, list, w0, w1, color, rim, side) {
   const n = SHAPE.stemTaper.steps;
   ctx.fillStyle = color;
   ctx.beginPath();
@@ -97,7 +97,7 @@ export function fillTapered(ctx, list, w0, w1, color, rim) {
   }
   if (!any) return;
   ctx.fill();
-  if (rim) rimLine(ctx, list, w1, rim, (w0 + w1) * SHAPE.stemRim.dx / 2);
+  if (rim) rimLine(ctx, list, w1, rim, ((w0 + w1) * SHAPE.stemRim.dx * (side || 1)) / 2);
 }
 
 export function makeLeaves(rng, spec, U) {
@@ -110,61 +110,6 @@ export function makeLeaves(rng, spec, U) {
     side = -side;
   }
   return leaves;
-}
-
-export function buildLeafSprite(theme) {
-  const L = SHAPE.leaf;
-  const [w, h] = L.sprite;
-  const c = makeCanvas(w, h);
-  const g = c.getContext('2d');
-  const [a, b, cc, d] = L.ctrl;
-  const m = w / 2;
-  const grad = g.createLinearGradient(0, h, 0, 0);
-  grad.addColorStop(0, theme.leaf[0]);
-  grad.addColorStop(1, theme.leaf[1]);
-  g.fillStyle = grad;
-  g.beginPath();
-  g.moveTo(m, h);
-  g.bezierCurveTo(m + m * a, h * b, m + m * cc, h * d, m, 0);
-  g.bezierCurveTo(m - m * cc, h * d, m - m * a, h * b, m, h);
-  g.fill();
-  g.strokeStyle = rgba(darker(theme.leaf[0], L.ribDark), L.ribAlpha);
-  g.lineWidth = L.ribW;
-  g.beginPath();
-  g.moveTo(m, h);
-  g.lineTo(m, h * (1 - L.rib));
-  g.stroke();
-  return c;
-}
-
-// Cosmos leaves: a thin midrib with fine threadlike leaflets, like a feather.
-export function buildFeatherSprite(theme) {
-  const F = FAVS.feather;
-  const [w, h] = F.sprite;
-  const c = makeCanvas(w, h);
-  const g = c.getContext('2d');
-  const m = w / 2;
-  const bow = w * F.droop;
-  g.strokeStyle = theme.feather;
-  g.lineCap = 'round';
-  g.lineWidth = F.rachisW;
-  g.beginPath();
-  g.moveTo(m, h);
-  g.quadraticCurveTo(m + bow, h / 2, m, 0);
-  g.stroke();
-  g.lineWidth = F.leafletW;
-  g.beginPath();
-  for (let i = 1; i <= F.leaflets; i++) {
-    const t = i / (F.leaflets + 1);
-    const x = m + 2 * t * (1 - t) * bow, y = h * (1 - t);
-    const len = m * F.leafletLen * (1 - t * F.taper);
-    for (const s of [-1, 1]) {
-      g.moveTo(x, y);
-      g.quadraticCurveTo(x + s * len * F.curl[0], y - len * F.curl[1], x + s * len, y - len * F.curl[2]);
-    }
-  }
-  g.stroke();
-  return c;
 }
 
 // Leaves along the full stem, unfurling as growth passes their attach point.

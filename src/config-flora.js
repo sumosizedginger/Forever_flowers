@@ -42,15 +42,15 @@ export const ROSE3D = {
   ring: [0.02, 0.2], lift: [0.2, 0.02],
   len: [0.34, 0.82], lenPow: 0.75, budLen: 0.82,
   wid: [0.24, 0.52],
-  open: { bud: [0.03, 0.26], full: [0.1, 1.18], pow: 1.35 },
-  curl: [-0.2, 0.62], curlPow: 2, curlShape: 2.2,
+  open: { bud: [0.03, 0.26], full: [0.1, 1.06], pow: 1.35 },
+  curl: [-0.2, 0.4], curlPow: 2, curlShape: 2.2,
   cup: { base: [1.7, 1.0], bud: 1.5, tip: [1.1, -0.75] },
   stagger: 0.42,
   shape: { base: 0.3, peak: 0.6, rise: 0.75, blunt: 0.45, tipW: 0 },
   jitter: { az: 0.2, len: 0.07, open: 0.07 },
   strips: [2, 3],
   ao: [0.5, 0.92],
-  shade: { deep: 0.42, edge: 0.3, back: 0.2, lip: 0.28, edgeTo: '#FFF1E4', goldDeep: 0.3 },
+  shade: { deep: 0.42, edge: 0.3, back: 0.1, lip: 0.28, edgeTo: '#FFF1E4', goldDeep: 0.3 },
   lip: 0.5, lipW: 0.016, lipFrom: 0.66, contact: 0.26, shadow: 0.62,
   sepals: {
     n: 5, len: 0.6, wid: 0.075, open: [0.28, 2.35], curl: [0, 0.7], z: -0.03, ring: 0.08, cup: [0.5, 0.2], ao: 0.8, backDark: 0.35, bias: -0.6,
@@ -129,4 +129,22 @@ export const GLASS = {
   leadSamples: 6, paneSamples: 3, ribFrom: 0.04, ribTo: 0.94,
   streak: [0.22, 0.66], streakV: 0.5, streakW: 0.018, streakAlpha: 0.28,
   depthAt: 0.55, step: 1 / 40, settle: 2, pad: 0.06,
+};
+
+// Leaves. Rose leaflets are [place along the stalk 0 base to 1 tip, angle off
+// the stalk, length as a fraction of sprite height, half width of sprite width].
+export const LEAVES = {
+  ovate: 0.65, round: 1.1, ribAt: 0.5, ribLift: 0.55, rimMix: 0.18, ribAlpha: 0.45, ribW: 1.6, ribTo: 0.92,
+  veins: 3, veinReach: 0.7, veinRise: 0.12,
+  rose: {
+    sprite: [112, 168], bow: 0.03, top: 0.06, stalkMix: 0.3, stalkW: 3, stalkSteps: 8, teeth: 7, tooth: 0.1,
+    leaflets: [[0.98, 0, 0.34, 0.15], [0.64, 0.78, 0.3, 0.13], [0.32, 0.86, 0.26, 0.12]],
+  },
+  feather: {
+    sprite: [104, 168], bow: 0.05, stalkMix: 0.4, stalkW: 2.4, steps: 10, rimMix: 0.15, alpha: 0.9,
+    pinnae: 8, len: 0.85, taper: 0.5, rise: 0.55, ctrl: [0.45, 0.4], w1: 1.8, w2: 1.3,
+    forks: [0.35, 0.65], forkLen: 0.32, forkCtrl: 0.4, forkRise: 0.5, forkUp: 0.8,
+  },
+  plain: { sprite: [48, 128], ctrl: [0.92, 0.78, 0.83, 0.23], rib: 0.85 },
+  blade: { sprite: [36, 128], ctrl: [0.9, 0.8, 0.7, 0.2], rib: 0.9 },
 };

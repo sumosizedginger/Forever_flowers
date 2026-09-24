@@ -44,6 +44,11 @@ export function flowerTimes(app) {
       f.grow = 1;
       f.open = lerp(WAKE.startOpen, 1, bloom(win(s, wakeStart(f.order, nf), WAKE.dur * f.bloomMul)));
     }
+    const ns = fl.side.length;
+    for (const f of fl.side) {
+      f.grow = 1;
+      f.open = lerp(WAKE.startOpen, 1, bloom(win(s, wakeStart(f.order, ns), WAKE.dur * f.bloomMul)));
+    }
     const nm = fl.meadow.length;
     for (const f of fl.meadow) {
       f.grow = 1;
@@ -83,6 +88,16 @@ export function flowerTimes(app) {
       f.grow = easeInOutSine(win(s, fs.start + j * fs.stagger, fs.dur));
       f.open = bloom(win(s, fb.start + j * fb.stagger, fb.dur * f.bloomMul));
     }
+    for (const f of fl.side) {
+      const j = f.order;
+      if (f.species === 'wild') {
+        f.grow = easeInOutSine(win(s, ws.start + j * ws.stagger, ws.dur));
+        f.open = popEase(win(s, wp.start + j * wp.stagger, wp.dur * f.bloomMul));
+      } else {
+        f.grow = easeInOutSine(win(s, fs.start + j * fs.stagger, fs.dur));
+        f.open = bloom(win(s, fb.start + j * fb.stagger, fb.dur * f.bloomMul));
+      }
+    }
     const nd = Math.max(1, fl.daily.length);
     for (const f of fl.daily) {
       const k = f.order / nd;
@@ -93,6 +108,7 @@ export function flowerTimes(app) {
   for (const f of fl.roses) f.openEff = f.open * dim;
   for (const f of fl.wilds) f.openEff = f.open * dim;
   for (const f of fl.favs) f.openEff = f.open * dim;
+  for (const f of fl.side) f.openEff = f.open * dim;
   for (const f of fl.meadow) f.openEff = f.open * dim;
   for (const f of fl.daily) f.openEff = f.open * dim;
   app.openDim = dim;

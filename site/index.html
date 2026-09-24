@@ -371,12 +371,12 @@ const COUNTS = {
 const SHAPE = {
   stem: {
     restLean: 0.06, c1Bend: 0.09, c1Follow: 0.15, c1Y: 0.34, c2Rest: 0.55, c2Follow: 0.58, c2Y: 0.7,
-    arcDrop: 0.9, headFollow: 0.6, budScale: 0.55, lineRatio: 1,
+    arcDrop: 0.9, headFollow: 0.6, budScale: 0.55, lineRatio: 1, waveC1: 0.1, waveC2: 0.07,
   },
   stemRim: { alpha: 0.32, w: 0.4, dx: 0.28, mix: 0.4 },
   stemTaper: { steps: 10, rose: [0.095, 0.05], fantasy: [0.15, 0.08] },
   leaf: {
-    rose: { count: [3, 4], at: [0.18, 0.66], lenU: [0.5, 0.72] },
+    rose: { count: [3, 4], at: [0.16, 0.68], lenU: [0.66, 0.9] },
     wild: { count: [0, 1], at: [0.25, 0.5], lenU: [0.24, 0.36] },
     fantasy: { count: [3, 3], at: [0.16, 0.52], lenU: [0.8, 1.05] },
     unfurlSpan: 0.28, fold: 0.12, open: [0.7, 1.05],
@@ -861,7 +861,16 @@ const HINT = {
 
 const AUTOHEART = { charge: 19.37, giveUp: 21 };
 
-return { FAV_PALETTE, FAVS, CUP, MEADOW, GARDEN, FRONT, LIGHT, SLEEP, HINT, AUTOHEART };
+// Wide screens: groups of flowers on each side of the field, as many as the
+// width allows, and small flowers kept clear of the tall stems.
+const SIDE = {
+  perSide: 9, species: ['cosmos', 'daisy', 'wild', 'daisy', 'cosmos', 'wild', 'daisy', 'wild', 'cosmos'],
+  minU: 1.2, marginU: 0.35, jitter: 0.3, orderMod: 10, densityU: 1.05,
+  fy: { cosmos: [0.56, 0.66], daisy: [0.66, 0.75], wild: [0.745, 0.815] },
+};
+const CLEAR = { gapU: 0.42, gapR: 1.05, passes: 2 };
+
+return { FAV_PALETTE, FAVS, CUP, MEADOW, GARDEN, FRONT, LIGHT, SLEEP, HINT, AUTOHEART, SIDE, CLEAR };
 })();
 __m["theme.js"] = (() => {
 // Time of day. Night is the hero palette; the others tint the field toward
@@ -1373,199 +1382,6 @@ function drawGrass(ctx, app) {
 
 return { buildGrass, drawGrass };
 })();
-__m["stem.js"] = (() => {
-// Stems are cubic curves that grow from the base and bend with sway, lean
-// and gust. Leaves are one cached sprite drawn with a transform as they unfurl.
-const { SHAPE, MOTION, TUNE } = __m["config.js"];
-const { FAVS } = __m["config-garden.js"];
-const { rgba, darker, clamp01, lerp, easeOutBack } = __m["util.js"];
-const { makeCanvas, place, resetTransform } = __m["sprites.js"];
-
-// Compute the stem for displacement D (px at the head) and growth g.
-// Writes f.full (the whole curve) and f.stem (the grown part), and the head pose.
-function shapeStem(f, D, g) {
-  const S = SHAPE.stem;
-  const h = f.h, x0 = f.x, y0 = f.baseY;
-  const rest = f.bend * h * S.restLean;
-  const p = f.full || (f.full = new Float32Array(8));
-  p[0] = x0; p[1] = y0;
-  p[2] = x0 + f.bend * h * S.c1Bend + D * S.c1Follow; p[3] = y0 - h * S.c1Y;
-  p[4] = x0 + rest * S.c2Rest + D * S.c2Follow; p[5] = y0 - h * S.c2Y;
-  p[6] = x0 + rest + D; p[7] = y0 - h + ((D * D) / (2 * h)) * S.arcDrop;
-  const q = f.stem || (f.stem = new Float32Array(8));
-  const u = 1 - g;
-  const ax = p[0] + (p[2] - p[0]) * g, ay = p[1] + (p[3] - p[1]) * g;
-  const bx = p[2] + (p[4] - p[2]) * g, by = p[3] + (p[5] - p[3]) * g;
-  const cx = p[4] + (p[6] - p[4]) * g, cy = p[5] + (p[7] - p[5]) * g;
-  const dx = ax + (bx - ax) * g, dy = ay + (by - ay) * g;
-  const ex = bx + (cx - bx) * g, ey = by + (cy - by) * g;
-  q[0] = p[0]; q[1] = p[1]; q[2] = ax; q[3] = ay; q[4] = dx; q[5] = dy;
-  q[6] = dx + (ex - dx) * g; q[7] = dy + (ey - dy) * g;
-  // tangent at g on the full curve
-  const tx = 3 * (u * u * (p[2] - p[0]) + 2 * u * g * (p[4] - p[2]) + g * g * (p[6] - p[4]));
-  const ty = 3 * (u * u * (p[3] - p[1]) + 2 * u * g * (p[5] - p[3]) + g * g * (p[7] - p[5]));
-  f.hx = q[6];
-  f.hy = q[7];
-  f.stemAng = Math.atan2(tx, -ty);
-}
-
-function pointAt(p, t) {
-  const u = 1 - t;
-  const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
-  const tx = 3 * (u * u * (p[2] - p[0]) + 2 * u * t * (p[4] - p[2]) + t * t * (p[6] - p[4]));
-  const ty = 3 * (u * u * (p[3] - p[1]) + 2 * u * t * (p[5] - p[3]) + t * t * (p[7] - p[5]));
-  return [a * p[0] + b * p[2] + c * p[4] + d * p[6], a * p[1] + b * p[3] + c * p[5] + d * p[7], Math.atan2(tx, -ty)];
-}
-
-function stemPath(ctx, list, dx) {
-  let any = false;
-  for (const f of list) {
-    if (f.grow <= 0 || f.gone) continue;
-    const q = f.stem;
-    ctx.moveTo(q[0] + dx, q[1]);
-    ctx.bezierCurveTo(q[2] + dx, q[3], q[4] + dx, q[5], q[6] + dx, q[7]);
-    any = true;
-  }
-  return any;
-}
-
-// A thin line of moonlight down the right edge of each stem.
-function rimLine(ctx, list, width, color, dx) {
-  const R = SHAPE.stemRim;
-  ctx.strokeStyle = rgba(color, R.alpha);
-  ctx.lineWidth = width * R.w;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  if (stemPath(ctx, list, dx)) ctx.stroke();
-}
-
-// All stems of one width and color in a single stroke, with an optional moonlit edge.
-function strokeStems(ctx, list, width, color, rim) {
-  ctx.strokeStyle = color;
-  ctx.lineWidth = width;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  if (!stemPath(ctx, list, 0)) return;
-  ctx.stroke();
-  if (rim) rimLine(ctx, list, width, rim, width * SHAPE.stemRim.dx);
-}
-
-// Thicker stems that taper from base to head, filled as one path.
-function fillTapered(ctx, list, w0, w1, color, rim) {
-  const n = SHAPE.stemTaper.steps;
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  let any = false;
-  for (const f of list) {
-    if (f.grow <= 0 || f.gone) continue;
-    const q = f.stem;
-    const side = [];
-    for (let i = 0; i <= n; i++) {
-      const [x, y, ang] = pointAt(q, i / n);
-      const w = lerp(w0, lerp(w0, w1, f.grow), i / n) / 2;
-      side.push([x, y, Math.cos(ang) * w, Math.sin(ang) * w]);
-      if (i === 0) ctx.moveTo(x - side[0][2], y - side[0][3]);
-      else ctx.lineTo(x - side[i][2], y - side[i][3]);
-    }
-    for (let i = n; i >= 0; i--) ctx.lineTo(side[i][0] + side[i][2], side[i][1] + side[i][3]);
-    ctx.closePath();
-    any = true;
-  }
-  if (!any) return;
-  ctx.fill();
-  if (rim) rimLine(ctx, list, w1, rim, (w0 + w1) * SHAPE.stemRim.dx / 2);
-}
-
-function makeLeaves(rng, spec, U) {
-  const n = rng.int(spec.count[0], spec.count[1]);
-  const leaves = [];
-  let side = rng.sign();
-  for (let i = 0; i < n; i++) {
-    const at = lerp(spec.at[0], spec.at[1], n === 1 ? rng.next() : i / (n - 1));
-    leaves.push({ at, side, len: rng.range(spec.lenU[0], spec.lenU[1]), open: rng.range(SHAPE.leaf.open[0], SHAPE.leaf.open[1]) });
-    side = -side;
-  }
-  return leaves;
-}
-
-function buildLeafSprite(theme) {
-  const L = SHAPE.leaf;
-  const [w, h] = L.sprite;
-  const c = makeCanvas(w, h);
-  const g = c.getContext('2d');
-  const [a, b, cc, d] = L.ctrl;
-  const m = w / 2;
-  const grad = g.createLinearGradient(0, h, 0, 0);
-  grad.addColorStop(0, theme.leaf[0]);
-  grad.addColorStop(1, theme.leaf[1]);
-  g.fillStyle = grad;
-  g.beginPath();
-  g.moveTo(m, h);
-  g.bezierCurveTo(m + m * a, h * b, m + m * cc, h * d, m, 0);
-  g.bezierCurveTo(m - m * cc, h * d, m - m * a, h * b, m, h);
-  g.fill();
-  g.strokeStyle = rgba(darker(theme.leaf[0], L.ribDark), L.ribAlpha);
-  g.lineWidth = L.ribW;
-  g.beginPath();
-  g.moveTo(m, h);
-  g.lineTo(m, h * (1 - L.rib));
-  g.stroke();
-  return c;
-}
-
-// Cosmos leaves: a thin midrib with fine threadlike leaflets, like a feather.
-function buildFeatherSprite(theme) {
-  const F = FAVS.feather;
-  const [w, h] = F.sprite;
-  const c = makeCanvas(w, h);
-  const g = c.getContext('2d');
-  const m = w / 2;
-  const bow = w * F.droop;
-  g.strokeStyle = theme.feather;
-  g.lineCap = 'round';
-  g.lineWidth = F.rachisW;
-  g.beginPath();
-  g.moveTo(m, h);
-  g.quadraticCurveTo(m + bow, h / 2, m, 0);
-  g.stroke();
-  g.lineWidth = F.leafletW;
-  g.beginPath();
-  for (let i = 1; i <= F.leaflets; i++) {
-    const t = i / (F.leaflets + 1);
-    const x = m + 2 * t * (1 - t) * bow, y = h * (1 - t);
-    const len = m * F.leafletLen * (1 - t * F.taper);
-    for (const s of [-1, 1]) {
-      g.moveTo(x, y);
-      g.quadraticCurveTo(x + s * len * F.curl[0], y - len * F.curl[1], x + s * len, y - len * F.curl[2]);
-    }
-  }
-  g.stroke();
-  return c;
-}
-
-// Leaves along the full stem, unfurling as growth passes their attach point.
-function drawLeaves(ctx, app, list, leafSprite) {
-  const sprite = leafSprite || app.leafSprite;
-  const { dpr, L } = app;
-  const ratio = sprite.width / sprite.height;
-  for (const f of list) {
-    if (f.grow <= 0 || f.gone) continue;
-    for (const lf of f.leaves) {
-      const u = clamp01((f.grow - lf.at) / SHAPE.leaf.unfurlSpan);
-      if (u <= 0) continue;
-      const e = easeOutBack(u, MOTION.popOvershoot * TUNE.overshoot);
-      const [x, y, ang] = pointAt(f.full, lf.at);
-      const len = lf.len * L.U * f.size * e * (f.fade === undefined ? 1 : f.fade);
-      const rot = ang + lf.side * lerp(SHAPE.leaf.fold, lf.open, clamp01(e));
-      place(ctx, dpr, x, y, rot, 1, 1);
-      ctx.drawImage(sprite, -len * ratio / 2, -len, len * ratio, len);
-    }
-  }
-  resetTransform(ctx, dpr);
-}
-
-return { shapeStem, pointAt, strokeStems, fillTapered, makeLeaves, buildLeafSprite, buildFeatherSprite, drawLeaves };
-})();
 __m["config-flora.js"] = (() => {
 // The flowers as 3D models: the petal engine, the light for each time of day,
 // and every species. Sizes are head radii, angles radians, colors hex. The
@@ -1611,15 +1427,15 @@ const ROSE3D = {
   ring: [0.02, 0.2], lift: [0.2, 0.02],
   len: [0.34, 0.82], lenPow: 0.75, budLen: 0.82,
   wid: [0.24, 0.52],
-  open: { bud: [0.03, 0.26], full: [0.1, 1.18], pow: 1.35 },
-  curl: [-0.2, 0.62], curlPow: 2, curlShape: 2.2,
+  open: { bud: [0.03, 0.26], full: [0.1, 1.06], pow: 1.35 },
+  curl: [-0.2, 0.4], curlPow: 2, curlShape: 2.2,
   cup: { base: [1.7, 1.0], bud: 1.5, tip: [1.1, -0.75] },
   stagger: 0.42,
   shape: { base: 0.3, peak: 0.6, rise: 0.75, blunt: 0.45, tipW: 0 },
   jitter: { az: 0.2, len: 0.07, open: 0.07 },
   strips: [2, 3],
   ao: [0.5, 0.92],
-  shade: { deep: 0.42, edge: 0.3, back: 0.2, lip: 0.28, edgeTo: '#FFF1E4', goldDeep: 0.3 },
+  shade: { deep: 0.42, edge: 0.3, back: 0.1, lip: 0.28, edgeTo: '#FFF1E4', goldDeep: 0.3 },
   lip: 0.5, lipW: 0.016, lipFrom: 0.66, contact: 0.26, shadow: 0.62,
   sepals: {
     n: 5, len: 0.6, wid: 0.075, open: [0.28, 2.35], curl: [0, 0.7], z: -0.03, ring: 0.08, cup: [0.5, 0.2], ao: 0.8, backDark: 0.35, bias: -0.6,
@@ -1700,7 +1516,318 @@ const GLASS = {
   depthAt: 0.55, step: 1 / 40, settle: 2, pad: 0.06,
 };
 
-return { PETAL, LIGHTS, HEADS, MATERIAL, ROSE3D, DAISY3D, COSMOS3D, WILD3D, WILD_COMMON, SAKURA3D, GLASS };
+// Leaves. Rose leaflets are [place along the stalk 0 base to 1 tip, angle off
+// the stalk, length as a fraction of sprite height, half width of sprite width].
+const LEAVES = {
+  ovate: 0.65, round: 1.1, ribAt: 0.5, ribLift: 0.55, rimMix: 0.18, ribAlpha: 0.45, ribW: 1.6, ribTo: 0.92,
+  veins: 3, veinReach: 0.7, veinRise: 0.12,
+  rose: {
+    sprite: [112, 168], bow: 0.03, top: 0.06, stalkMix: 0.3, stalkW: 3, stalkSteps: 8, teeth: 7, tooth: 0.1,
+    leaflets: [[0.98, 0, 0.34, 0.15], [0.64, 0.78, 0.3, 0.13], [0.32, 0.86, 0.26, 0.12]],
+  },
+  feather: {
+    sprite: [104, 168], bow: 0.05, stalkMix: 0.4, stalkW: 2.4, steps: 10, rimMix: 0.15, alpha: 0.9,
+    pinnae: 8, len: 0.85, taper: 0.5, rise: 0.55, ctrl: [0.45, 0.4], w1: 1.8, w2: 1.3,
+    forks: [0.35, 0.65], forkLen: 0.32, forkCtrl: 0.4, forkRise: 0.5, forkUp: 0.8,
+  },
+  plain: { sprite: [48, 128], ctrl: [0.92, 0.78, 0.83, 0.23], rib: 0.85 },
+  blade: { sprite: [36, 128], ctrl: [0.9, 0.8, 0.7, 0.2], rib: 0.9 },
+};
+
+return { PETAL, LIGHTS, HEADS, MATERIAL, ROSE3D, DAISY3D, COSMOS3D, WILD3D, WILD_COMMON, SAKURA3D, GLASS, LEAVES };
+})();
+__m["leaves.js"] = (() => {
+// Leaf sprites, built once per time of day and drawn with a transform as the
+// leaves unfurl along their stems. Roses carry compound leaves of toothed
+// leaflets, cosmos a fine thread of foliage, everything else a plain blade.
+const { LEAVES } = __m["config-flora.js"];
+const { mix, rgba, lerp } = __m["util.js"];
+const { makeCanvas } = __m["sprites.js"];
+
+// One ovate leaflet with a serrated edge, drawn upward from its base at the origin.
+function leaflet(g, len, wid, teeth, tooth, theme, rim) {
+  const n = teeth * 2;
+  const side = (s) => {
+    const pts = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const half = wid * Math.pow(Math.sin(Math.PI * Math.pow(t, LEAVES.ovate)), LEAVES.round);
+      const k = i % 2 && i < n ? 1 + tooth : 1;
+      pts.push([s * half * k, -len * t]);
+    }
+    return pts;
+  };
+  const right = side(1), left = side(-1).reverse();
+  const grad = g.createLinearGradient(-wid, 0, wid, 0);
+  grad.addColorStop(0, theme.leaf[0]);
+  grad.addColorStop(LEAVES.ribAt, mix(theme.leaf[0], theme.leaf[1], LEAVES.ribLift));
+  grad.addColorStop(1, mix(theme.leaf[1], rim, LEAVES.rimMix));
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(0, 0);
+  for (const [x, y] of right) g.lineTo(x, y);
+  for (const [x, y] of left) g.lineTo(x, y);
+  g.closePath();
+  g.fill();
+  g.strokeStyle = rgba(mix(theme.leaf[1], rim, LEAVES.rimMix), LEAVES.ribAlpha);
+  g.lineWidth = LEAVES.ribW;
+  g.beginPath();
+  g.moveTo(0, 0);
+  g.lineTo(0, -len * LEAVES.ribTo);
+  for (let i = 1; i <= LEAVES.veins; i++) {
+    const y = -len * (i / (LEAVES.veins + 1));
+    for (const s of [-1, 1]) { g.moveTo(0, y); g.lineTo(s * wid * LEAVES.veinReach, y - len * LEAVES.veinRise); }
+  }
+  g.stroke();
+}
+
+// A rose leaf: a stalk with a leaflet at its tip and pairs of leaflets below.
+function roseLeafSprite(theme, rim) {
+  const R = LEAVES.rose;
+  const [w, h] = R.sprite;
+  const c = makeCanvas(w, h);
+  const g = c.getContext('2d');
+  const m = w / 2;
+  const at = (t) => [m + Math.sin(Math.PI * t) * w * R.bow, h * (1 - t * (1 - R.top))];
+  g.strokeStyle = mix(theme.leaf[0], theme.leaf[1], R.stalkMix);
+  g.lineWidth = R.stalkW;
+  g.lineCap = 'round';
+  g.beginPath();
+  g.moveTo(m, h);
+  for (let i = 1; i <= R.stalkSteps; i++) { const [x, y] = at(i / R.stalkSteps); g.lineTo(x, y); }
+  g.stroke();
+  for (const [t, ang, len, wid] of R.leaflets) {
+    const [x, y] = at(t);
+    for (const s of ang === 0 ? [1] : [-1, 1]) {
+      g.save();
+      g.translate(x, y);
+      g.rotate(s * ang);
+      leaflet(g, len * h, wid * w, R.teeth, R.tooth, theme, rim);
+      g.restore();
+    }
+  }
+  return c;
+}
+
+// Cosmos foliage: a stalk with curving threadlike leaflets, themselves divided.
+function featherSprite(theme, rim) {
+  const F = LEAVES.feather;
+  const [w, h] = F.sprite;
+  const c = makeCanvas(w, h);
+  const g = c.getContext('2d');
+  const m = w / 2;
+  const bow = w * F.bow;
+  const at = (t) => [m + bow * Math.sin(Math.PI * t), h * (1 - t)];
+  g.lineCap = 'round';
+  g.strokeStyle = rgba(mix(theme.leaf[0], theme.leaf[1], F.stalkMix), 1);
+  g.lineWidth = F.stalkW;
+  g.beginPath();
+  g.moveTo(m, h);
+  for (let i = 1; i <= F.steps; i++) { const [x, y] = at(i / F.steps); g.lineTo(x, y); }
+  g.stroke();
+  g.strokeStyle = rgba(mix(theme.leaf[1], rim, F.rimMix), F.alpha);
+  for (let i = 1; i <= F.pinnae; i++) {
+    const t = i / (F.pinnae + 1);
+    const [x, y] = at(t);
+    const len = m * F.len * (1 - t * F.taper);
+    for (const s of [-1, 1]) {
+      const ex = x + s * len, ey = y - len * F.rise;
+      const cx = x + s * len * F.ctrl[0], cy = y - len * F.ctrl[1];
+      g.lineWidth = F.w1;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.quadraticCurveTo(cx, cy, ex, ey);
+      g.stroke();
+      g.lineWidth = F.w2;
+      g.beginPath();
+      for (const k of F.forks) {
+        const px = lerp(lerp(x, cx, k), lerp(cx, ex, k), k), py = lerp(lerp(y, cy, k), lerp(cy, ey, k), k);
+        const fl = len * F.forkLen;
+        g.moveTo(px, py);
+        g.quadraticCurveTo(px + s * fl * F.forkCtrl, py - fl * F.forkRise, px + s * fl, py - fl * F.forkUp);
+      }
+      g.stroke();
+    }
+  }
+  return c;
+}
+
+// A plain blade: lighter along the midrib, the light's color on one edge.
+function plainLeafSprite(theme, rim, spec) {
+  const [w, h] = spec.sprite;
+  const c = makeCanvas(w, h);
+  const g = c.getContext('2d');
+  const [a, b, cc, d] = spec.ctrl;
+  const m = w / 2;
+  const grad = g.createLinearGradient(0, 0, w, 0);
+  grad.addColorStop(0, theme.leaf[0]);
+  grad.addColorStop(LEAVES.ribAt, mix(theme.leaf[0], theme.leaf[1], LEAVES.ribLift));
+  grad.addColorStop(1, mix(theme.leaf[1], rim, LEAVES.rimMix));
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(m, h);
+  g.bezierCurveTo(m + m * a, h * b, m + m * cc, h * d, m, 0);
+  g.bezierCurveTo(m - m * cc, h * d, m - m * a, h * b, m, h);
+  g.fill();
+  g.strokeStyle = rgba(mix(theme.leaf[1], rim, LEAVES.rimMix), LEAVES.ribAlpha);
+  g.lineWidth = LEAVES.ribW;
+  g.beginPath();
+  g.moveTo(m, h);
+  g.lineTo(m, h * (1 - spec.rib));
+  g.stroke();
+  return c;
+}
+
+function buildLeaves(theme, light) {
+  const rim = light.rimColor;
+  return {
+    rose: roseLeafSprite(theme, rim),
+    feather: featherSprite(theme, rim),
+    plain: plainLeafSprite(theme, rim, LEAVES.plain),
+    blade: plainLeafSprite(theme, rim, LEAVES.blade),
+  };
+}
+
+
+return { roseLeafSprite, featherSprite, plainLeafSprite, buildLeaves };
+})();
+__m["stem.js"] = (() => {
+// Stems are cubic curves that grow from the base and bend with sway, lean
+// and gust. Leaves are one cached sprite drawn with a transform as they unfurl.
+const { SHAPE, MOTION, TUNE } = __m["config.js"];
+const { rgba, darker, clamp01, lerp, easeOutBack } = __m["util.js"];
+const { place, resetTransform } = __m["sprites.js"];
+
+// Compute the stem for displacement D (px at the head) and growth g.
+// Writes f.full (the whole curve) and f.stem (the grown part), and the head pose.
+function shapeStem(f, D, g) {
+  const S = SHAPE.stem;
+  const h = f.h, x0 = f.x, y0 = f.baseY;
+  const rest = f.bend * h * S.restLean;
+  const p = f.full || (f.full = new Float32Array(8));
+  p[0] = x0; p[1] = y0;
+  const wave = (f.wave || 0) * h;
+  p[2] = x0 + f.bend * h * S.c1Bend + wave * S.waveC1 + D * S.c1Follow; p[3] = y0 - h * S.c1Y;
+  p[4] = x0 + rest * S.c2Rest - wave * S.waveC2 + D * S.c2Follow; p[5] = y0 - h * S.c2Y;
+  p[6] = x0 + rest + D; p[7] = y0 - h + ((D * D) / (2 * h)) * S.arcDrop;
+  const q = f.stem || (f.stem = new Float32Array(8));
+  const u = 1 - g;
+  const ax = p[0] + (p[2] - p[0]) * g, ay = p[1] + (p[3] - p[1]) * g;
+  const bx = p[2] + (p[4] - p[2]) * g, by = p[3] + (p[5] - p[3]) * g;
+  const cx = p[4] + (p[6] - p[4]) * g, cy = p[5] + (p[7] - p[5]) * g;
+  const dx = ax + (bx - ax) * g, dy = ay + (by - ay) * g;
+  const ex = bx + (cx - bx) * g, ey = by + (cy - by) * g;
+  q[0] = p[0]; q[1] = p[1]; q[2] = ax; q[3] = ay; q[4] = dx; q[5] = dy;
+  q[6] = dx + (ex - dx) * g; q[7] = dy + (ey - dy) * g;
+  // tangent at g on the full curve
+  const tx = 3 * (u * u * (p[2] - p[0]) + 2 * u * g * (p[4] - p[2]) + g * g * (p[6] - p[4]));
+  const ty = 3 * (u * u * (p[3] - p[1]) + 2 * u * g * (p[5] - p[3]) + g * g * (p[7] - p[5]));
+  f.hx = q[6];
+  f.hy = q[7];
+  f.stemAng = Math.atan2(tx, -ty);
+}
+
+function pointAt(p, t) {
+  const u = 1 - t;
+  const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
+  const tx = 3 * (u * u * (p[2] - p[0]) + 2 * u * t * (p[4] - p[2]) + t * t * (p[6] - p[4]));
+  const ty = 3 * (u * u * (p[3] - p[1]) + 2 * u * t * (p[5] - p[3]) + t * t * (p[7] - p[5]));
+  return [a * p[0] + b * p[2] + c * p[4] + d * p[6], a * p[1] + b * p[3] + c * p[5] + d * p[7], Math.atan2(tx, -ty)];
+}
+
+function stemPath(ctx, list, dx) {
+  let any = false;
+  for (const f of list) {
+    if (f.grow <= 0 || f.gone) continue;
+    const q = f.stem;
+    ctx.moveTo(q[0] + dx, q[1]);
+    ctx.bezierCurveTo(q[2] + dx, q[3], q[4] + dx, q[5], q[6] + dx, q[7]);
+    any = true;
+  }
+  return any;
+}
+
+// A thin line of light down the edge of each stem that faces the moon or sun.
+function rimLine(ctx, list, width, color, dx) {
+  const R = SHAPE.stemRim;
+  ctx.strokeStyle = rgba(color, R.alpha);
+  ctx.lineWidth = width * R.w;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  if (stemPath(ctx, list, dx)) ctx.stroke();
+}
+
+// All stems of one width and color in a single stroke, with an optional lit edge on side +1 or -1.
+function strokeStems(ctx, list, width, color, rim, side) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  if (!stemPath(ctx, list, 0)) return;
+  ctx.stroke();
+  if (rim) rimLine(ctx, list, width, rim, width * SHAPE.stemRim.dx * (side || 1));
+}
+
+// Thicker stems that taper from base to head, filled as one path.
+function fillTapered(ctx, list, w0, w1, color, rim, side) {
+  const n = SHAPE.stemTaper.steps;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  let any = false;
+  for (const f of list) {
+    if (f.grow <= 0 || f.gone) continue;
+    const q = f.stem;
+    const side = [];
+    for (let i = 0; i <= n; i++) {
+      const [x, y, ang] = pointAt(q, i / n);
+      const w = lerp(w0, lerp(w0, w1, f.grow), i / n) / 2;
+      side.push([x, y, Math.cos(ang) * w, Math.sin(ang) * w]);
+      if (i === 0) ctx.moveTo(x - side[0][2], y - side[0][3]);
+      else ctx.lineTo(x - side[i][2], y - side[i][3]);
+    }
+    for (let i = n; i >= 0; i--) ctx.lineTo(side[i][0] + side[i][2], side[i][1] + side[i][3]);
+    ctx.closePath();
+    any = true;
+  }
+  if (!any) return;
+  ctx.fill();
+  if (rim) rimLine(ctx, list, w1, rim, ((w0 + w1) * SHAPE.stemRim.dx * (side || 1)) / 2);
+}
+
+function makeLeaves(rng, spec, U) {
+  const n = rng.int(spec.count[0], spec.count[1]);
+  const leaves = [];
+  let side = rng.sign();
+  for (let i = 0; i < n; i++) {
+    const at = lerp(spec.at[0], spec.at[1], n === 1 ? rng.next() : i / (n - 1));
+    leaves.push({ at, side, len: rng.range(spec.lenU[0], spec.lenU[1]), open: rng.range(SHAPE.leaf.open[0], SHAPE.leaf.open[1]) });
+    side = -side;
+  }
+  return leaves;
+}
+
+// Leaves along the full stem, unfurling as growth passes their attach point.
+function drawLeaves(ctx, app, list, leafSprite) {
+  const sprite = leafSprite || app.leafSprite;
+  const { dpr, L } = app;
+  const ratio = sprite.width / sprite.height;
+  for (const f of list) {
+    if (f.grow <= 0 || f.gone) continue;
+    for (const lf of f.leaves) {
+      const u = clamp01((f.grow - lf.at) / SHAPE.leaf.unfurlSpan);
+      if (u <= 0) continue;
+      const e = easeOutBack(u, MOTION.popOvershoot * TUNE.overshoot);
+      const [x, y, ang] = pointAt(f.full, lf.at);
+      const len = lf.len * L.U * f.size * e * (f.fade === undefined ? 1 : f.fade);
+      const rot = ang + lf.side * lerp(SHAPE.leaf.fold, lf.open, clamp01(e));
+      place(ctx, dpr, x, y, rot, 1, 1);
+      ctx.drawImage(sprite, -len * ratio / 2, -len, len * ratio, len);
+    }
+  }
+  resetTransform(ctx, dpr);
+}
+
+return { shapeStem, pointAt, strokeStems, fillTapered, makeLeaves, drawLeaves };
 })();
 __m["light3d.js"] = (() => {
 // Posing and lighting a flower head: the rotation that turns it to face its
@@ -2547,7 +2674,7 @@ __m["flowers.js"] = (() => {
 // flowers: per flower variance, placement, sway, lean, tap springs, and the
 // stem, leaf and head draw passes.
 const { LAYOUT, SIZE, MOTION, TUNE, SHAPE, GOLD, INPUT, PALETTE, BEATS } = __m["config.js"];
-const { FAVS, MEADOW, FAV_PALETTE } = __m["config-garden.js"];
+const { FAVS, MEADOW, FAV_PALETTE, SIDE, CLEAR } = __m["config-garden.js"];
 const { makeRng, TAU, lerp, clamp, clamp01, easeInOutSine, easeOutBack, win, mix } = __m["util.js"];
 const { makeHeadCache, dropCache, place, resetTransform, glow, drawGlow, sparkleSprite } = __m["sprites.js"];
 const { clampHeadX } = __m["layout.js"];
@@ -2569,6 +2696,7 @@ function vary(rng, f) {
   f.swayAmp = rng.range(s.amp[0], s.amp[1]);
   f.phaseRand = rng.range(0, s.phaseRand);
   f.bend = rng.range(-1, 1);
+  f.wave = rng.range(-1, 1);
   f.spring = { x: 0, v: 0, dir: 1 };
   f.leanPx = 0;
   f.grow = 0; f.open = 0; f.openEff = 0; f.scale = 1; f.ang = 0;
@@ -2624,7 +2752,23 @@ function createFlowers(app) {
     .concat(FAVS.daisySpots.map(([fx, fy]) => makeFlower(frng, 'daisy', fx, fy)));
   favs.forEach((f, i) => { f.idx = i; });
   favs.slice().sort((a, b) => a.fx - b.fx).forEach((f, j) => { f.order = j; });
-  return { roses, favs, wilds, meadow: [], daily: [], planted: [], rng };
+  // side groups for wide screens, from their own stream
+  const srng = makeRng(app.seed ^ 0x51de);
+  const side = [];
+  for (const s of [-1, 1]) {
+    SIDE.species.slice(0, SIDE.perSide).forEach((species, i) => {
+      const [y0, y1] = SIDE.fy[species];
+      const f = makeFlower(srng, species, 0, srng.range(y0, y1), srng.int(0, PALETTE.wild.length - 1));
+      f.side = s;
+      f.slot = i;
+      f.jit = srng.range(-SIDE.jitter, SIDE.jitter);
+      f.kind = 'side';
+      f.idx = side.length;
+      f.order = i % SIDE.orderMod;
+      side.push(f);
+    });
+  }
+  return { roses, favs, wilds, side, meadow: [], daily: [], planted: [], rng };
 }
 
 function favRadius(f, U) {
@@ -2670,6 +2814,8 @@ function placeFlowers(app) {
     f.r = lerp(MEADOW.rU[0], MEADOW.rU[1], f.rMul) * U;
     placeOne(app, f, L.minX + f.fx * span, L.H * (f.fb - f.lift), L.H * f.fb);
   }
+  placeSide(app);
+  keepClear(app);
   for (const f of fl.planted) {
     f.r = favRadius(f, U);
     const headY = clamp(f.py * L.H, L.groundY - U * INPUT.plantMaxU, L.groundY - U * INPUT.plantMinU);
@@ -2677,15 +2823,56 @@ function placeFlowers(app) {
   }
 }
 
+// On a wide screen the field's flowers stay together in the middle; these fill
+// the width on either side, as many as fit.
+function placeSide(app) {
+  const L = app.L;
+  const U = L.U;
+  const full = L.sw * LAYOUT.fieldSpan;
+  const band = (full - L.fieldW) / 2 - SIDE.marginU * U;
+  const n = band < SIDE.minU * U ? 0 : Math.min(SIDE.perSide, Math.floor(band / (SIDE.densityU * U)));
+  for (const f of app.flowers.side) {
+    f.hidden = f.slot >= n;
+    if (f.hidden) continue;
+    const k = (f.slot + 0.5 + f.jit) / n;
+    const x = f.side < 0 ? L.fieldL - SIDE.marginU * U - k * band : L.fieldL + L.fieldW + SIDE.marginU * U + k * band;
+    f.r = favRadius(f, U);
+    placeOne(app, f, x, L.H * f.fy);
+  }
+}
+
+// Small flowers keep clear of the tall stems, so none seems to grow out of another.
+function keepClear(app) {
+  const fl = app.flowers;
+  const L = app.L;
+  const heroes = fl.roses.map((f) => f.x).concat(L.fantasy.x);
+  const list = fl.favs.concat(fl.wilds, fl.daily.filter((f) => !f.far), fl.side.filter((f) => !f.hidden));
+  for (const f of list) {
+    const gap = Math.max(CLEAR.gapU * L.U, f.r * CLEAR.gapR);
+    for (let pass = 0; pass < CLEAR.passes; pass++) {
+      for (const hx of heroes) {
+        const d = f.x - hx;
+        if (Math.abs(d) < gap) f.x = hx + (d >= 0 ? gap : -gap);
+      }
+    }
+    const reach = f.r * headExtent(f, app.theme);
+    f.x = clamp(f.x, L.minX + reach, L.maxX - reach);
+    f.phase = f.x * MOTION.sway.phasePerPx + f.phaseRand;
+    dropCache(f.cache);
+  }
+}
+
 function allFlowers(app) {
   const fl = app.flowers;
-  return fl.roses.concat(fl.favs, fl.wilds, fl.meadow, fl.daily, fl.planted);
+  return fl.roses.concat(fl.favs, fl.wilds, visibleSide(fl), fl.meadow, fl.daily, fl.planted);
 }
+
+const visibleSide = (fl) => fl.side.filter((f) => !f.hidden);
 
 // Stem bases that need foreground grass in front of them (the far meadow has its own tufts).
 function stemBases(app) {
   const fl = app.flowers;
-  return fl.roses.concat(fl.favs, fl.wilds, fl.daily.filter((f) => !f.far), fl.planted).map((f) => f.x);
+  return fl.roses.concat(fl.favs, fl.wilds, visibleSide(fl), fl.daily.filter((f) => !f.far), fl.planted).map((f) => f.x);
 }
 
 // Tap response: a normalized spring kick, peaking near 1.
@@ -2782,14 +2969,14 @@ function drawStems(ctx, app, list) {
   const { L, theme } = app;
   const groups = { cosmos: [], daisy: [], wild: [] };
   for (const f of list) (groups[f.species] || groups.wild).push(f);
-  const rim = (c) => mix(c, theme.moonRim, SHAPE.stemRim.mix);
-  if (groups.cosmos.length) strokeStems(ctx, groups.cosmos, FAVS.stemW.cosmos * L.U, theme.cosmosStem, rim(theme.cosmosStem));
-  if (groups.daisy.length) strokeStems(ctx, groups.daisy, FAVS.stemW.daisy * L.U, theme.daisyStem, rim(theme.daisyStem));
-  if (groups.wild.length) strokeStems(ctx, groups.wild, SIZE.wild.stemW * L.U, theme.stem, rim(theme.stem));
-  const feathery = groups.cosmos;
-  if (feathery.length) drawLeaves(ctx, app, feathery, app.featherSprite);
-  const plain = groups.daisy.concat(groups.wild);
-  if (plain.length) drawLeaves(ctx, app, plain);
+  const rim = (c) => mix(c, app.light.rimColor, SHAPE.stemRim.mix);
+  const side = Math.sign(app.light.dir[0]) || 1;
+  if (groups.cosmos.length) strokeStems(ctx, groups.cosmos, FAVS.stemW.cosmos * L.U, theme.cosmosStem, rim(theme.cosmosStem), side);
+  if (groups.daisy.length) strokeStems(ctx, groups.daisy, FAVS.stemW.daisy * L.U, theme.daisyStem, rim(theme.daisyStem), side);
+  if (groups.wild.length) strokeStems(ctx, groups.wild, SIZE.wild.stemW * L.U, theme.stem, rim(theme.stem), side);
+  if (groups.cosmos.length) drawLeaves(ctx, app, groups.cosmos, app.leaves.feather);
+  if (groups.daisy.length) drawLeaves(ctx, app, groups.daisy, app.leaves.plain);
+  if (groups.wild.length) drawLeaves(ctx, app, groups.wild, app.leaves.blade);
 }
 
 function drawMeadowLayer(ctx, app) {
@@ -2814,7 +3001,7 @@ function drawMeadowLayer(ctx, app) {
 
 function drawCosmosLayer(ctx, app) {
   const fl = app.flowers;
-  const list = fl.favs.filter((f) => f.species === 'cosmos').concat(fl.daily.filter((f) => !f.far && f.species === 'cosmos'));
+  const list = fl.favs.concat(visibleSide(fl), fl.daily.filter((f) => !f.far)).filter((f) => f.species === 'cosmos');
   drawStems(ctx, app, list);
   drawHeads(ctx, app, list, app.theme);
 }
@@ -2823,8 +3010,8 @@ function drawRoseLayer(ctx, app) {
   const { L, theme } = app;
   const roses = app.flowers.roses;
   const T = SHAPE.stemTaper;
-  fillTapered(ctx, roses, T.rose[0] * L.U, T.rose[1] * L.U, theme.stem, mix(theme.stem, theme.moonRim, SHAPE.stemRim.mix));
-  drawLeaves(ctx, app, roses);
+  fillTapered(ctx, roses, T.rose[0] * L.U, T.rose[1] * L.U, theme.stem, mix(theme.stem, app.light.rimColor, SHAPE.stemRim.mix), Math.sign(app.light.dir[0]) || 1);
+  drawLeaves(ctx, app, roses, app.leaves.rose);
   for (const f of roses) {
     if (f.gold && f.grow > 0 && f.openEff > 0) {
       // blended normally: the glow may sit over paler petals behind it
@@ -2844,8 +3031,8 @@ function drawRoseLayer(ctx, app) {
 
 function drawFrontLayer(ctx, app) {
   const fl = app.flowers;
-  const list = fl.favs.filter((f) => f.species === 'daisy')
-    .concat(fl.daily.filter((f) => !f.far && f.species === 'daisy'), fl.wilds, fl.planted);
+  const list = fl.favs.concat(visibleSide(fl), fl.daily.filter((f) => !f.far)).filter((f) => f.species !== 'cosmos')
+    .concat(fl.wilds, fl.planted);
   drawStems(ctx, app, list);
   drawHeads(ctx, app, list, app.theme);
 }
@@ -3755,6 +3942,11 @@ function flowerTimes(app) {
       f.grow = 1;
       f.open = lerp(WAKE.startOpen, 1, bloom(win(s, wakeStart(f.order, nf), WAKE.dur * f.bloomMul)));
     }
+    const ns = fl.side.length;
+    for (const f of fl.side) {
+      f.grow = 1;
+      f.open = lerp(WAKE.startOpen, 1, bloom(win(s, wakeStart(f.order, ns), WAKE.dur * f.bloomMul)));
+    }
     const nm = fl.meadow.length;
     for (const f of fl.meadow) {
       f.grow = 1;
@@ -3794,6 +3986,16 @@ function flowerTimes(app) {
       f.grow = easeInOutSine(win(s, fs.start + j * fs.stagger, fs.dur));
       f.open = bloom(win(s, fb.start + j * fb.stagger, fb.dur * f.bloomMul));
     }
+    for (const f of fl.side) {
+      const j = f.order;
+      if (f.species === 'wild') {
+        f.grow = easeInOutSine(win(s, ws.start + j * ws.stagger, ws.dur));
+        f.open = popEase(win(s, wp.start + j * wp.stagger, wp.dur * f.bloomMul));
+      } else {
+        f.grow = easeInOutSine(win(s, fs.start + j * fs.stagger, fs.dur));
+        f.open = bloom(win(s, fb.start + j * fb.stagger, fb.dur * f.bloomMul));
+      }
+    }
     const nd = Math.max(1, fl.daily.length);
     for (const f of fl.daily) {
       const k = f.order / nd;
@@ -3804,6 +4006,7 @@ function flowerTimes(app) {
   for (const f of fl.roses) f.openEff = f.open * dim;
   for (const f of fl.wilds) f.openEff = f.open * dim;
   for (const f of fl.favs) f.openEff = f.open * dim;
+  for (const f of fl.side) f.openEff = f.open * dim;
   for (const f of fl.meadow) f.openEff = f.open * dim;
   for (const f of fl.daily) f.openEff = f.open * dim;
   app.openDim = dim;
@@ -4047,7 +4250,7 @@ function createFantasy(app) {
   const s = MOTION.sway;
   const F = FANTASY;
   const f = {
-    kind: 'fantasy', idx: 0, size: 1, bend: rng.range(-1, 1) * F.stillness,
+    kind: 'fantasy', idx: 0, size: 1, bend: rng.range(-1, 1) * F.stillness, wave: rng.range(-1, 1) * F.stillness,
     tilt: 0, swayHz: rng.range(s.hz[0], s.hz[1]), swayAmp: rng.range(s.amp[0], s.amp[1]),
     phaseRand: rng.range(0, s.phaseRand), spring: { x: 0, v: 0, dir: 1 }, leanPx: 0,
     grow: 0, swell: 0, rings: GLASS.rings.map(() => 0), halo: 0, core: 0, scale: 1, ang: 0,
@@ -4136,7 +4339,7 @@ function drawStem(ctx, app, f) {
   const U = app.L.U;
   const q = f.stem;
   const [w0, w1] = SHAPE.stemTaper.fantasy;
-  fillTapered(ctx, [f], w0 * U, w1 * U, app.theme.stem, mix(app.theme.stem, app.theme.moonRim, SHAPE.stemRim.mix));
+  fillTapered(ctx, [f], w0 * U, w1 * U, app.theme.stem, mix(app.theme.stem, app.light.rimColor, SHAPE.stemRim.mix), Math.sign(app.light.dir[0]) || 1);
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(q[0], q[1]);
@@ -6340,7 +6543,7 @@ const { readSafe, computeLayout } = __m["layout.js"];
 const { currentTod, buildTheme, buildHazeTheme } = __m["theme.js"];
 const { buildBackground, buildStars, buildMoon } = __m["sky.js"];
 const { buildGrass } = __m["grass.js"];
-const { buildLeafSprite, buildFeatherSprite } = __m["stem.js"];
+const { buildLeaves } = __m["leaves.js"];
 const { createFlowers, placeFlowers, stemBases, updateFlowers, drawRoseLayer, drawCosmosLayer, drawFrontLayer, drawMeadowLayer, headBoxes } = __m["flowers.js"];
 const { createMeadow, createDaily, loadPlanted, regrowPlanted, drawNewSparkle } = __m["garden.js"];
 const { drawHint, hintPose } = __m["hint.js"];
@@ -6407,8 +6610,8 @@ function rebuildWorld() {
   app.bg = buildBackground(app);
   app.stars = buildStars(app);
   app.moon = buildMoon(app);
-  app.leafSprite = buildLeafSprite(app.theme);
-  app.featherSprite = buildFeatherSprite(app.theme);
+  app.leaves = buildLeaves(app.theme, app.light);
+  app.leafSprite = app.leaves.plain;
   app.hazeTheme = buildHazeTheme(app.theme);
   placeFlowers(app);
   placeFantasy(app);

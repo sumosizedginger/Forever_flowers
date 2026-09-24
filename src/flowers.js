@@ -2,7 +2,7 @@
 // flowers: per flower variance, placement, sway, lean, tap springs, and the
 // stem, leaf and head draw passes.
 import { LAYOUT, SIZE, MOTION, TUNE, SHAPE, GOLD, INPUT, PALETTE, BEATS } from './config.js';
-import { FAVS, MEADOW, FAV_PALETTE } from './config-garden.js';
+import { FAVS, MEADOW, FAV_PALETTE, SIDE, CLEAR } from './config-garden.js';
 import { makeRng, TAU, lerp, clamp, clamp01, easeInOutSine, easeOutBack, win, mix } from './util.js';
 import { makeHeadCache, dropCache, place, resetTransform, glow, drawGlow, sparkleSprite } from './sprites.js';
 import { clampHeadX } from './layout.js';
@@ -24,6 +24,7 @@ export function vary(rng, f) {
   f.swayAmp = rng.range(s.amp[0], s.amp[1]);
   f.phaseRand = rng.range(0, s.phaseRand);
   f.bend = rng.range(-1, 1);
+  f.wave = rng.range(-1, 1);
   f.spring = { x: 0, v: 0, dir: 1 };
   f.leanPx = 0;
   f.grow = 0; f.open = 0; f.openEff = 0; f.scale = 1; f.ang = 0;
@@ -79,7 +80,23 @@ export function createFlowers(app) {
     .concat(FAVS.daisySpots.map(([fx, fy]) => makeFlower(frng, 'daisy', fx, fy)));
   favs.forEach((f, i) => { f.idx = i; });
   favs.slice().sort((a, b) => a.fx - b.fx).forEach((f, j) => { f.order = j; });
-  return { roses, favs, wilds, meadow: [], daily: [], planted: [], rng };
+  // side groups for wide screens, from their own stream
+  const srng = makeRng(app.seed ^ 0x51de);
+  const side = [];
+  for (const s of [-1, 1]) {
+    SIDE.species.slice(0, SIDE.perSide).forEach((species, i) => {
+      const [y0, y1] = SIDE.fy[species];
+      const f = makeFlower(srng, species, 0, srng.range(y0, y1), srng.int(0, PALETTE.wild.length - 1));
+      f.side = s;
+      f.slot = i;
+      f.jit = srng.range(-SIDE.jitter, SIDE.jitter);
+      f.kind = 'side';
+      f.idx = side.length;
+      f.order = i % SIDE.orderMod;
+      side.push(f);
+    });
+  }
+  return { roses, favs, wilds, side, meadow: [], daily: [], planted: [], rng };
 }
 
 function favRadius(f, U) {
@@ -125,6 +142,8 @@ export function placeFlowers(app) {
     f.r = lerp(MEADOW.rU[0], MEADOW.rU[1], f.rMul) * U;
     placeOne(app, f, L.minX + f.fx * span, L.H * (f.fb - f.lift), L.H * f.fb);
   }
+  placeSide(app);
+  keepClear(app);
   for (const f of fl.planted) {
     f.r = favRadius(f, U);
     const headY = clamp(f.py * L.H, L.groundY - U * INPUT.plantMaxU, L.groundY - U * INPUT.plantMinU);
@@ -132,15 +151,56 @@ export function placeFlowers(app) {
   }
 }
 
+// On a wide screen the field's flowers stay together in the middle; these fill
+// the width on either side, as many as fit.
+function placeSide(app) {
+  const L = app.L;
+  const U = L.U;
+  const full = L.sw * LAYOUT.fieldSpan;
+  const band = (full - L.fieldW) / 2 - SIDE.marginU * U;
+  const n = band < SIDE.minU * U ? 0 : Math.min(SIDE.perSide, Math.floor(band / (SIDE.densityU * U)));
+  for (const f of app.flowers.side) {
+    f.hidden = f.slot >= n;
+    if (f.hidden) continue;
+    const k = (f.slot + 0.5 + f.jit) / n;
+    const x = f.side < 0 ? L.fieldL - SIDE.marginU * U - k * band : L.fieldL + L.fieldW + SIDE.marginU * U + k * band;
+    f.r = favRadius(f, U);
+    placeOne(app, f, x, L.H * f.fy);
+  }
+}
+
+// Small flowers keep clear of the tall stems, so none seems to grow out of another.
+function keepClear(app) {
+  const fl = app.flowers;
+  const L = app.L;
+  const heroes = fl.roses.map((f) => f.x).concat(L.fantasy.x);
+  const list = fl.favs.concat(fl.wilds, fl.daily.filter((f) => !f.far), fl.side.filter((f) => !f.hidden));
+  for (const f of list) {
+    const gap = Math.max(CLEAR.gapU * L.U, f.r * CLEAR.gapR);
+    for (let pass = 0; pass < CLEAR.passes; pass++) {
+      for (const hx of heroes) {
+        const d = f.x - hx;
+        if (Math.abs(d) < gap) f.x = hx + (d >= 0 ? gap : -gap);
+      }
+    }
+    const reach = f.r * headExtent(f, app.theme);
+    f.x = clamp(f.x, L.minX + reach, L.maxX - reach);
+    f.phase = f.x * MOTION.sway.phasePerPx + f.phaseRand;
+    dropCache(f.cache);
+  }
+}
+
 export function allFlowers(app) {
   const fl = app.flowers;
-  return fl.roses.concat(fl.favs, fl.wilds, fl.meadow, fl.daily, fl.planted);
+  return fl.roses.concat(fl.favs, fl.wilds, visibleSide(fl), fl.meadow, fl.daily, fl.planted);
 }
+
+const visibleSide = (fl) => fl.side.filter((f) => !f.hidden);
 
 // Stem bases that need foreground grass in front of them (the far meadow has its own tufts).
 export function stemBases(app) {
   const fl = app.flowers;
-  return fl.roses.concat(fl.favs, fl.wilds, fl.daily.filter((f) => !f.far), fl.planted).map((f) => f.x);
+  return fl.roses.concat(fl.favs, fl.wilds, visibleSide(fl), fl.daily.filter((f) => !f.far), fl.planted).map((f) => f.x);
 }
 
 // Tap response: a normalized spring kick, peaking near 1.
@@ -237,14 +297,14 @@ function drawStems(ctx, app, list) {
   const { L, theme } = app;
   const groups = { cosmos: [], daisy: [], wild: [] };
   for (const f of list) (groups[f.species] || groups.wild).push(f);
-  const rim = (c) => mix(c, theme.moonRim, SHAPE.stemRim.mix);
-  if (groups.cosmos.length) strokeStems(ctx, groups.cosmos, FAVS.stemW.cosmos * L.U, theme.cosmosStem, rim(theme.cosmosStem));
-  if (groups.daisy.length) strokeStems(ctx, groups.daisy, FAVS.stemW.daisy * L.U, theme.daisyStem, rim(theme.daisyStem));
-  if (groups.wild.length) strokeStems(ctx, groups.wild, SIZE.wild.stemW * L.U, theme.stem, rim(theme.stem));
-  const feathery = groups.cosmos;
-  if (feathery.length) drawLeaves(ctx, app, feathery, app.featherSprite);
-  const plain = groups.daisy.concat(groups.wild);
-  if (plain.length) drawLeaves(ctx, app, plain);
+  const rim = (c) => mix(c, app.light.rimColor, SHAPE.stemRim.mix);
+  const side = Math.sign(app.light.dir[0]) || 1;
+  if (groups.cosmos.length) strokeStems(ctx, groups.cosmos, FAVS.stemW.cosmos * L.U, theme.cosmosStem, rim(theme.cosmosStem), side);
+  if (groups.daisy.length) strokeStems(ctx, groups.daisy, FAVS.stemW.daisy * L.U, theme.daisyStem, rim(theme.daisyStem), side);
+  if (groups.wild.length) strokeStems(ctx, groups.wild, SIZE.wild.stemW * L.U, theme.stem, rim(theme.stem), side);
+  if (groups.cosmos.length) drawLeaves(ctx, app, groups.cosmos, app.leaves.feather);
+  if (groups.daisy.length) drawLeaves(ctx, app, groups.daisy, app.leaves.plain);
+  if (groups.wild.length) drawLeaves(ctx, app, groups.wild, app.leaves.blade);
 }
 
 export function drawMeadowLayer(ctx, app) {
@@ -269,7 +329,7 @@ export function drawMeadowLayer(ctx, app) {
 
 export function drawCosmosLayer(ctx, app) {
   const fl = app.flowers;
-  const list = fl.favs.filter((f) => f.species === 'cosmos').concat(fl.daily.filter((f) => !f.far && f.species === 'cosmos'));
+  const list = fl.favs.concat(visibleSide(fl), fl.daily.filter((f) => !f.far)).filter((f) => f.species === 'cosmos');
   drawStems(ctx, app, list);
   drawHeads(ctx, app, list, app.theme);
 }
@@ -278,8 +338,8 @@ export function drawRoseLayer(ctx, app) {
   const { L, theme } = app;
   const roses = app.flowers.roses;
   const T = SHAPE.stemTaper;
-  fillTapered(ctx, roses, T.rose[0] * L.U, T.rose[1] * L.U, theme.stem, mix(theme.stem, theme.moonRim, SHAPE.stemRim.mix));
-  drawLeaves(ctx, app, roses);
+  fillTapered(ctx, roses, T.rose[0] * L.U, T.rose[1] * L.U, theme.stem, mix(theme.stem, app.light.rimColor, SHAPE.stemRim.mix), Math.sign(app.light.dir[0]) || 1);
+  drawLeaves(ctx, app, roses, app.leaves.rose);
   for (const f of roses) {
     if (f.gold && f.grow > 0 && f.openEff > 0) {
       // blended normally: the glow may sit over paler petals behind it
@@ -299,8 +359,8 @@ export function drawRoseLayer(ctx, app) {
 
 export function drawFrontLayer(ctx, app) {
   const fl = app.flowers;
-  const list = fl.favs.filter((f) => f.species === 'daisy')
-    .concat(fl.daily.filter((f) => !f.far && f.species === 'daisy'), fl.wilds, fl.planted);
+  const list = fl.favs.concat(visibleSide(fl), fl.daily.filter((f) => !f.far)).filter((f) => f.species !== 'cosmos')
+    .concat(fl.wilds, fl.planted);
   drawStems(ctx, app, list);
   drawHeads(ctx, app, list, app.theme);
 }

@@ -263,12 +263,12 @@ export const COUNTS = {
 export const SHAPE = {
   stem: {
     restLean: 0.06, c1Bend: 0.09, c1Follow: 0.15, c1Y: 0.34, c2Rest: 0.55, c2Follow: 0.58, c2Y: 0.7,
-    arcDrop: 0.9, headFollow: 0.6, budScale: 0.55, lineRatio: 1,
+    arcDrop: 0.9, headFollow: 0.6, budScale: 0.55, lineRatio: 1, waveC1: 0.1, waveC2: 0.07,
   },
   stemRim: { alpha: 0.32, w: 0.4, dx: 0.28, mix: 0.4 },
   stemTaper: { steps: 10, rose: [0.095, 0.05], fantasy: [0.15, 0.08] },
   leaf: {
-    rose: { count: [3, 4], at: [0.18, 0.66], lenU: [0.5, 0.72] },
+    rose: { count: [3, 4], at: [0.16, 0.68], lenU: [0.66, 0.9] },
     wild: { count: [0, 1], at: [0.25, 0.5], lenU: [0.24, 0.36] },
     fantasy: { count: [3, 3], at: [0.16, 0.52], lenU: [0.8, 1.05] },
     unfurlSpan: 0.28, fold: 0.12, open: [0.7, 1.05],
