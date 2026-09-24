@@ -164,7 +164,7 @@ export const MOTION = {
     hz: [0.22, 0.42], amp: [0.018, 0.03], phasePerPx: 0.004, phaseRand: 0.6,
     breezeHz: 0.05, breezeDepth: 0.4, headFollow: 0.6,
   },
-  lean: { max: 0.07, response: 0.35, decay: 2, reachU: 5, fullU: 1.2 },
+  lean: { max: 0.07, response: 0.35, decay: 2, decayTaus: 4, reachU: 5, fullU: 1.2 },
   spring: { k: 140, c: 7, scale: 0.14, tiltDeg: 12, peak: 0.057, rest: 0.0005, step: 0.008 },
   variance: { size: 0.08, bloomDur: 0.15, tiltDeg: 6, roseLayers: [5, 6] },
   petals: {
@@ -192,7 +192,9 @@ export const HEART = {
   motes: 64, fly: 1.2, stagger: 0.35, widthU: 5.2, hold: 3, bpm: 72,
   lub: 0.05, dub: 0.035, dubAt: 0.28, beatAttack: 0.05, beatDecay: 0.16,
   lineAlpha: 0.25, lineWidthPx: 1, fade: 1.8, fallU: 1.1, notchU: 1.45,
-  curveU: 1.6, moteRU: 0.16, moteAlpha: 0.9, showR: [1.25, 1.65],
+  curveU: 1.6, curveMin: 0.5, moteRU: 0.16, moteAlpha: 0.9, showR: [1.25, 1.65],
+  ringAlpha: 0.55, ringColor: '#FFE08A', dotU: 0.22, dotAlpha: 0.6, spin: 1.25, chargeInner: 1.3,
+  relaxS: 0.12, beatGlow: 0.5, driftU: 0.3, samples: 720, coreU: 0.07, coreAlpha: 0.8,
 };
 
 export const GOLD = {
@@ -335,6 +337,16 @@ export const FANTASY = {
   motes: 7, moteRU: [1.5, 1.95], moteHz: [0.08, 0.16], moteSizeU: [0.07, 0.12], moteAlpha: 0.75, moteFade: 1,
   moteColor: '#FFE08A', moteTwinkle: 2, moteGrow: 0.5, moteDim: 0.5, breathe: [0.07, 0.02],
   stillness: 0.3,
+};
+
+// The classic parametric heart: x = a sin^3 t, y = b0 cos t - b1 cos 2t - b2 cos 3t - b3 cos 4t.
+export const HEART_CURVE = { a: 16, b: [13, 5, 2, 1], width: 32, box: 34, center: 0.46, steps: 48 };
+
+// Floating hearts released by a tap.
+export const HEARTS = {
+  life: 2.6, riseU: [0.9, 1.5], swayU: [0.15, 0.35], swayHz: [0.6, 1.1], spreadR: 0.35, startR: 0.3,
+  popS: 0.22, stagger: 0.055, fadeFrom: 0.6, wobble: 0.25, max: 60, px: 64,
+  highlight: [0.35, 0.3, 0.5], lightMix: 0.35, shadeMix: 0.25,
 };
 
 export const SEED = {

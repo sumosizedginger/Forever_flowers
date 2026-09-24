@@ -14,6 +14,11 @@ import { buildPetals, drawPetals } from './petals.js';
 import { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasy, fantasyBox } from './fantasy.js';
 import { drawSeed, buildFireflies, drawFireflies, drawPollen } from './fx.js';
 import { buildButterflies, drawButterflies } from './butterflies.js';
+import { drawHearts, heartCount } from './hearts.js';
+import { makeHeart, layoutHeart, updateHeart, drawHeartSecret, heartPhase, startNova, heartBox, NOVA_LENGTH } from './heart.js';
+import { makeInput, attachInput, updateInput, enterDim } from './input.js';
+import { plantedCount } from './flowers.js';
+import { fantasyRadius } from './fantasy.js';
 import { flowerTimes, showTimes } from './choreo.js';
 import { render, addLayer } from './render.js';
 import { update, addStep } from './update.js';
@@ -35,7 +40,8 @@ const app = {
   stars: [], moon: null, grass: null, leafSprite: null,
   flowers: null, cherry: null, petals: null, fantasy: null, fireflies: null, butterflies: null,
   breath: 1, dimLevel: 0, openDim: 1, gold: params.gold,
-  fx: { shooting: [], petals: [] },
+  fx: { shooting: [], petals: [], hearts: [] },
+  input: makeInput(), heart: makeHeart(),
   stats: makeStats(),
   needsLayout: true,
 };
@@ -58,9 +64,12 @@ function rebuildWorld() {
   app.fireflies = buildFireflies(app);
   app.butterflies = buildButterflies(app);
   app.grass = buildGrass(app, stemBases(app).concat(app.fantasy.x));
+  layoutHeart(app);
 }
 
 addStep(showTimes);
+addStep(updateInput);
+addStep(updateHeart);
 addStep(flowerTimes);
 addStep(fantasyTimes);
 addStep(cherryTimes);
@@ -75,6 +84,8 @@ addLayer('mid', drawRoseLayer);
 addLayer('mid', drawWildLayer);
 addLayer('mid', drawPetals);
 addLayer('front', drawButterflies);
+addLayer('front', drawHearts);
+addLayer('front', drawHeartSecret);
 addLayer('top', drawSeed);
 
 function relayout() {
@@ -110,5 +121,18 @@ document.addEventListener('gesturestart', (e) => e.preventDefault());
 
 installTestHooks(app, {
   get heads() { return [fantasyBox(app)].filter(Boolean).concat(headBoxes(app), blossomBoxes(app)); },
+  get planted() { return plantedCount(app); },
+  get heartPhase() { return heartPhase(app); },
+  get hearts() { return heartCount(app); },
+  get petals() { return app.fx.petals.length; },
+  get dim() { return app.dimLevel; },
+  get heartBox() { return heartBox(app); },
+  get moonBox() { const m = app.L.moon; return { x: m.x - m.r, y: m.y - m.r, w: m.r * 2, h: m.r * 2 }; },
+  get fantasy() { return { x: app.fantasy.hx, y: app.fantasy.hy, r: fantasyRadius(app) }; },
+  get gold() { return app.gold; },
+  novaLength: NOVA_LENGTH,
+  triggerHeart: (at) => startNova(app, at || 0),
+  forceDim: () => enterDim(app),
 });
+attachInput(app);
 requestAnimationFrame(frame);

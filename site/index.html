@@ -254,7 +254,7 @@ const MOTION = {
     hz: [0.22, 0.42], amp: [0.018, 0.03], phasePerPx: 0.004, phaseRand: 0.6,
     breezeHz: 0.05, breezeDepth: 0.4, headFollow: 0.6,
   },
-  lean: { max: 0.07, response: 0.35, decay: 2, reachU: 5, fullU: 1.2 },
+  lean: { max: 0.07, response: 0.35, decay: 2, decayTaus: 4, reachU: 5, fullU: 1.2 },
   spring: { k: 140, c: 7, scale: 0.14, tiltDeg: 12, peak: 0.057, rest: 0.0005, step: 0.008 },
   variance: { size: 0.08, bloomDur: 0.15, tiltDeg: 6, roseLayers: [5, 6] },
   petals: {
@@ -282,7 +282,9 @@ const HEART = {
   motes: 64, fly: 1.2, stagger: 0.35, widthU: 5.2, hold: 3, bpm: 72,
   lub: 0.05, dub: 0.035, dubAt: 0.28, beatAttack: 0.05, beatDecay: 0.16,
   lineAlpha: 0.25, lineWidthPx: 1, fade: 1.8, fallU: 1.1, notchU: 1.45,
-  curveU: 1.6, moteRU: 0.16, moteAlpha: 0.9, showR: [1.25, 1.65],
+  curveU: 1.6, curveMin: 0.5, moteRU: 0.16, moteAlpha: 0.9, showR: [1.25, 1.65],
+  ringAlpha: 0.55, ringColor: '#FFE08A', dotU: 0.22, dotAlpha: 0.6, spin: 1.25, chargeInner: 1.3,
+  relaxS: 0.12, beatGlow: 0.5, driftU: 0.3, samples: 720, coreU: 0.07, coreAlpha: 0.8,
 };
 
 const GOLD = {
@@ -427,6 +429,16 @@ const FANTASY = {
   stillness: 0.3,
 };
 
+// The classic parametric heart: x = a sin^3 t, y = b0 cos t - b1 cos 2t - b2 cos 3t - b3 cos 4t.
+const HEART_CURVE = { a: 16, b: [13, 5, 2, 1], width: 32, box: 34, center: 0.46, steps: 48 };
+
+// Floating hearts released by a tap.
+const HEARTS = {
+  life: 2.6, riseU: [0.9, 1.5], swayU: [0.15, 0.35], swayHz: [0.6, 1.1], spreadR: 0.35, startR: 0.3,
+  popS: 0.22, stagger: 0.055, fadeFrom: 0.6, wobble: 0.25, max: 60, px: 64,
+  highlight: [0.35, 0.3, 0.5], lightMix: 0.35, shadeMix: 0.25,
+};
+
 const SEED = {
   appearS: 0.25, glowU: 0.55, glowAlpha: 0.6, coreU: 0.06, flashS: 0.35, flashAlpha: 0.5, flashGrow: 0.8,
   sink: 1.4, trailW: 0.12, ringSquash: 0.34, ringW: 1.6, ringColor: '#FFE08A',
@@ -449,7 +461,7 @@ const STORAGE = { visits: 'ff.visits', gold: 'ff.goldSeen', seed: 'ff.seed' };
 
 const PERF = { samples: 1200 };
 
-return { TUNE, TUNE_RANGES, PALETTE, TOD, SPRITE, WORLD, BEATS, WAKE, PREVIEW, MOTION, INPUT, HEART, GOLD, SHOOTING, LAYOUT, UI, SIZE, COUNTS, AUDIO, SHAPE, FANTASY, SEED, FIREFLY, POLLEN, BUTTERFLY, STORAGE, PERF };
+return { TUNE, TUNE_RANGES, PALETTE, TOD, SPRITE, WORLD, BEATS, WAKE, PREVIEW, MOTION, INPUT, HEART, GOLD, SHOOTING, LAYOUT, UI, SIZE, COUNTS, AUDIO, SHAPE, FANTASY, HEART_CURVE, HEARTS, SEED, FIREFLY, POLLEN, BUTTERFLY, STORAGE, PERF };
 })();
 __m["params.js"] = (() => {
 // URL test hooks. Without a param nothing she sees changes.
@@ -480,9 +492,16 @@ return { readParams };
 })();
 __m["util.js"] = (() => {
 // Small shared helpers: seeded randomness, easing, math, color.
-const { PALETTE } = __m["config.js"];
+const { PALETTE, HEART_CURVE } = __m["config.js"];
 
 const TAU = Math.PI * 2;
+
+// Point on the heart curve in curve units; y grows downward, the notch is at t = 0.
+function heartXY(t) {
+  const { a, b } = HEART_CURVE;
+  const s = Math.sin(t);
+  return [a * s * s * s, -(b[0] * Math.cos(t) - b[1] * Math.cos(2 * t) - b[2] * Math.cos(3 * t) - b[3] * Math.cos(4 * t))];
+}
 
 function makeRng(seed) {
   let s = seed >>> 0;
@@ -618,7 +637,7 @@ function rgba(hex, a) {
   return `rgba(${r},${g},${b},${clamp01(a)})`;
 }
 
-return { TAU, makeRng, clamp, clamp01, lerp, invLerp, smooth, smoothstep, mod, hyp, easeInOutSine, easeInQuad, easeInCubic, easeOutCubic, easeInOutCubic, easeOutBack, cubicBezier, win, hexToRgb, rgbToHex, safe, lightnessOf, mix, darker, rgba };
+return { TAU, heartXY, makeRng, clamp, clamp01, lerp, invLerp, smooth, smoothstep, mod, hyp, easeInOutSine, easeInQuad, easeInCubic, easeOutCubic, easeInOutCubic, easeOutBack, cubicBezier, win, hexToRgb, rgbToHex, safe, lightnessOf, mix, darker, rgba };
 })();
 __m["clock.js"] = (() => {
 // App clock in seconds. Pauses completely while hidden and resumes exactly
@@ -2808,6 +2827,542 @@ function drawButterflies(ctx, app) {
 
 return { buildButterflies, drawButterflies };
 })();
+__m["hearts.js"] = (() => {
+// Hearts that float up from a tapped flower. Motion is a function of age.
+const { HEARTS, HEART_CURVE, SIZE, PALETTE, MOTION, INPUT } = __m["config.js"];
+const { TAU, clamp01, easeOutBack, mix, darker, heartXY } = __m["util.js"];
+const { makeCanvas, place, resetTransform } = __m["sprites.js"];
+
+const sprites = new Map();
+
+// Classic heart curve, normalized to fit a unit box, drawn once per color.
+function heartSprite(color) {
+  if (sprites.has(color)) return sprites.get(color);
+  const H = HEARTS;
+  const px = H.px;
+  const c = makeCanvas(px, px);
+  const g = c.getContext('2d');
+  const [hx, hy, hr] = H.highlight;
+  const grad = g.createRadialGradient(px * hx, px * hy, 0, px * hx, px * hy, px * hr * 2);
+  grad.addColorStop(0, mix(color, PALETTE.fantasyEdge, H.lightMix));
+  grad.addColorStop(1, darker(color, H.shadeMix));
+  g.fillStyle = grad;
+  g.beginPath();
+  const { steps, box, center } = HEART_CURVE;
+  for (let i = 0; i <= steps; i++) {
+    const [x, y] = heartXY((i / steps) * TAU);
+    const X = px / 2 + (x / box) * px;
+    const Y = px * center + (y / box) * px;
+    if (i === 0) g.moveTo(X, Y); else g.lineTo(X, Y);
+  }
+  g.fill();
+  sprites.set(color, c);
+  return c;
+}
+
+function spawnHearts(app, f, x, y, r, gold) {
+  const rng = app.live;
+  const n = rng.int(INPUT.hearts[0], INPUT.hearts[1]);
+  const H = HEARTS;
+  const U = app.L.U;
+  const colors = gold ? PALETTE.goldHearts : PALETTE.hearts;
+  for (let i = 0; i < n; i++) {
+    app.fx.hearts.push({
+      t0: app.clock.T + i * H.stagger, x0: x + rng.range(-1, 1) * r * H.spreadR, y0: y - r * H.startR,
+      rise: U * rng.range(H.riseU[0], H.riseU[1]), sway: U * rng.range(H.swayU[0], H.swayU[1]),
+      hz: rng.range(H.swayHz[0], H.swayHz[1]), ph: rng.range(0, TAU),
+      size: U * rng.range(SIZE.heartU[0], SIZE.heartU[1]), sprite: heartSprite(rng.pick(colors)),
+      rot: rng.range(-1, 1) * H.wobble,
+    });
+  }
+  if (app.fx.hearts.length > H.max) app.fx.hearts.splice(0, app.fx.hearts.length - H.max);
+}
+
+function drawHearts(ctx, app) {
+  const list = app.fx.hearts;
+  if (!list.length) return;
+  const { dpr } = app;
+  const T = app.clock.T;
+  const H = HEARTS;
+  for (let i = list.length - 1; i >= 0; i--) {
+    const h = list[i];
+    const age = T - h.t0;
+    if (age < 0) continue;
+    const p = age / H.life;
+    if (p >= 1) { list.splice(i, 1); continue; }
+    const x = h.x0 + h.sway * Math.sin(TAU * h.hz * age + h.ph) * clamp01(age / H.popS);
+    const y = h.y0 - h.rise * age;
+    const s = h.size * easeOutBack(clamp01(age / H.popS), MOTION.popOvershoot);
+    const a = 1 - clamp01((p - H.fadeFrom) / (1 - H.fadeFrom));
+    place(ctx, dpr, x, y, h.rot * Math.sin(TAU * h.hz * age), 1, 1);
+    ctx.globalAlpha = a;
+    ctx.drawImage(h.sprite, -s, -s, s * 2, s * 2);
+  }
+  resetTransform(ctx, dpr);
+  ctx.globalAlpha = 1;
+}
+
+function heartCount(app) {
+  return app.fx.hearts.length;
+}
+
+return { spawnHearts, drawHearts, heartCount };
+})();
+__m["heart.js"] = (() => {
+// Secret one. Press and hold the open fantasy flower: a ring sweeps clockwise,
+// motes spiral in, the petals stretch. Let go at full charge and it flares,
+// then 64 motes fly out into a heart that beats at 72 bpm, and drift away.
+const { HEART, HEART_CURVE, INPUT, PALETTE, SIZE } = __m["config.js"];
+const { TAU, lerp, clamp01, smooth, smoothstep, easeInOutCubic, easeOutCubic, easeInQuad, heartXY, rgba, mod, makeRng } = __m["util.js"];
+const { glow, drawGlow } = __m["sprites.js"];
+
+// Timeline from release, derived from the brief's durations.
+const T_FLY = HEART.flarePeak;
+const T_HOLD = T_FLY + HEART.stagger + HEART.fly;
+const T_FADE = T_HOLD + HEART.hold;
+const T_END = T_FADE + HEART.fade;
+const NOVA_LENGTH = T_END;
+
+function makeHeart() {
+  return { phase: 'idle', active: false, charge: 0, full: false, stretch: 0, flare: 0, beat: 0, pressT: 0, releaseT: 0, shape: null, motes: [] };
+}
+
+// 64 points spaced evenly along the heart outline, in curve units.
+function outline(n) {
+  const S = HEART.samples;
+  const pts = [];
+  let total = 0;
+  let prev = heartXY(0);
+  const acc = [0];
+  for (let i = 1; i <= S; i++) {
+    const p = heartXY((i / S) * TAU);
+    total += Math.hypot(p[0] - prev[0], p[1] - prev[1]);
+    acc.push(total);
+    prev = p;
+  }
+  let j = 0;
+  for (let k = 0; k < n; k++) {
+    const want = (k / n) * total;
+    while (acc[j + 1] < want) j++;
+    const f = (want - acc[j]) / (acc[j + 1] - acc[j] || 1);
+    const a = heartXY((j / S) * TAU), b = heartXY(((j + 1) / S) * TAU);
+    pts.push([lerp(a[0], b[0], f), lerp(a[1], b[1], f)]);
+  }
+  return pts;
+}
+
+let unit = null;
+
+function layoutHeart(app) {
+  const h = app.heart;
+  const L = app.L;
+  if (!unit) unit = outline(HEART.motes);
+  const s = (HEART.widthU * L.U) / HEART_CURVE.width;
+  const notch = heartXY(0);
+  const ox = L.fantasy.x;
+  const oy = L.fantasy.headY - HEART.notchU * L.U - notch[1] * s;
+  let y0 = Infinity, y1 = -Infinity;
+  for (const [, y] of unit) { y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  h.shape = { s, ox, oy, pts: unit, cy: oy + ((y0 + y1) / 2) * s };
+}
+
+function heartPhase(app) {
+  const h = app.heart;
+  if (h.phase !== 'nova') return h.phase === 'charging' ? 'charging' : 'idle';
+  const r = app.clock.T - h.releaseT;
+  if (r < T_FLY) return 'flare';
+  if (r < T_HOLD) return 'flyout';
+  if (r < T_FADE) return 'hold';
+  return 'fade';
+}
+
+// Pressing the fantasy flower. Charging begins after the delay if still held.
+function pressHeart(app) {
+  const h = app.heart;
+  h.phase = 'press';
+  h.pressT = app.clock.T;
+  h.full = false;
+  h.charge = 0;
+}
+
+function cancelHeart(app) {
+  const h = app.heart;
+  h.phase = 'relax';
+  h.full = false;
+  h.charge = 0;
+  if (app.state === 'CHARGING') app.state = 'LIVE';
+}
+
+function startNova(app, at) {
+  const h = app.heart;
+  const rng = makeRng((app.seed ^ Math.floor(app.clock.T * 1000)) >>> 0);
+  h.phase = 'nova';
+  h.releaseT = app.clock.T - (at || 0);
+  h.charge = 1;
+  h.full = true;
+  h.motes = unit.map((_, i) => ({
+    d: rng.range(0, HEART.stagger),
+    side: i % 2 ? 1 : -1,
+    bend: rng.range(HEART.curveMin, 1),
+    color: PALETTE.hearts[i % PALETTE.hearts.length],
+    drift: rng.range(-1, 1),
+  }));
+  app.state = 'NOVA';
+}
+
+function updateHeart(app, dt) {
+  const h = app.heart;
+  const T = app.clock.T;
+  if (h.phase === 'press' || h.phase === 'charging') {
+    const held = T - h.pressT;
+    if (h.phase === 'press' && held >= INPUT.chargeDelay) {
+      h.phase = 'charging';
+      app.state = 'CHARGING';
+    }
+    if (h.phase === 'charging') {
+      h.charge = clamp01((held - INPUT.chargeDelay) / (INPUT.chargeFull - INPUT.chargeDelay));
+      h.full = h.charge >= 1;
+      h.stretch = HEART.stretch * easeOutCubic(h.charge);
+    }
+    h.flare = 0;
+  } else if (h.phase === 'nova') {
+    const r = T - h.releaseT;
+    h.stretch = HEART.stretch * (1 - smooth(r / T_FLY));
+    h.flare = r < T_FLY ? smooth(r / T_FLY) : 1 - smooth((r - T_FLY) / HEART.flareRelax);
+    h.beat = 0;
+    if (r >= T_HOLD && r < T_FADE) {
+      const period = 60 / HEART.bpm;
+      const ph = mod(r - T_HOLD, period);
+      const env = (x) => (x < 0 ? 0 : x < HEART.beatAttack ? x / HEART.beatAttack : Math.exp(-(x - HEART.beatAttack) / HEART.beatDecay));
+      h.beat = HEART.lub * env(ph) + HEART.dub * env(ph - HEART.dubAt);
+    }
+    if (r >= T_END) {
+      h.phase = 'idle';
+      h.flare = 0;
+      h.stretch = 0;
+      if (app.state === 'NOVA') app.state = 'LIVE';
+    }
+  } else {
+    h.stretch *= Math.exp(-dt / HEART.relaxS);
+    if (h.stretch < 1e-4) h.stretch = 0;
+    h.flare = 0;
+    if (h.phase === 'relax' && h.stretch === 0) h.phase = 'idle';
+  }
+  h.active = h.phase === 'charging' || h.phase === 'nova';
+}
+
+function drawCharge(ctx, app) {
+  const h = app.heart;
+  const f = app.fantasy;
+  const U = app.L.U;
+  const c = h.charge;
+  if (c <= 0) return;
+  const R = HEART.ringRU * U;
+  const end = -Math.PI / 2 + TAU * c;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = rgba(HEART.ringColor, HEART.ringAlpha * Math.sqrt(c));
+  ctx.lineWidth = HEART.ringWidth;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(f.hx, f.hy, R, -Math.PI / 2, end);
+  ctx.stroke();
+  const dot = glow(HEART.ringColor);
+  drawGlow(ctx, dot, f.hx + Math.cos(end) * R, f.hy + Math.sin(end) * R, HEART.dotU * U, HEART.dotAlpha);
+  const n = HEART.chargeMotes;
+  const inner = HEART.chargeInner * U;
+  const outer = HEART.chargeMoteRU * U;
+  for (let j = 0; j < n; j++) {
+    const a = (j / n) * TAU + c * TAU * HEART.spin;
+    const rr = lerp(outer, inner, easeInOutCubic(c));
+    const mote = glow(PALETTE.hearts[j % PALETTE.hearts.length]);
+    drawGlow(ctx, mote, f.hx + Math.cos(a) * rr, f.hy + Math.sin(a) * rr, HEART.moteRU * U, HEART.moteAlpha * smooth(c * 2));
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawNova(ctx, app) {
+  const h = app.heart;
+  const f = app.fantasy;
+  const sh = h.shape;
+  if (!sh) return;
+  const U = app.L.U;
+  const r = app.clock.T - h.releaseT;
+  if (r < T_FLY) return;
+  const scale = 1 + h.beat;
+  const fade = r > T_FADE ? clamp01((r - T_FADE) / HEART.fade) : 0;
+  const cx = f.hx, cy = f.hy;
+  const pos = [];
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < h.motes.length; i++) {
+    const m = h.motes[i];
+    const local = r - T_FLY - m.d;
+    if (local < 0) { pos.push(null); continue; }
+    const p = clamp01(local / HEART.fly);
+    const e = easeInOutCubic(p);
+    const [ux, uy] = sh.pts[i];
+    const tx = sh.ox + ux * sh.s * scale;
+    const ty = sh.cy + (sh.oy + uy * sh.s - sh.cy) * scale;
+    const mx = (cx + tx) / 2, my = (cy + ty) / 2;
+    const len = Math.hypot(tx - cx, ty - cy) || 1;
+    const k = HEART.curveU * U * m.bend * m.side;
+    const qx = mx - ((ty - cy) / len) * k, qy = my + ((tx - cx) / len) * k;
+    const u = 1 - e;
+    let x = u * u * cx + 2 * u * e * qx + e * e * tx;
+    let y = u * u * cy + 2 * u * e * qy + e * e * ty;
+    let a = HEART.moteAlpha * lerp(smoothstep(HEART.showR[0] * U, HEART.showR[1] * U, Math.hypot(x - cx, y - cy)), 1, smooth(p));
+    if (fade > 0) {
+      y += HEART.fallU * U * easeInQuad(fade);
+      x += HEART.driftU * U * m.drift * fade;
+      a *= 1 - fade;
+    }
+    pos.push(p >= 1 ? [x, y, a] : null);
+    drawGlow(ctx, glow(m.color), x, y, HEART.moteRU * U * (1 + (h.beat / HEART.lub) * HEART.beatGlow), a);
+    drawGlow(ctx, glow(PALETTE.core[0]), x, y, HEART.coreU * U, a * HEART.coreAlpha);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = rgba(PALETTE.hearts[1], HEART.lineAlpha * (1 - fade));
+  ctx.lineWidth = HEART.lineWidthPx;
+  ctx.beginPath();
+  for (let i = 0; i < pos.length; i++) {
+    const a = pos[i], b = pos[(i + 1) % pos.length];
+    if (!a || !b) continue;
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+  }
+  ctx.stroke();
+}
+
+function drawHeartSecret(ctx, app) {
+  const h = app.heart;
+  if (h.phase === 'charging') drawCharge(ctx, app);
+  else if (h.phase === 'nova') drawNova(ctx, app);
+}
+
+// Heart outline extents at the lub, for the clipping check.
+function heartBox(app) {
+  const sh = app.heart.shape;
+  if (!sh) return null;
+  const k = 1 + HEART.lub;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [ux, uy] of sh.pts) {
+    const x = sh.ox + ux * sh.s * k;
+    const y = sh.cy + (sh.oy + uy * sh.s - sh.cy) * k;
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+  }
+  const pad = HEART.moteRU * app.L.U;
+  return { kind: 'heart', idx: 0, x: x0 - pad, y: y0 - pad, w: x1 - x0 + pad * 2, h: y1 - y0 + pad * 2 };
+}
+
+return { NOVA_LENGTH, makeHeart, layoutHeart, heartPhase, pressHeart, cancelHeart, startNova, updateHeart, drawHeartSecret, heartBox };
+})();
+__m["input.js"] = (() => {
+// Touch. One pointer at a time; taps resolve on release; the states are
+// INTRO, LIVE, DIM, CHARGING and NOVA exactly as the brief lays them out.
+const { INPUT, MOTION } = __m["config.js"];
+const { clamp, lerp, smooth, smoothstep } = __m["util.js"];
+const { hitFantasy, fantasyRadius } = __m["fantasy.js"];
+const { hitFlower, kick, plant, allFlowers, stemBases } = __m["flowers.js"];
+const { hitCherry, kickCherry } = __m["cherry.js"];
+const { shakePetals } = __m["petals.js"];
+const { spawnShootingStar } = __m["sky.js"];
+const { spawnHearts } = __m["hearts.js"];
+const { buildGrass } = __m["grass.js"];
+const { pressHeart, cancelHeart, startNova } = __m["heart.js"];
+
+function makeInput() {
+  return {
+    p: null, idle: 0, ignoreUntil: -Infinity, leaning: false, leanX: 0, leanY: 0,
+    dimFrom: 0, dimTo: 0, dimT0: 0, dimDur: 1, nextShoot: null,
+  };
+}
+
+const sound = (app, name, ...args) => { if (app.audio && app.audio[name]) app.audio[name](...args); };
+
+function pos(app, e) {
+  const r = app.canvas.getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top];
+}
+
+function animateDim(app, to, dur) {
+  const inp = app.input;
+  inp.dimFrom = app.dimLevel;
+  inp.dimTo = to;
+  inp.dimT0 = app.clock.T;
+  inp.dimDur = dur;
+}
+
+function enterDim(app) {
+  app.state = 'DIM';
+  animateDim(app, 1, INPUT.dimS);
+}
+
+function wake(app) {
+  app.state = 'LIVE';
+  app.input.idle = 0;
+  app.input.ignoreUntil = app.clock.T + INPUT.dimIgnoreS;
+  animateDim(app, 0, INPUT.wakeS);
+}
+
+function tapFantasy(app) {
+  const f = app.fantasy;
+  kick(f, app.live.sign());
+  spawnHearts(app, f, f.hx, f.hy, fantasyRadius(app), false);
+  sound(app, 'fantasy');
+}
+
+function tapFlower(app, f, x) {
+  kick(f, x < f.hx ? 1 : -1);
+  spawnHearts(app, f, f.hx, f.hy, f.r, f.gold);
+  sound(app, f.gold ? 'gold' : 'tap', f);
+}
+
+function resolveTap(app, x, y) {
+  const st = app.state;
+  if (st === 'CHARGING' || st === 'DIM') return;
+  if (hitFantasy(app, x, y)) { tapFantasy(app); return; }
+  const f = hitFlower(app, x, y);
+  if (f) { tapFlower(app, f, x); return; }
+  if (hitCherry(app, x, y)) {
+    kickCherry(app);
+    shakePetals(app);
+    sound(app, 'shake');
+    return;
+  }
+  if (st === 'NOVA') return;
+  if (y < app.L.horizonY) {
+    spawnShootingStar(app, x, y);
+    sound(app, 'star');
+    return;
+  }
+  if (st === 'LIVE') {
+    plant(app, x, y);
+    app.grass = buildGrass(app, stemBases(app).concat(app.fantasy.x));
+    sound(app, 'plant');
+  }
+}
+
+function onDown(app, e) {
+  const inp = app.input;
+  if (inp.p) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const [x, y] = pos(app, e);
+  inp.idle = 0;
+  const p = { id: e.pointerId, x0: x, y0: y, x, y, t0: app.clock.T, moved: 0, mode: 'normal', fantasy: false };
+  inp.p = p;
+  try { app.canvas.setPointerCapture(e.pointerId); } catch (err) { /* capture is optional */ }
+  if (app.state === 'DIM') { wake(app); p.mode = 'wake'; return; }
+  if (app.clock.T < inp.ignoreUntil) { p.mode = 'ignored'; return; }
+  const h = app.heart;
+  const open = app.fantasy.open >= 1 && app.fantasy.grow >= 1;
+  if (app.state === 'LIVE' && open && h.phase !== 'nova' && hitFantasy(app, x, y)) {
+    pressHeart(app);
+    p.fantasy = true;
+  }
+}
+
+function onMove(app, e) {
+  const inp = app.input;
+  const p = inp.p;
+  if (!p || e.pointerId !== p.id) return;
+  const [x, y] = pos(app, e);
+  p.x = x;
+  p.y = y;
+  p.moved = Math.max(p.moved, Math.hypot(x - p.x0, y - p.y0));
+  inp.idle = 0;
+  if (p.mode !== 'normal') return;
+  const ph = app.heart.phase;
+  if (p.fantasy && (ph === 'press' || ph === 'charging')) {
+    const f = app.fantasy;
+    if (Math.hypot(x - f.hx, y - f.hy) > fantasyRadius(app) * INPUT.hitPad * INPUT.cancelRadius) {
+      cancelHeart(app);
+      p.fantasy = false;
+    }
+    return;
+  }
+  inp.leaning = true;
+  inp.leanX = x;
+  inp.leanY = y;
+}
+
+function onUp(app, e) {
+  const inp = app.input;
+  const p = inp.p;
+  if (!p || e.pointerId !== p.id) return;
+  inp.p = null;
+  inp.leaning = false;
+  inp.idle = 0;
+  if (p.mode !== 'normal') return;
+  const held = app.clock.T - p.t0;
+  const isTap = held < INPUT.tapMaxS && p.moved < INPUT.tapMovePx;
+  const h = app.heart;
+  if (p.fantasy && (h.phase === 'press' || h.phase === 'charging')) {
+    if (h.phase === 'charging' && h.full) {
+      startNova(app);
+      sound(app, 'nova');
+      return;
+    }
+    cancelHeart(app);
+    if (isTap) tapFantasy(app);
+    return;
+  }
+  if (isTap) resolveTap(app, p.x0, p.y0);
+}
+
+function onCancel(app, e) {
+  const inp = app.input;
+  const p = inp.p;
+  if (!p || e.pointerId !== p.id) return;
+  inp.p = null;
+  inp.leaning = false;
+  const ph = app.heart.phase;
+  if (ph === 'press' || ph === 'charging') cancelHeart(app);
+}
+
+function attachInput(app) {
+  const cv = app.canvas;
+  cv.addEventListener('pointerdown', (e) => onDown(app, e));
+  cv.addEventListener('pointermove', (e) => onMove(app, e));
+  cv.addEventListener('pointerup', (e) => onUp(app, e));
+  cv.addEventListener('pointercancel', (e) => onCancel(app, e));
+}
+
+function updateInput(app, dt) {
+  const inp = app.input;
+  const T = app.clock.T;
+  if (app.state === 'LIVE' && !inp.p) {
+    inp.idle += dt;
+    if (inp.idle >= INPUT.idleS) enterDim(app);
+  }
+  app.dimLevel = lerp(inp.dimFrom, inp.dimTo, smooth((T - inp.dimT0) / inp.dimDur));
+  app.darken = INPUT.dimDark * app.dimLevel;
+
+  const L = MOTION.lean;
+  const U = app.L.U;
+  const tau = inp.leaning ? L.response : L.decay / L.decayTaus;
+  const k = 1 - Math.exp(-dt / tau);
+  for (const f of allFlowers(app).concat(app.fantasy)) {
+    let target = 0;
+    if (inp.leaning) {
+      const dx = inp.leanX - f.hx;
+      const w = 1 - smoothstep(0, L.reachU * U, Math.hypot(dx, inp.leanY - f.hy));
+      target = L.max * f.h * clamp(dx / (L.fullU * U), -1, 1) * w;
+    }
+    f.leanPx += (target - f.leanPx) * k;
+  }
+
+  const auto = app.theme.autoShooting && (app.state === 'LIVE' || app.state === 'DIM');
+  if (!auto) { inp.nextShoot = null; return; }
+  const [a, b] = INPUT.autoShooting;
+  if (inp.nextShoot === null) inp.nextShoot = T + app.live.range(a, b);
+  if (T >= inp.nextShoot) {
+    const Lo = app.L;
+    spawnShootingStar(app, app.live.range(Lo.minX, Lo.maxX), app.live.range(Lo.minY, Lo.fantasy.headY) );
+    inp.nextShoot = T + app.live.range(a, b);
+  }
+}
+
+return { makeInput, enterDim, wake, resolveTap, attachInput, updateInput };
+})();
 __m["render.js"] = (() => {
 // The frame, back to front.
 const { PALETTE } = __m["config.js"];
@@ -2955,6 +3510,11 @@ const { buildPetals, drawPetals } = __m["petals.js"];
 const { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasy, fantasyBox } = __m["fantasy.js"];
 const { drawSeed, buildFireflies, drawFireflies, drawPollen } = __m["fx.js"];
 const { buildButterflies, drawButterflies } = __m["butterflies.js"];
+const { drawHearts, heartCount } = __m["hearts.js"];
+const { makeHeart, layoutHeart, updateHeart, drawHeartSecret, heartPhase, startNova, heartBox, NOVA_LENGTH } = __m["heart.js"];
+const { makeInput, attachInput, updateInput, enterDim } = __m["input.js"];
+const { plantedCount } = __m["flowers.js"];
+const { fantasyRadius } = __m["fantasy.js"];
 const { flowerTimes, showTimes } = __m["choreo.js"];
 const { render, addLayer } = __m["render.js"];
 const { update, addStep } = __m["update.js"];
@@ -2976,7 +3536,8 @@ const app = {
   stars: [], moon: null, grass: null, leafSprite: null,
   flowers: null, cherry: null, petals: null, fantasy: null, fireflies: null, butterflies: null,
   breath: 1, dimLevel: 0, openDim: 1, gold: params.gold,
-  fx: { shooting: [], petals: [] },
+  fx: { shooting: [], petals: [], hearts: [] },
+  input: makeInput(), heart: makeHeart(),
   stats: makeStats(),
   needsLayout: true,
 };
@@ -2999,9 +3560,12 @@ function rebuildWorld() {
   app.fireflies = buildFireflies(app);
   app.butterflies = buildButterflies(app);
   app.grass = buildGrass(app, stemBases(app).concat(app.fantasy.x));
+  layoutHeart(app);
 }
 
 addStep(showTimes);
+addStep(updateInput);
+addStep(updateHeart);
 addStep(flowerTimes);
 addStep(fantasyTimes);
 addStep(cherryTimes);
@@ -3016,6 +3580,8 @@ addLayer('mid', drawRoseLayer);
 addLayer('mid', drawWildLayer);
 addLayer('mid', drawPetals);
 addLayer('front', drawButterflies);
+addLayer('front', drawHearts);
+addLayer('front', drawHeartSecret);
 addLayer('top', drawSeed);
 
 function relayout() {
@@ -3051,7 +3617,20 @@ document.addEventListener('gesturestart', (e) => e.preventDefault());
 
 installTestHooks(app, {
   get heads() { return [fantasyBox(app)].filter(Boolean).concat(headBoxes(app), blossomBoxes(app)); },
+  get planted() { return plantedCount(app); },
+  get heartPhase() { return heartPhase(app); },
+  get hearts() { return heartCount(app); },
+  get petals() { return app.fx.petals.length; },
+  get dim() { return app.dimLevel; },
+  get heartBox() { return heartBox(app); },
+  get moonBox() { const m = app.L.moon; return { x: m.x - m.r, y: m.y - m.r, w: m.r * 2, h: m.r * 2 }; },
+  get fantasy() { return { x: app.fantasy.hx, y: app.fantasy.hy, r: fantasyRadius(app) }; },
+  get gold() { return app.gold; },
+  novaLength: NOVA_LENGTH,
+  triggerHeart: (at) => startNova(app, at || 0),
+  forceDim: () => enterDim(app),
 });
+attachInput(app);
 requestAnimationFrame(frame);
 
 return {  };

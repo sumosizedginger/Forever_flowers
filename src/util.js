@@ -1,7 +1,14 @@
 // Small shared helpers: seeded randomness, easing, math, color.
-import { PALETTE } from './config.js';
+import { PALETTE, HEART_CURVE } from './config.js';
 
 export const TAU = Math.PI * 2;
+
+// Point on the heart curve in curve units; y grows downward, the notch is at t = 0.
+export function heartXY(t) {
+  const { a, b } = HEART_CURVE;
+  const s = Math.sin(t);
+  return [a * s * s * s, -(b[0] * Math.cos(t) - b[1] * Math.cos(2 * t) - b[2] * Math.cos(3 * t) - b[3] * Math.cos(4 * t))];
+}
 
 export function makeRng(seed) {
   let s = seed >>> 0;
