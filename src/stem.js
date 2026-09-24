@@ -2,7 +2,7 @@
 // and gust. Leaves are one cached sprite drawn with a transform as they unfurl.
 import { SHAPE, MOTION, TUNE } from './config.js';
 import { rgba, darker, clamp01, lerp, easeOutBack } from './util.js';
-import { makeCanvas, place } from './sprites.js';
+import { makeCanvas, place, resetTransform } from './sprites.js';
 
 // Compute the stem for displacement D (px at the head) and growth g.
 // Writes f.full (the whole curve) and f.stem (the grown part), and the head pose.
@@ -113,4 +113,5 @@ export function drawLeaves(ctx, app, list) {
       ctx.drawImage(sprite, -len * ratio / 2, -len, len * ratio, len);
     }
   }
+  resetTransform(ctx, dpr);
 }

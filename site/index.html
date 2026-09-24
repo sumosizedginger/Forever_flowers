@@ -1221,7 +1221,7 @@ __m["stem.js"] = (() => {
 // and gust. Leaves are one cached sprite drawn with a transform as they unfurl.
 const { SHAPE, MOTION, TUNE } = __m["config.js"];
 const { rgba, darker, clamp01, lerp, easeOutBack } = __m["util.js"];
-const { makeCanvas, place } = __m["sprites.js"];
+const { makeCanvas, place, resetTransform } = __m["sprites.js"];
 
 // Compute the stem for displacement D (px at the head) and growth g.
 // Writes f.full (the whole curve) and f.stem (the grown part), and the head pose.
@@ -1332,6 +1332,7 @@ function drawLeaves(ctx, app, list) {
       ctx.drawImage(sprite, -len * ratio / 2, -len, len * ratio, len);
     }
   }
+  resetTransform(ctx, dpr);
 }
 
 return { shapeStem, pointAt, strokeStems, makeLeaves, buildLeafSprite, drawLeaves };
@@ -2526,6 +2527,7 @@ function drawFantasy(ctx, app) {
   const stretch = hs.stretch || 0;
   drawStem(ctx, app, f);
   drawLeaves(ctx, app, [f]);
+  resetTransform(ctx, dpr);
 
   const cx = f.hx, cy = f.hy;
   const breathe = 1 + F.breathe[1] * Math.sin(TAU * F.breathe[0] * T);

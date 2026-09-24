@@ -205,6 +205,7 @@ export function drawFantasy(ctx, app) {
   const stretch = hs.stretch || 0;
   drawStem(ctx, app, f);
   drawLeaves(ctx, app, [f]);
+  resetTransform(ctx, dpr);
 
   const cx = f.hx, cy = f.hy;
   const breathe = 1 + F.breathe[1] * Math.sin(TAU * F.breathe[0] * T);

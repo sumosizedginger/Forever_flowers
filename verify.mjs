@@ -58,6 +58,20 @@ async function open(vp, query, ctx) {
 const ffv = (page, expr) => page.evaluate(expr);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// node verify.mjs --preview : render the link preview still and stop.
+if (process.argv.includes('--preview')) {
+  const context = await browser.newContext({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
+  const page = await context.newPage();
+  page.on('pageerror', (e) => errors.push(`preview: ${e.message}`));
+  await page.goto(BASE + '?preview&tod=night&seed=1');
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: join(SITE, 'preview.png'), type: 'png' });
+  await browser.close();
+  server.close();
+  console.log(errors.length ? errors.join('\n') : 'wrote site/preview.png (1200x630)');
+  process.exit(errors.length ? 1 : 0);
+}
+
 // ---------- contact sheet ----------
 const frames = [];
 async function capture(label, vp, query, prep) {
