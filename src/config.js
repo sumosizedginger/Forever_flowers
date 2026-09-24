@@ -191,8 +191,8 @@ export const HEART = {
   flarePetals: 0.45, flareHalo: 0.6, flareCore: 0.9, flarePeak: 0.6, flareRelax: 0.9,
   motes: 64, fly: 1.2, stagger: 0.35, widthU: 5.2, hold: 3, bpm: 72,
   lub: 0.05, dub: 0.035, dubAt: 0.28, beatAttack: 0.05, beatDecay: 0.16,
-  lineAlpha: 0.25, lineWidthPx: 1, fade: 1.8, fallU: 1.1, notchU: 0.45,
-  curveU: 1.6, moteRU: 0.16, moteAlpha: 0.9,
+  lineAlpha: 0.25, lineWidthPx: 1, fade: 1.8, fallU: 1.1, notchU: 1.45,
+  curveU: 1.6, moteRU: 0.16, moteAlpha: 0.9, showR: [1.25, 1.65],
 };
 
 export const GOLD = {
@@ -314,6 +314,45 @@ export const SHAPE = {
     lift: { dur: 1.7, dxU: [0.8, 2.2], dyU: [0.9, 1.9], swirlU: [0.25, 0.6], w: [4, 7] },
     burst: { vU: [0.6, 1.6], tau: 0.35, up: 0.4 },
   },
+};
+
+// The flower that could never exist.
+export const FANTASY = {
+  // rings back to front: petal count, length and width as fractions of head radius, angle offset
+  rings: [
+    { n: 7, len: 1, w: 0.44, off: 0.22, shape: [0.95, 0.74, 0.78, 0.16] },
+    { n: 7, len: 0.8, w: 0.46, off: 0.67, shape: [1, 0.7, 0.9, 0.24] },
+    { n: 5, len: 0.5, w: 0.5, off: 0.1, shape: [0.92, 0.72, 0.86, 0.3] },
+  ],
+  squash: 0.9, budSpread: 0.13, budLen: 0.42, budSwell: 0.22, ringDur: 1.9,
+  sprite: [72, 180], alpha: 0.86, cycleS: 14, petalPhase: 0.55, ringPhase: 0.33,
+  deep: 0.28, midAt: 0.45, edgeMix: 0.3, glowAt: 0.45, glowR: 0.42, glowMix: 0.55, glowAlpha: 0.42,
+  veins: [[0, 0.82], [-0.28, 0.66], [0.28, 0.66]], veinDark: 0.55, veinAlpha: 0.42, veinW: 2, veinTip: 0.6, rimW: 2.4, rimAlpha: 0.9,
+  budHalo: [0.05, 0.16], budGlowAlpha: 0.5,
+  coreStops: [[0, 1], [0.5, 0.95], [1, 0]], corePx: 64, coreGlowU: 0.85, coreGlowAlpha: 0.32, coreFlareSize: 0.5,
+  flicker: [[1.7, 0.05], [3.1, 0.03]],
+  stemGlowMix: 0.35, stemGlowAlpha: 0.32, stemGlowW: 0.3,
+  motes: 7, moteRU: [1.5, 1.95], moteHz: [0.08, 0.16], moteSizeU: [0.07, 0.12], moteAlpha: 0.75, moteFade: 1,
+  moteColor: '#FFE08A', moteTwinkle: 2, moteGrow: 0.5, moteDim: 0.5, breathe: [0.07, 0.02],
+  stillness: 0.3,
+};
+
+export const SEED = {
+  appearS: 0.25, glowU: 0.55, glowAlpha: 0.6, coreU: 0.06, flashS: 0.35, flashAlpha: 0.5, flashGrow: 0.8,
+  sink: 1.4, trailW: 0.12, ringSquash: 0.34, ringW: 1.6, ringColor: '#FFE08A',
+};
+
+export const FIREFLY = { haloMul: 2.4, haloAlpha: 0.3, coreMul: 0.55, coreAlpha: 0.85, pulsePow: 1.5, yRange: [0.44, 0.86], ySquash: 0.6 };
+export const POLLEN = { yRange: [0.3, 0.86], hz: [0.03, 0.07], riseU: 0.12, riseMul: [0.5, 1], sizeU: [0.035, 0.07], alpha: 0.35 };
+
+export const BUTTERFLY = {
+  flapHz: [5.5, 7.5], spanU: 0.36, enterS: 4.5, region: [0.3, 0.72], wanderHz: [[0.043, 0.071], [0.052, 0.089]],
+  bob: [0.9, 0.12], tilt: 0.35, glowAlpha: 0.12, glowU: 0.9, wingAlpha: 0.88, bodyW: 0.07, bodyL: 0.42,
+  upper: [1, 0.72], lower: [0.68, 0.55], fold: 0.22, edgeMix: 0.22, body: '#2C1A26', px: 96,
+  // wing outlines as [x, y] multiples of the wing size: bezier c1, c2, end, then quadratic control
+  up: [[0.4, -1], [1, -1.1], [0.9, -0.3], [0.6, 0]],
+  low: [[0.6, 0.2], [1, 1], [0.5, 0.95], [0.2, 0.6]],
+  wander: { ax: 0.42, mixX: [0.65, 0.35], mulX: 2.3, mixY: [0.6, 0.4], mulY: 1.7, jitter: 0.15 },
 };
 
 export const STORAGE = { visits: 'ff.visits', gold: 'ff.goldSeen', seed: 'ff.seed' };

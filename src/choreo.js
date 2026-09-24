@@ -1,7 +1,7 @@
 // The beat sheet for the field: stem growth and blooms as pure functions of
 // show time, for the full show and the five second wake up.
 import { BEATS, WAKE, TUNE, MOTION, INPUT } from './config.js';
-import { win, lerp, easeInOutSine, easeOutBack, cubicBezier } from './util.js';
+import { win, lerp, smooth, easeInOutSine, easeOutBack, cubicBezier } from './util.js';
 
 let curve = null;
 let curveK = null;
@@ -54,6 +54,20 @@ export function flowerTimes(app) {
   for (const f of fl.roses) f.openEff = f.open * dim;
   for (const f of fl.wilds) f.openEff = f.open * dim;
   app.openDim = dim;
+}
+
+// Held breath, and the end of the intro.
+export function showTimes(app) {
+  const s = app.s;
+  const b = BEATS.breath;
+  let k = 0;
+  if (app.show.mode === 'full' && s >= b.start) {
+    k = s < b.start + b.dur ? smooth((s - b.start) / b.ease) : 1 - smooth((s - b.start - b.dur) / b.recover);
+  }
+  app.breath = lerp(1, b.amp, k);
+  const end = app.show.mode === 'wake' ? WAKE.total : BEATS.introEnd;
+  app.introDone = s >= end;
+  if (app.state === 'INTRO' && app.introDone) app.state = 'LIVE';
 }
 
 // When each rose starts to bloom, in bloom order, for the sound phrase.

@@ -281,8 +281,8 @@ const HEART = {
   flarePetals: 0.45, flareHalo: 0.6, flareCore: 0.9, flarePeak: 0.6, flareRelax: 0.9,
   motes: 64, fly: 1.2, stagger: 0.35, widthU: 5.2, hold: 3, bpm: 72,
   lub: 0.05, dub: 0.035, dubAt: 0.28, beatAttack: 0.05, beatDecay: 0.16,
-  lineAlpha: 0.25, lineWidthPx: 1, fade: 1.8, fallU: 1.1, notchU: 0.45,
-  curveU: 1.6, moteRU: 0.16, moteAlpha: 0.9,
+  lineAlpha: 0.25, lineWidthPx: 1, fade: 1.8, fallU: 1.1, notchU: 1.45,
+  curveU: 1.6, moteRU: 0.16, moteAlpha: 0.9, showR: [1.25, 1.65],
 };
 
 const GOLD = {
@@ -406,11 +406,50 @@ const SHAPE = {
   },
 };
 
+// The flower that could never exist.
+const FANTASY = {
+  // rings back to front: petal count, length and width as fractions of head radius, angle offset
+  rings: [
+    { n: 7, len: 1, w: 0.44, off: 0.22, shape: [0.95, 0.74, 0.78, 0.16] },
+    { n: 7, len: 0.8, w: 0.46, off: 0.67, shape: [1, 0.7, 0.9, 0.24] },
+    { n: 5, len: 0.5, w: 0.5, off: 0.1, shape: [0.92, 0.72, 0.86, 0.3] },
+  ],
+  squash: 0.9, budSpread: 0.13, budLen: 0.42, budSwell: 0.22, ringDur: 1.9,
+  sprite: [72, 180], alpha: 0.86, cycleS: 14, petalPhase: 0.55, ringPhase: 0.33,
+  deep: 0.28, midAt: 0.45, edgeMix: 0.3, glowAt: 0.45, glowR: 0.42, glowMix: 0.55, glowAlpha: 0.42,
+  veins: [[0, 0.82], [-0.28, 0.66], [0.28, 0.66]], veinDark: 0.55, veinAlpha: 0.42, veinW: 2, veinTip: 0.6, rimW: 2.4, rimAlpha: 0.9,
+  budHalo: [0.05, 0.16], budGlowAlpha: 0.5,
+  coreStops: [[0, 1], [0.5, 0.95], [1, 0]], corePx: 64, coreGlowU: 0.85, coreGlowAlpha: 0.32, coreFlareSize: 0.5,
+  flicker: [[1.7, 0.05], [3.1, 0.03]],
+  stemGlowMix: 0.35, stemGlowAlpha: 0.32, stemGlowW: 0.3,
+  motes: 7, moteRU: [1.5, 1.95], moteHz: [0.08, 0.16], moteSizeU: [0.07, 0.12], moteAlpha: 0.75, moteFade: 1,
+  moteColor: '#FFE08A', moteTwinkle: 2, moteGrow: 0.5, moteDim: 0.5, breathe: [0.07, 0.02],
+  stillness: 0.3,
+};
+
+const SEED = {
+  appearS: 0.25, glowU: 0.55, glowAlpha: 0.6, coreU: 0.06, flashS: 0.35, flashAlpha: 0.5, flashGrow: 0.8,
+  sink: 1.4, trailW: 0.12, ringSquash: 0.34, ringW: 1.6, ringColor: '#FFE08A',
+};
+
+const FIREFLY = { haloMul: 2.4, haloAlpha: 0.3, coreMul: 0.55, coreAlpha: 0.85, pulsePow: 1.5, yRange: [0.44, 0.86], ySquash: 0.6 };
+const POLLEN = { yRange: [0.3, 0.86], hz: [0.03, 0.07], riseU: 0.12, riseMul: [0.5, 1], sizeU: [0.035, 0.07], alpha: 0.35 };
+
+const BUTTERFLY = {
+  flapHz: [5.5, 7.5], spanU: 0.36, enterS: 4.5, region: [0.3, 0.72], wanderHz: [[0.043, 0.071], [0.052, 0.089]],
+  bob: [0.9, 0.12], tilt: 0.35, glowAlpha: 0.12, glowU: 0.9, wingAlpha: 0.88, bodyW: 0.07, bodyL: 0.42,
+  upper: [1, 0.72], lower: [0.68, 0.55], fold: 0.22, edgeMix: 0.22, body: '#2C1A26', px: 96,
+  // wing outlines as [x, y] multiples of the wing size: bezier c1, c2, end, then quadratic control
+  up: [[0.4, -1], [1, -1.1], [0.9, -0.3], [0.6, 0]],
+  low: [[0.6, 0.2], [1, 1], [0.5, 0.95], [0.2, 0.6]],
+  wander: { ax: 0.42, mixX: [0.65, 0.35], mulX: 2.3, mixY: [0.6, 0.4], mulY: 1.7, jitter: 0.15 },
+};
+
 const STORAGE = { visits: 'ff.visits', gold: 'ff.goldSeen', seed: 'ff.seed' };
 
 const PERF = { samples: 1200 };
 
-return { TUNE, TUNE_RANGES, PALETTE, TOD, SPRITE, WORLD, BEATS, WAKE, PREVIEW, MOTION, INPUT, HEART, GOLD, SHOOTING, LAYOUT, UI, SIZE, COUNTS, AUDIO, SHAPE, STORAGE, PERF };
+return { TUNE, TUNE_RANGES, PALETTE, TOD, SPRITE, WORLD, BEATS, WAKE, PREVIEW, MOTION, INPUT, HEART, GOLD, SHOOTING, LAYOUT, UI, SIZE, COUNTS, AUDIO, SHAPE, FANTASY, SEED, FIREFLY, POLLEN, BUTTERFLY, STORAGE, PERF };
 })();
 __m["params.js"] = (() => {
 // URL test hooks. Without a param nothing she sees changes.
@@ -2165,7 +2204,7 @@ __m["choreo.js"] = (() => {
 // The beat sheet for the field: stem growth and blooms as pure functions of
 // show time, for the full show and the five second wake up.
 const { BEATS, WAKE, TUNE, MOTION, INPUT } = __m["config.js"];
-const { win, lerp, easeInOutSine, easeOutBack, cubicBezier } = __m["util.js"];
+const { win, lerp, smooth, easeInOutSine, easeOutBack, cubicBezier } = __m["util.js"];
 
 let curve = null;
 let curveK = null;
@@ -2220,12 +2259,554 @@ function flowerTimes(app) {
   app.openDim = dim;
 }
 
+// Held breath, and the end of the intro.
+function showTimes(app) {
+  const s = app.s;
+  const b = BEATS.breath;
+  let k = 0;
+  if (app.show.mode === 'full' && s >= b.start) {
+    k = s < b.start + b.dur ? smooth((s - b.start) / b.ease) : 1 - smooth((s - b.start - b.dur) / b.recover);
+  }
+  app.breath = lerp(1, b.amp, k);
+  const end = app.show.mode === 'wake' ? WAKE.total : BEATS.introEnd;
+  app.introDone = s >= end;
+  if (app.state === 'INTRO' && app.introDone) app.state = 'LIVE';
+}
+
 // When each rose starts to bloom, in bloom order, for the sound phrase.
 function roseBloomTimes(app) {
   return app.flowers.roses.slice().sort((a, b) => a.order - b.order).map((f) => BEATS.roseBloom.start + f.order * TUNE.bloomStagger);
 }
 
-return { bloomEase, popEase, wakeStart, flowerTimes, roseBloomTimes };
+return { bloomEase, popEase, wakeStart, flowerTimes, showTimes, roseBloomTimes };
+})();
+__m["fantasy.js"] = (() => {
+// The heart of the piece: a tall luminous flower with three rings of stained
+// glass petals that drift through color, a burning core and orbiting motes.
+// Petals are cached sprites per ring and color, crossfaded and transformed.
+const { FANTASY, SIZE, BEATS, WAKE, MOTION, TUNE, SHAPE, PALETTE, INPUT, HEART } = __m["config.js"];
+const { TAU, makeRng, lerp, clamp01, win, smooth, easeInOutSine, mix, darker, rgba, mod } = __m["util.js"];
+const { makeCanvas, glow, drawGlow, resetTransform } = __m["sprites.js"];
+const { shapeStem, makeLeaves, drawLeaves } = __m["stem.js"];
+const { breeze, gust } = __m["wind.js"];
+const { bloomEase } = __m["choreo.js"];
+
+const DEG = Math.PI / 180;
+let sprites = null;
+
+function petalSprite(ring, color) {
+  const F = FANTASY;
+  const [w, h] = F.sprite;
+  const c = makeCanvas(w, h);
+  const g = c.getContext('2d');
+  const m = w / 2;
+  const [a, b, cc, d] = ring.shape;
+  const path = () => {
+    g.beginPath();
+    g.moveTo(m, h);
+    g.bezierCurveTo(m + m * a, h * b, m + m * cc, h * d, m, 0);
+    g.bezierCurveTo(m - m * cc, h * d, m - m * a, h * b, m, h);
+    g.closePath();
+  };
+  const edge = mix(PALETTE.fantasyEdge, color, F.edgeMix);
+  const grad = g.createLinearGradient(0, h, 0, 0);
+  grad.addColorStop(0, darker(color, F.deep));
+  grad.addColorStop(F.midAt, color);
+  grad.addColorStop(1, edge);
+  g.globalAlpha = F.alpha;
+  g.fillStyle = grad;
+  path();
+  g.fill();
+  g.globalAlpha = 1;
+  g.globalCompositeOperation = 'source-atop';
+  const gy = h * (1 - F.glowAt);
+  const lg = g.createRadialGradient(m, gy, 0, m, gy, h * F.glowR);
+  lg.addColorStop(0, rgba(mix(color, edge, F.glowMix), F.glowAlpha));
+  lg.addColorStop(1, rgba(color, 0));
+  g.fillStyle = lg;
+  g.fillRect(0, 0, w, h);
+  g.strokeStyle = rgba(darker(color, F.veinDark), F.veinAlpha);
+  g.lineWidth = F.veinW;
+  for (const [dx, len] of F.veins) {
+    g.beginPath();
+    g.moveTo(m, h);
+    g.quadraticCurveTo(m + dx * m, h * (1 - len / 2), m + dx * m * F.veinTip, h * (1 - len));
+    g.stroke();
+  }
+  g.globalCompositeOperation = 'source-over';
+  g.strokeStyle = rgba(edge, F.rimAlpha);
+  g.lineWidth = F.rimW;
+  path();
+  g.stroke();
+  return c;
+}
+
+function coreSprite() {
+  const px = FANTASY.corePx;
+  const c = makeCanvas(px, px);
+  const g = c.getContext('2d');
+  const r = px / 2;
+  const grad = g.createRadialGradient(r, r, 0, r, r, r);
+  const [s0, s1, s2] = FANTASY.coreStops;
+  grad.addColorStop(s0[0], rgba(PALETTE.core[0], s0[1]));
+  grad.addColorStop(s1[0], rgba(PALETTE.core[1], s1[1]));
+  grad.addColorStop(s2[0], rgba(PALETTE.core[1], s2[1]));
+  g.fillStyle = grad;
+  g.fillRect(0, 0, px, px);
+  return c;
+}
+
+function ensureSprites() {
+  if (sprites) return sprites;
+  sprites = {
+    rings: FANTASY.rings.map((ring) => PALETTE.fantasy.map((col) => petalSprite(ring, col))),
+    halos: PALETTE.fantasy.map((col) => glow(col)),
+    core: coreSprite(),
+    coreGlow: glow(PALETTE.core[1]),
+    mote: glow(FANTASY.moteColor),
+  };
+  return sprites;
+}
+
+function createFantasy(app) {
+  const rng = makeRng(app.seed ^ 0xfa27);
+  const s = MOTION.sway;
+  const F = FANTASY;
+  const f = {
+    kind: 'fantasy', idx: 0, size: 1, bend: rng.range(-1, 1) * F.stillness,
+    tilt: 0, swayHz: rng.range(s.hz[0], s.hz[1]), swayAmp: rng.range(s.amp[0], s.amp[1]),
+    phaseRand: rng.range(0, s.phaseRand), spring: { x: 0, v: 0, dir: 1 }, leanPx: 0,
+    grow: 0, swell: 0, rings: F.rings.map(() => 0), halo: 0, core: 0, scale: 1, ang: 0,
+    leaves: makeLeaves(rng, SHAPE.leaf.fantasy), petals: [], motes: [],
+  };
+  F.rings.forEach((ring, k) => {
+    for (let i = 0; i < ring.n; i++) {
+      const a = ring.off + (i * TAU) / ring.n;
+      f.petals.push({ k, ang: Math.atan2(Math.sin(a), Math.cos(a)), ph: rng.next() * F.petalPhase + k * F.ringPhase });
+    }
+  });
+  for (let i = 0; i < F.motes; i++) {
+    f.motes.push({
+      r: rng.range(F.moteRU[0], F.moteRU[1]), hz: rng.range(F.moteHz[0], F.moteHz[1]) * rng.sign(),
+      ph: rng.range(0, TAU), size: rng.range(F.moteSizeU[0], F.moteSizeU[1]), tw: rng.range(0, TAU),
+    });
+  }
+  return f;
+}
+
+function placeFantasy(app) {
+  const f = app.fantasy;
+  const L = app.L;
+  f.r = SIZE.fantasy.rU * L.U;
+  f.baseY = L.groundY;
+  f.h = f.baseY - L.fantasy.headY;
+  f.x = L.fantasy.x - f.bend * f.h * SHAPE.stem.restLean;
+  f.phase = f.x * MOTION.sway.phasePerPx + f.phaseRand;
+  f.restX = L.fantasy.x;
+  f.restY = L.fantasy.headY;
+}
+
+function ignite(t, from) {
+  const g = BEATS.ignite;
+  if (t < 0) return { halo: from, core: 0 };
+  if (t < g.rise) return { halo: lerp(from, g.peak, smooth(t / g.rise)), core: smooth(t / g.rise) };
+  return { halo: lerp(g.peak, g.settle, smooth((t - g.rise) / g.fall)), core: 1 };
+}
+
+function fantasyTimes(app) {
+  const f = app.fantasy;
+  const s = app.s;
+  const F = FANTASY;
+  const bloom = bloomEase();
+  const fo = BEATS.fantasyOpen;
+  let lit;
+  if (app.show.mode === 'wake') {
+    const [a, b] = WAKE.fantasy;
+    const k = (b - a) / fo.dur;
+    f.grow = 1;
+    f.swell = 1;
+    f.rings = fo.ringDelays.map((d) => lerp(WAKE.startOpen, 1, bloom(win(s, a + d * k, F.ringDur * k))));
+    lit = ignite(s - WAKE.ignite, WAKE.fantasyDim * BEATS.ignite.settle);
+  } else {
+    f.grow = easeInOutSine(win(s, BEATS.fantasyStem[0], BEATS.fantasyStem[1]));
+    f.swell = smooth(win(s, BEATS.budSwell[0], BEATS.budSwell[1]));
+    f.rings = fo.ringDelays.map((d) => bloom(win(s, fo.start + d, F.ringDur)));
+    lit = ignite(s - BEATS.ignite.start, lerp(F.budHalo[0], F.budHalo[1], f.swell) * f.grow);
+  }
+  const dim = app.openDim === undefined ? 1 : app.openDim;
+  f.open = Math.min(...f.rings);
+  f.ringsEff = f.rings.map((o) => o * dim);
+  f.halo = lit.halo;
+  f.core = lit.core;
+  f.swelling = s >= BEATS.ignite.start && s < BEATS.ignite.start + BEATS.ignite.rise + BEATS.ignite.fall && app.show.mode !== 'wake';
+}
+
+function updateFantasy(app, dt) {
+  const f = app.fantasy;
+  const T = app.clock.T;
+  const sp = MOTION.spring;
+  const still = app.heart && app.heart.active ? FANTASY.stillness : 1;
+  const sway = f.h * f.swayAmp * TUNE.swayAmp * app.breath * still * breeze(f.x, T) * Math.sin(TAU * f.swayHz * TUNE.swaySpeed * T + f.phase);
+  const bow = f.h * TUNE.exhale * gust(app, f.x);
+  if (f.spring.x !== 0 || f.spring.v !== 0) {
+    const n = Math.max(1, Math.ceil(dt / sp.step));
+    const h = dt / n;
+    for (let i = 0; i < n; i++) { f.spring.v += (-sp.k * f.spring.x - sp.c * f.spring.v) * h; f.spring.x += f.spring.v * h; }
+    if (Math.abs(f.spring.x) < sp.rest && Math.abs(f.spring.v) < sp.rest) { f.spring.x = 0; f.spring.v = 0; }
+  }
+  shapeStem(f, sway + bow + f.leanPx, f.grow);
+  f.ang = f.stemAng * SHAPE.stem.headFollow + f.spring.x * sp.tiltDeg * DEG * f.spring.dir;
+  f.scale = (1 + f.spring.x * sp.scale) * lerp(SHAPE.stem.budScale, 1, f.grow);
+}
+
+function drawStem(ctx, app, f) {
+  const F = FANTASY;
+  const U = app.L.U;
+  const q = f.stem;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = app.theme.stem;
+  ctx.lineWidth = SIZE.fantasy.stemW * U;
+  ctx.beginPath();
+  ctx.moveTo(q[0], q[1]);
+  ctx.bezierCurveTo(q[2], q[3], q[4], q[5], q[6], q[7]);
+  ctx.stroke();
+  ctx.strokeStyle = rgba(mix(app.theme.stem, PALETTE.fantasy[0], F.stemGlowMix), F.stemGlowAlpha * f.grow);
+  ctx.lineWidth = SIZE.fantasy.stemW * U * F.stemGlowW;
+  ctx.stroke();
+}
+
+function drawFantasy(ctx, app) {
+  const f = app.fantasy;
+  if (!f || f.grow <= 0) return;
+  const S = ensureSprites();
+  const F = FANTASY;
+  const { dpr, L } = app;
+  const U = L.U;
+  const T = app.clock.T;
+  const hs = app.heart || {};
+  const flare = hs.flare || 0;
+  const stretch = hs.stretch || 0;
+  drawStem(ctx, app, f);
+  drawLeaves(ctx, app, [f]);
+
+  const cx = f.hx, cy = f.hy;
+  const breathe = 1 + F.breathe[1] * Math.sin(TAU * F.breathe[0] * T);
+  const r = f.r * f.scale * breathe * (1 + F.budSwell * f.swell * (1 - f.open));
+  const phase = (T / F.cycleS) * PALETTE.fantasy.length;
+  const nC = PALETTE.fantasy.length;
+  const glowMul = TUNE.glow * app.theme.glow;
+  const capped = !(f.swelling || flare > 0);
+
+  // halo behind the petals, crossfaded through the palette
+  let haloA = f.halo * glowMul * (1 + HEART.flareHalo * flare);
+  if (capped) haloA = Math.min(haloA, MOTION.glowMax);
+  const hc = mod(phase, nC);
+  const ha = Math.floor(hc), hw = smooth(hc - ha);
+  ctx.globalCompositeOperation = 'lighter';
+  const hr = SIZE.fantasy.haloU * U;
+  drawGlow(ctx, S.halos[ha], cx, cy, hr, haloA * (1 - hw));
+  drawGlow(ctx, S.halos[(ha + 1) % nC], cx, cy, hr, haloA * hw);
+  ctx.globalCompositeOperation = 'source-over';
+
+  // petals, back ring first
+  const q = F.squash;
+  const [sw, sh] = F.sprite;
+  const petalMul = 1 + stretch + HEART.flarePetals * flare;
+  for (const p of f.petals) {
+    const ring = F.rings[p.k];
+    const e = clamp01(f.ringsEff[p.k]);
+    const over = Math.max(0, f.ringsEff[p.k] - 1);
+    const ang = lerp(p.ang * F.budSpread, p.ang, e) + f.ang;
+    const len = r * ring.len * lerp(F.budLen, 1, e) * (1 + over) * petalMul;
+    const wid = len * ring.w;
+    const cs = Math.cos(ang), sn = Math.sin(ang);
+    const sx = wid / sw, sy = len / sh;
+    ctx.setTransform(dpr * cs * sx, dpr * sn * sx * q, -dpr * sn * sy, dpr * cs * sy * q, dpr * cx, dpr * cy);
+    const c = mod(phase + p.ph * nC, nC);
+    const ia = Math.floor(c), w = smooth(c - ia);
+    const set = S.rings[p.k];
+    ctx.globalAlpha = 1;
+    ctx.drawImage(set[ia], -sw / 2, -sh, sw, sh);
+    ctx.globalAlpha = w;
+    ctx.drawImage(set[(ia + 1) % nC], -sw / 2, -sh, sw, sh);
+  }
+  resetTransform(ctx, dpr);
+
+  // the burning core: glow first, then the core itself on top
+  if (f.core > 0) {
+    let flick = 1;
+    for (const [hz, amt] of F.flicker) flick += amt * Math.sin(TAU * hz * T);
+    const coreMul = 1 + HEART.flareCore * flare;
+    ctx.globalCompositeOperation = 'lighter';
+    drawGlow(ctx, S.coreGlow, cx, cy, F.coreGlowU * U * coreMul, F.coreGlowAlpha * f.core * flick * glowMul * coreMul);
+    ctx.globalCompositeOperation = 'source-over';
+    const cr = SIZE.fantasy.coreU * U * f.scale * lerp(1, coreMul, F.coreFlareSize);
+    ctx.globalAlpha = clamp01(f.core);
+    ctx.drawImage(S.core, cx - cr, cy - cr, cr * 2, cr * 2);
+    ctx.globalAlpha = 1;
+  }
+
+  // motes orbiting outside the petals
+  const mv = clamp01((f.core - 1 + F.moteFade) / F.moteFade) * f.core;
+  if (mv > 0) {
+    ctx.globalCompositeOperation = 'lighter';
+    for (const m of f.motes) {
+      const a = m.ph + TAU * m.hz * T;
+      const x = cx + Math.cos(a) * m.r * U;
+      const y = cy + Math.sin(a) * m.r * U * q;
+      const tw = (1 + Math.sin(a * F.moteTwinkle + m.tw)) / 2;
+      drawGlow(ctx, S.mote, x, y, m.size * U * (1 + tw * F.moteGrow), F.moteAlpha * mv * lerp(F.moteDim, 1, tw));
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+}
+
+
+function fantasyRadius(app) {
+  const f = app.fantasy;
+  return f.r * FANTASY.rings[0].len;
+}
+
+function fantasyBox(app) {
+  const f = app.fantasy;
+  if (!f || f.grow <= 0) return null;
+  const r = fantasyRadius(app) * Math.max(1, f.scale);
+  return { kind: 'fantasy', idx: 0, x: f.hx - r, y: f.hy - r * FANTASY.squash, w: r * 2, h: r * 2 * FANTASY.squash };
+}
+
+function hitFantasy(app, x, y, pad) {
+  const f = app.fantasy;
+  if (!f || f.grow < 1 || f.open < INPUT.bloomedAt) return false;
+  return Math.hypot(x - f.hx, y - f.hy) < fantasyRadius(app) * (pad || INPUT.hitPad);
+}
+
+return { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasy, fantasyRadius, fantasyBox, hitFantasy };
+})();
+__m["fx.js"] = (() => {
+// The falling seed and its pulse ring, fireflies at night, pollen by day.
+const { BEATS, WAKE, SEED, FIREFLY, POLLEN, MOTION, PALETTE, INPUT } = __m["config.js"];
+const { TAU, makeRng, lerp, clamp01, win, easeInCubic, easeOutCubic, rgba, mod } = __m["util.js"];
+const { glow, drawGlow, streakSprite, place, resetTransform } = __m["sprites.js"];
+
+function drawSeed(ctx, app) {
+  if (app.show.mode !== 'full') return;
+  const s = app.s;
+  const B = BEATS.seed;
+  const P = BEATS.pulse;
+  if (s < B.appear || s > B.land + SEED.sink) return;
+  const { L, dpr } = app;
+  const U = L.U;
+  const x = L.cx;
+  const p = win(s, B.appear, B.land - B.appear);
+  const y = lerp(L.H * B.startY, L.groundY, easeInCubic(p));
+  const appear = clamp01((s - B.appear) / SEED.appearS);
+  const after = s - B.land;
+  const fade = after > 0 ? 1 - clamp01(after / SEED.sink) : 1;
+  const flash = after > 0 ? Math.exp(-after / SEED.flashS) : 0;
+  ctx.globalCompositeOperation = 'lighter';
+  if (after < 0) {
+    const len = U * B.trailU * p * p;
+    if (len > 1) {
+      place(ctx, dpr, x, y, -Math.PI / 2, 1, 1);
+      ctx.globalAlpha = appear * SEED.glowAlpha;
+      ctx.drawImage(streakSprite(PALETTE.seed), -len, -U * SEED.trailW / 2, len, U * SEED.trailW);
+      resetTransform(ctx, dpr);
+    }
+  }
+  drawGlow(ctx, glow(PALETTE.seed), x, y, U * SEED.glowU * (1 + flash * SEED.flashGrow), SEED.glowAlpha * appear * fade + flash * SEED.flashAlpha);
+  const q = win(s, P.start, P.dur);
+  if (q > 0 && q < 1) {
+    const rr = U * P.radiusU * easeOutCubic(q);
+    ctx.strokeStyle = rgba(SEED.ringColor, P.alpha * (1 - q));
+    ctx.lineWidth = SEED.ringW;
+    ctx.beginPath();
+    ctx.ellipse(x, L.groundY, rr, rr * SEED.ringSquash, 0, 0, TAU);
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = appear * fade;
+  ctx.fillStyle = PALETTE.seedCore;
+  ctx.beginPath();
+  ctx.arc(x, y, U * SEED.coreU, 0, TAU);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function buildFireflies(app) {
+  const { L } = app;
+  const U = L.U;
+  const F = MOTION.fireflies;
+  const rng = makeRng(app.seed ^ 0xf1f1);
+  const n = rng.int(F.count[0], F.count[1]);
+  const list = [];
+  for (let i = 0; i < n; i++) {
+    list.push({
+      hx: rng.range(L.wildL, L.wildL + L.wildW), hy: L.H * rng.range(FIREFLY.yRange[0], FIREFLY.yRange[1]),
+      R: U * rng.range(F.driftU[0], F.driftU[1]),
+      wx: TAU * rng.range(F.wanderHz[0], F.wanderHz[1]), wy: TAU * rng.range(F.wanderHz[0], F.wanderHz[1]),
+      px: rng.range(0, TAU), py: rng.range(0, TAU),
+      hz: rng.range(F.hz[0], F.hz[1]), ph: rng.range(0, TAU), size: U * rng.range(F.sizeU[0], F.sizeU[1]),
+    });
+  }
+  const pollen = [];
+  const P = MOTION.pollen;
+  for (let i = 0; i < P.count; i++) {
+    pollen.push({
+      x0: rng.range(0, L.W), y0: rng.range(0, 1), R: U * rng.range(P.driftU[0], P.driftU[1]),
+      hz: rng.range(POLLEN.hz[0], POLLEN.hz[1]), ph: rng.range(0, TAU), rise: rng.range(POLLEN.riseMul[0], POLLEN.riseMul[1]),
+      size: U * rng.range(POLLEN.sizeU[0], POLLEN.sizeU[1]),
+    });
+  }
+  return { list, pollen };
+}
+
+function fireflyVis(app) {
+  const s = app.s;
+  const up = app.show.mode === 'wake' ? win(s, WAKE.fireflies[0], WAKE.fireflies[1]) : win(s, BEATS.fireflies[0], BEATS.fireflies[1]);
+  return up * lerp(1, INPUT.dimFireflies, app.dimLevel);
+}
+
+function drawFireflies(ctx, app) {
+  const ff = app.fireflies;
+  const vis = fireflyVis(app) * app.theme.fireflies;
+  if (!ff || vis <= 0.01) return;
+  const T = app.clock.T;
+  const spr = glow(PALETTE.firefly);
+  const F = FIREFLY;
+  ctx.globalCompositeOperation = 'lighter';
+  for (const f of ff.list) {
+    const x = f.hx + f.R * Math.sin(f.wx * T + f.px);
+    const y = f.hy + f.R * F.ySquash * Math.sin(f.wy * T + f.py);
+    const pulse = Math.pow((1 + Math.sin(TAU * f.hz * T + f.ph)) / 2, F.pulsePow);
+    drawGlow(ctx, spr, x, y, f.size * F.haloMul, Math.min(MOTION.glowMax, F.haloAlpha * pulse * vis));
+    drawGlow(ctx, spr, x, y, f.size * F.coreMul, F.coreAlpha * pulse * vis);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawPollen(ctx, app) {
+  const ff = app.fireflies;
+  const vis = fireflyVis(app) * app.theme.pollen;
+  if (!ff || vis <= 0.01) return;
+  const { L } = app;
+  const T = app.clock.T;
+  const spr = glow(PALETTE.pollen);
+  const [y0, y1] = POLLEN.yRange;
+  const span = (y1 - y0) * L.H;
+  for (const p of ff.pollen) {
+    const y = L.H * y0 + mod(p.y0 * span - POLLEN.riseU * L.U * p.rise * T, span);
+    const x = p.x0 + p.R * Math.sin(TAU * p.hz * T + p.ph);
+    drawGlow(ctx, spr, x, y, p.size, POLLEN.alpha * vis);
+  }
+}
+
+return { drawSeed, buildFireflies, drawFireflies, drawPollen };
+})();
+__m["butterflies.js"] = (() => {
+// Two butterflies drifting in after the exhale. Paths are smooth functions of
+// time; wings are one cached sprite per butterfly, mirrored and flapped.
+const { BUTTERFLY, BEATS, WAKE, PALETTE, MOTION } = __m["config.js"];
+const { TAU, makeRng, lerp, clamp, smooth, mix } = __m["util.js"];
+const { makeCanvas, glow, drawGlow, resetTransform } = __m["sprites.js"];
+
+function wingSprite(colors) {
+  const B = BUTTERFLY;
+  const px = B.px;
+  const c = makeCanvas(px, px * 2);
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, px, px, px);
+  grad.addColorStop(0, colors[1]);
+  grad.addColorStop(1, mix(colors[0], PALETTE.fantasyEdge, B.edgeMix));
+  g.fillStyle = grad;
+  g.globalAlpha = B.wingAlpha;
+  const wing = (pts, [sx, sy]) => {
+    const P = pts.map(([x, y]) => [px * sx * x, px + px * sy * y]);
+    g.moveTo(0, px);
+    g.bezierCurveTo(P[0][0], P[0][1], P[1][0], P[1][1], P[2][0], P[2][1]);
+    g.quadraticCurveTo(P[3][0], P[3][1], 0, px);
+  };
+  g.beginPath();
+  wing(B.up, B.upper);
+  wing(B.low, B.lower);
+  g.fill();
+  return c;
+}
+
+function buildButterflies(app) {
+  const rng = makeRng(app.seed ^ 0xb077);
+  const B = BUTTERFLY;
+  const j = B.wander.jitter;
+  return PALETTE.butterflies.map((colors, i) => ({
+    i, colors, sprite: wingSprite(colors),
+    flap: rng.range(B.flapHz[0], B.flapHz[1]),
+    f: B.wanderHz[i].map((hz) => hz * rng.range(1 - j, 1 + j)),
+    p: [rng.range(0, TAU), rng.range(0, TAU), rng.range(0, TAU), rng.range(0, TAU)],
+    fromLeft: i === 0,
+  }));
+}
+
+function wander(app, b, t) {
+  const L = app.L;
+  const W = BUTTERFLY.wander;
+  const [y0, y1] = BUTTERFLY.region;
+  const cx = L.fieldL + L.fieldW / 2;
+  const cy = (L.H * (y0 + y1)) / 2;
+  const ay = (L.H * (y1 - y0)) / 2;
+  const [f1, f2] = b.f;
+  const x = cx + L.fieldW * W.ax * (W.mixX[0] * Math.sin(TAU * f1 * t + b.p[0]) + W.mixX[1] * Math.sin(TAU * f2 * W.mulX * t + b.p[1]));
+  const y = cy + ay * (W.mixY[0] * Math.sin(TAU * f2 * t + b.p[2]) + W.mixY[1] * Math.sin(TAU * f1 * W.mulY * t + b.p[3]));
+  return [x, y];
+}
+
+function position(app, b, t, s, enter) {
+  const L = app.L;
+  const B = BUTTERFLY;
+  const [wx, wy] = wander(app, b, t);
+  const e = smooth((s - enter) / B.enterS);
+  const sx = b.fromLeft ? -L.U * 2 : L.W + L.U * 2;
+  const sy = L.H * B.region[0];
+  const bob = Math.sin(TAU * B.bob[0] * t + b.p[0]) * L.U * B.bob[1];
+  return [lerp(sx, wx, e), lerp(sy, wy, e) + bob];
+}
+
+function drawButterflies(ctx, app) {
+  const list = app.butterflies;
+  if (!list) return;
+  const { dpr, L } = app;
+  const T = app.clock.T;
+  const s = app.s;
+  const times = app.show.mode === 'wake' ? WAKE.butterflies : BEATS.butterflies;
+  const B = BUTTERFLY;
+  const span = L.U * B.spanU;
+  const px = B.px;
+  const dt = MOTION.dtMax / 2;
+  for (const b of list) {
+    const enter = times[b.i];
+    if (s < enter) continue;
+    const [x, y] = position(app, b, T, s, enter);
+    const [x2] = position(app, b, T + dt, s + dt, enter);
+    const tilt = clamp((x2 - x) / (L.U * dt), -1, 1) * B.tilt;
+    const open = lerp(B.fold, 1, Math.abs(Math.sin(Math.PI * b.flap * T)));
+    ctx.globalCompositeOperation = 'lighter';
+    drawGlow(ctx, glow(b.colors[0]), x, y, L.U * B.glowU, B.glowAlpha);
+    ctx.globalCompositeOperation = 'source-over';
+    const cs = Math.cos(tilt), sn = Math.sin(tilt);
+    const k = span / px;
+    for (const side of [1, -1]) {
+      const sx = side * open * k;
+      ctx.setTransform(dpr * cs * sx, dpr * sn * sx, -dpr * sn * k, dpr * cs * k, dpr * x, dpr * y);
+      ctx.drawImage(b.sprite, 0, -px, px, px * 2);
+    }
+    ctx.setTransform(dpr * cs, dpr * sn, -dpr * sn, dpr * cs, dpr * x, dpr * y);
+    ctx.fillStyle = B.body;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, span * B.bodyW, span * B.bodyL, 0, 0, TAU);
+    ctx.fill();
+    resetTransform(ctx, dpr);
+  }
+}
+
+return { buildButterflies, drawButterflies };
 })();
 __m["render.js"] = (() => {
 // The frame, back to front.
@@ -2371,7 +2952,10 @@ const { buildLeafSprite } = __m["stem.js"];
 const { createFlowers, placeFlowers, stemBases, updateFlowers, drawRoseLayer, drawWildLayer, headBoxes } = __m["flowers.js"];
 const { buildCherry, cherryTimes, updateCherry, drawCherry, blossomBoxes } = __m["cherry.js"];
 const { buildPetals, drawPetals } = __m["petals.js"];
-const { flowerTimes } = __m["choreo.js"];
+const { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasy, fantasyBox } = __m["fantasy.js"];
+const { drawSeed, buildFireflies, drawFireflies, drawPollen } = __m["fx.js"];
+const { buildButterflies, drawButterflies } = __m["butterflies.js"];
+const { flowerTimes, showTimes } = __m["choreo.js"];
 const { render, addLayer } = __m["render.js"];
 const { update, addStep } = __m["update.js"];
 const { makeStats, recordFrame, installTestHooks } = __m["testhooks.js"];
@@ -2390,7 +2974,7 @@ const app = {
   state: 'INTRO', s: 0, prevS: 0, fadeIn: 0, overlay: 1, darken: 0, skyVis: 1, starReveal: 0,
   bg: null, bgPrev: null, bgMix: 1,
   stars: [], moon: null, grass: null, leafSprite: null,
-  flowers: null, cherry: null, petals: null,
+  flowers: null, cherry: null, petals: null, fantasy: null, fireflies: null, butterflies: null,
   breath: 1, dimLevel: 0, openDim: 1, gold: params.gold,
   fx: { shooting: [], petals: [] },
   stats: makeStats(),
@@ -2401,6 +2985,7 @@ if (params.preview && params.t === null) app.show.start = -PREVIEW.showTime;
 app.tod = currentTod(params);
 app.theme = buildTheme(app.tod);
 app.flowers = createFlowers(app);
+app.fantasy = createFantasy(app);
 
 function rebuildWorld() {
   app.bg = buildBackground(app);
@@ -2408,19 +2993,30 @@ function rebuildWorld() {
   app.moon = buildMoon(app);
   app.leafSprite = buildLeafSprite(app.theme);
   placeFlowers(app);
+  placeFantasy(app);
   app.cherry = buildCherry(app);
   app.petals = buildPetals(app);
-  app.grass = buildGrass(app, stemBases(app));
+  app.fireflies = buildFireflies(app);
+  app.butterflies = buildButterflies(app);
+  app.grass = buildGrass(app, stemBases(app).concat(app.fantasy.x));
 }
 
+addStep(showTimes);
 addStep(flowerTimes);
+addStep(fantasyTimes);
 addStep(cherryTimes);
 addStep(updateFlowers);
+addStep(updateFantasy);
 addStep(updateCherry);
 addLayer('mid', drawCherry);
+addLayer('mid', drawPollen);
+addLayer('mid', drawFireflies);
+addLayer('mid', drawFantasy);
 addLayer('mid', drawRoseLayer);
 addLayer('mid', drawWildLayer);
 addLayer('mid', drawPetals);
+addLayer('front', drawButterflies);
+addLayer('top', drawSeed);
 
 function relayout() {
   const W = window.innerWidth;
@@ -2454,7 +3050,7 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 
 installTestHooks(app, {
-  get heads() { return headBoxes(app).concat(blossomBoxes(app)); },
+  get heads() { return [fantasyBox(app)].filter(Boolean).concat(headBoxes(app), blossomBoxes(app)); },
 });
 requestAnimationFrame(frame);
 

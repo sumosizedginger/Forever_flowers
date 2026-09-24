@@ -11,7 +11,10 @@ import { buildLeafSprite } from './stem.js';
 import { createFlowers, placeFlowers, stemBases, updateFlowers, drawRoseLayer, drawWildLayer, headBoxes } from './flowers.js';
 import { buildCherry, cherryTimes, updateCherry, drawCherry, blossomBoxes } from './cherry.js';
 import { buildPetals, drawPetals } from './petals.js';
-import { flowerTimes } from './choreo.js';
+import { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasy, fantasyBox } from './fantasy.js';
+import { drawSeed, buildFireflies, drawFireflies, drawPollen } from './fx.js';
+import { buildButterflies, drawButterflies } from './butterflies.js';
+import { flowerTimes, showTimes } from './choreo.js';
 import { render, addLayer } from './render.js';
 import { update, addStep } from './update.js';
 import { makeStats, recordFrame, installTestHooks } from './testhooks.js';
@@ -30,7 +33,7 @@ const app = {
   state: 'INTRO', s: 0, prevS: 0, fadeIn: 0, overlay: 1, darken: 0, skyVis: 1, starReveal: 0,
   bg: null, bgPrev: null, bgMix: 1,
   stars: [], moon: null, grass: null, leafSprite: null,
-  flowers: null, cherry: null, petals: null,
+  flowers: null, cherry: null, petals: null, fantasy: null, fireflies: null, butterflies: null,
   breath: 1, dimLevel: 0, openDim: 1, gold: params.gold,
   fx: { shooting: [], petals: [] },
   stats: makeStats(),
@@ -41,6 +44,7 @@ if (params.preview && params.t === null) app.show.start = -PREVIEW.showTime;
 app.tod = currentTod(params);
 app.theme = buildTheme(app.tod);
 app.flowers = createFlowers(app);
+app.fantasy = createFantasy(app);
 
 function rebuildWorld() {
   app.bg = buildBackground(app);
@@ -48,19 +52,30 @@ function rebuildWorld() {
   app.moon = buildMoon(app);
   app.leafSprite = buildLeafSprite(app.theme);
   placeFlowers(app);
+  placeFantasy(app);
   app.cherry = buildCherry(app);
   app.petals = buildPetals(app);
-  app.grass = buildGrass(app, stemBases(app));
+  app.fireflies = buildFireflies(app);
+  app.butterflies = buildButterflies(app);
+  app.grass = buildGrass(app, stemBases(app).concat(app.fantasy.x));
 }
 
+addStep(showTimes);
 addStep(flowerTimes);
+addStep(fantasyTimes);
 addStep(cherryTimes);
 addStep(updateFlowers);
+addStep(updateFantasy);
 addStep(updateCherry);
 addLayer('mid', drawCherry);
+addLayer('mid', drawPollen);
+addLayer('mid', drawFireflies);
+addLayer('mid', drawFantasy);
 addLayer('mid', drawRoseLayer);
 addLayer('mid', drawWildLayer);
 addLayer('mid', drawPetals);
+addLayer('front', drawButterflies);
+addLayer('top', drawSeed);
 
 function relayout() {
   const W = window.innerWidth;
@@ -94,6 +109,6 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 
 installTestHooks(app, {
-  get heads() { return headBoxes(app).concat(blossomBoxes(app)); },
+  get heads() { return [fantasyBox(app)].filter(Boolean).concat(headBoxes(app), blossomBoxes(app)); },
 });
 requestAnimationFrame(frame);
