@@ -272,6 +272,26 @@ async function live(vp = PHONE) {
   await blocked.close();
 }
 
+// ---------- tuning panel ----------
+{
+  const context = await browser.newContext({ viewport: { width: PHONE.width, height: PHONE.height }, deviceScaleFactor: PHONE.dpr });
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
+  const { page } = await open(PHONE, '?preview&seed=1&test&tune', context);
+  const sliders = await page.evaluate(() => document.querySelectorAll('#tune input[type=range]').length);
+  await page.evaluate(() => {
+    const s = [...document.querySelectorAll('#tune input[type=range]')][3];
+    s.value = '2';
+    s.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  const tuned = await ffv(page, () => window.__ff.tune.swayAmp);
+  await page.click('#tune button');
+  await sleep(200);
+  let copied = null;
+  try { copied = JSON.parse(await page.evaluate(() => navigator.clipboard.readText())); } catch (e) { copied = null; }
+  check('tuning', '?tune shows eight sliders that apply live and copy JSON', sliders === 8 && tuned === 2 && copied && copied.swayAmp === 2 && Object.keys(copied).length === 8, { sliders, tuned, copied });
+  await context.close();
+}
+
 // ---------- clipping ----------
 async function clipping(vp, label) {
   const bad = [];

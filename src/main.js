@@ -1,5 +1,5 @@
 // Boot, layout, and the render loop.
-import { LAYOUT, PREVIEW } from './config.js';
+import { LAYOUT, PREVIEW, TUNE } from './config.js';
 import { readParams } from './params.js';
 import { makeRng } from './util.js';
 import { makeClock, tick, pauseClock, resumeClock } from './clock.js';
@@ -23,6 +23,7 @@ import { flowerTimes, showTimes } from './choreo.js';
 import { bootLife, watchClock, setThemeColor } from './life.js';
 import { makeAudio } from './audio.js';
 import { setupUI, updateUI } from './ui.js';
+import { setupTune } from './tune.js';
 import { render, addLayer } from './render.js';
 import { update, addStep } from './update.js';
 import { makeStats, recordFrame, installTestHooks } from './testhooks.js';
@@ -94,6 +95,7 @@ function replay() {
 }
 
 app.ui = setupUI(app, replay);
+setupTune(app);
 const clockStep = watchClock(app, rebuildWorld);
 
 addStep(showTimes);
@@ -166,6 +168,7 @@ installTestHooks(app, {
   get sound() { return app.audio.on; },
   get buttons() { return app.ui.shown; },
   get visits() { return app.visits; },
+  get tune() { return { ...TUNE }; },
   replay: () => replay(),
   novaLength: NOVA_LENGTH,
   triggerHeart: (at) => startNova(app, at || 0),

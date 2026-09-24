@@ -39,6 +39,18 @@ canvas#c {
 #snd .on { display: none; }
 #snd[aria-pressed="true"] .on { display: inline; }
 #snd[aria-pressed="true"] .off { display: none; }
+/* ?tune only: a small developer panel, never shown otherwise */
+#tune {
+  position: fixed; left: calc(env(safe-area-inset-left, 0px) + 8px); bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  width: 240px; padding: 10px 12px; border-radius: 12px;
+  background: rgba(7, 6, 26, 0.82); color: rgba(255, 225, 240, 0.85);
+  font: 12px/1.3 system-ui, sans-serif; -webkit-user-select: none; user-select: none; touch-action: auto;
+}
+#tune label { position: relative; display: grid; gap: 2px; margin-bottom: 6px; }
+#tune label span { opacity: 0.8; }
+#tune input { width: 170px; }
+#tune output { position: absolute; right: 0; top: 0; }
+#tune button { margin-top: 4px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255, 225, 240, 0.3); background: rgba(22, 16, 58, 0.9); color: inherit; font: inherit; }
 #safe {
   position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
