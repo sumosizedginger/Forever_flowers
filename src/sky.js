@@ -152,9 +152,9 @@ export function buildMoon(app) {
   g.fillRect(-R, -R, R * 2, R * 2);
   const [lx, ly, li] = m.light;
   const disc = g.createRadialGradient(lx * r, ly * r, li * r, 0, 0, r);
-  disc.addColorStop(0, rgba(PALETTE.moon, 1));
-  // edge and rim sit a shade darker: blending two light hues can lift lightness past both
-  disc.addColorStop(1, darker(mix(PALETTE.moon, PALETTE.moonHalo, m.edgeMix), m.edgeDark));
+  // a softer disc than the brief's moon white, so the fantasy flower stays the brightest thing
+  disc.addColorStop(0, rgba(PALETTE.moonDisc[0], 1));
+  disc.addColorStop(1, PALETTE.moonDisc[1]);
   g.fillStyle = disc;
   g.beginPath();
   g.arc(0, 0, r, 0, TAU);

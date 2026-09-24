@@ -2,6 +2,7 @@
 import { PALETTE, HEART_CURVE } from './config.js';
 
 export const TAU = Math.PI * 2;
+export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
 // Point on the heart curve in curve units; y grows downward, the notch is at t = 0.
 export function heartXY(t) {

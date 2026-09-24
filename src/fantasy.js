@@ -3,8 +3,9 @@
 // Petals are cached sprites per ring and color, crossfaded and transformed.
 import { FANTASY, SIZE, BEATS, WAKE, MOTION, TUNE, SHAPE, PALETTE, INPUT, HEART } from './config.js';
 import { TAU, makeRng, lerp, clamp01, win, smooth, easeInOutSine, mix, darker, rgba, mod } from './util.js';
-import { makeCanvas, glow, drawGlow, resetTransform } from './sprites.js';
-import { shapeStem, makeLeaves, drawLeaves } from './stem.js';
+import { LIGHT } from './config-garden.js';
+import { makeCanvas, glow, drawGlow, place, resetTransform } from './sprites.js';
+import { shapeStem, makeLeaves, drawLeaves, fillTapered, pointAt } from './stem.js';
 import { breeze, gust } from './wind.js';
 import { bloomEase } from './choreo.js';
 
@@ -25,34 +26,42 @@ function petalSprite(ring, color) {
     g.bezierCurveTo(m - m * cc, h * d, m - m * a, h * b, m, h);
     g.closePath();
   };
+  // Stained glass lit from the core: brightest at the base, deepening outward,
+  // panes a shade apart, a soft light band inside the lead, dark lead over all.
+  const G = F.glass;
   const edge = mix(PALETTE.fantasyEdge, color, F.edgeMix);
   const grad = g.createLinearGradient(0, h, 0, 0);
-  grad.addColorStop(0, darker(color, F.deep));
+  grad.addColorStop(0, mix(color, PALETTE.core[0], G.baseLight));
   grad.addColorStop(F.midAt, color);
-  grad.addColorStop(1, edge);
+  grad.addColorStop(1, mix(color, edge, G.tipMix));
   g.globalAlpha = F.alpha;
   g.fillStyle = grad;
   path();
   g.fill();
   g.globalAlpha = 1;
   g.globalCompositeOperation = 'source-atop';
-  const gy = h * (1 - F.glowAt);
-  const lg = g.createRadialGradient(m, gy, 0, m, gy, h * F.glowR);
-  lg.addColorStop(0, rgba(mix(color, edge, F.glowMix), F.glowAlpha));
-  lg.addColorStop(1, rgba(color, 0));
-  g.fillStyle = lg;
-  g.fillRect(0, 0, w, h);
-  g.strokeStyle = rgba(darker(color, F.veinDark), F.veinAlpha);
-  g.lineWidth = F.veinW;
-  for (const [dx, len] of F.veins) {
-    g.beginPath();
-    g.moveTo(m, h);
-    g.quadraticCurveTo(m + dx * m, h * (1 - len / 2), m + dx * m * F.veinTip, h * (1 - len));
-    g.stroke();
-  }
+  g.fillStyle = rgba(PALETTE.core[0], G.paneLight);
+  g.fillRect(0, 0, m, h);
+  g.fillStyle = rgba(darker(color, G.paneDark), G.paneShade);
+  g.fillRect(m, 0, m, h);
+  g.strokeStyle = rgba(edge, G.innerAlpha);
+  g.lineWidth = G.innerW;
+  path();
+  g.stroke();
   g.globalCompositeOperation = 'source-over';
-  g.strokeStyle = rgba(edge, F.rimAlpha);
-  g.lineWidth = F.rimW;
+  g.strokeStyle = rgba(PALETTE.lead, G.leadAlpha);
+  g.lineCap = 'round';
+  g.lineWidth = G.paneW;
+  g.beginPath();
+  g.moveTo(m, h);
+  g.lineTo(m, h * G.spineTo);
+  for (const [at, bow] of G.cross) {
+    const y = h * at;
+    g.moveTo(m - m * G.crossReach, y + h * bow);
+    g.quadraticCurveTo(m, y - h * bow, m + m * G.crossReach, y + h * bow);
+  }
+  g.stroke();
+  g.lineWidth = G.leadW;
   path();
   g.stroke();
   return c;
@@ -150,7 +159,7 @@ export function fantasyTimes(app) {
     f.rings = fo.ringDelays.map((d) => bloom(win(s, fo.start + d, F.ringDur)));
     lit = ignite(s - BEATS.ignite.start, lerp(F.budHalo[0], F.budHalo[1], f.swell) * f.grow);
   }
-  const dim = app.openDim === undefined ? 1 : app.openDim;
+  const dim = app.fantasyDim === undefined ? 1 : app.fantasyDim;
   f.open = Math.min(...f.rings);
   f.ringsEff = f.rings.map((o) => o * dim);
   f.halo = lit.halo;
@@ -180,16 +189,35 @@ function drawStem(ctx, app, f) {
   const F = FANTASY;
   const U = app.L.U;
   const q = f.stem;
+  const [w0, w1] = SHAPE.stemTaper.fantasy;
+  fillTapered(ctx, [f], w0 * U, w1 * U, app.theme.stem, mix(app.theme.stem, app.theme.moonRim, SHAPE.stemRim.mix));
   ctx.lineCap = 'round';
-  ctx.strokeStyle = app.theme.stem;
-  ctx.lineWidth = SIZE.fantasy.stemW * U;
   ctx.beginPath();
   ctx.moveTo(q[0], q[1]);
   ctx.bezierCurveTo(q[2], q[3], q[4], q[5], q[6], q[7]);
-  ctx.stroke();
   ctx.strokeStyle = rgba(mix(app.theme.stem, PALETTE.fantasy[0], F.stemGlowMix), F.stemGlowAlpha * f.grow);
   ctx.lineWidth = SIZE.fantasy.stemW * U * F.stemGlowW;
   ctx.stroke();
+}
+
+// The halo lights the air around the flower. It is drawn before the flowers in
+// front of it, so it glows behind them rather than washing over their petals.
+export function drawFantasyHalo(ctx, app) {
+  const f = app.fantasy;
+  if (!f || f.grow <= 0 || f.hx === undefined) return;
+  const S = ensureSprites();
+  const flare = (app.heart && app.heart.flare) || 0;
+  const nC = PALETTE.fantasy.length;
+  const capped = !(f.swelling || flare > 0);
+  let haloA = f.halo * TUNE.glow * app.theme.glow * (1 + HEART.flareHalo * flare);
+  if (capped) haloA = Math.min(haloA, MOTION.glowMax);
+  const hc = mod((app.clock.T / FANTASY.cycleS) * nC, nC);
+  const ha = Math.floor(hc), hw = smooth(hc - ha);
+  const hr = SIZE.fantasy.haloU * app.L.U;
+  ctx.globalCompositeOperation = app.theme.glowBlend;
+  drawGlow(ctx, S.halos[ha], f.hx, f.hy, hr, haloA * (1 - hw));
+  drawGlow(ctx, S.halos[(ha + 1) % nC], f.hx, f.hy, hr, haloA * hw);
+  ctx.globalCompositeOperation = 'source-over';
 }
 
 export function drawFantasy(ctx, app) {
@@ -203,9 +231,11 @@ export function drawFantasy(ctx, app) {
   const hs = app.heart || {};
   const flare = hs.flare || 0;
   const stretch = hs.stretch || 0;
+  drawPool(ctx, app, f);
   drawStem(ctx, app, f);
   drawLeaves(ctx, app, [f]);
   resetTransform(ctx, dpr);
+  drawStemLight(ctx, app, f);
 
   const cx = f.hx, cy = f.hy;
   const breathe = 1 + F.breathe[1] * Math.sin(TAU * F.breathe[0] * T);
@@ -213,17 +243,7 @@ export function drawFantasy(ctx, app) {
   const phase = (T / F.cycleS) * PALETTE.fantasy.length;
   const nC = PALETTE.fantasy.length;
   const glowMul = TUNE.glow * app.theme.glow;
-  const capped = !(f.swelling || flare > 0);
-
-  // halo behind the petals, crossfaded through the palette
-  let haloA = f.halo * glowMul * (1 + HEART.flareHalo * flare);
-  if (capped) haloA = Math.min(haloA, MOTION.glowMax);
-  const hc = mod(phase, nC);
-  const ha = Math.floor(hc), hw = smooth(hc - ha);
-  ctx.globalCompositeOperation = 'lighter';
-  const hr = SIZE.fantasy.haloU * U;
-  drawGlow(ctx, S.halos[ha], cx, cy, hr, haloA * (1 - hw));
-  drawGlow(ctx, S.halos[(ha + 1) % nC], cx, cy, hr, haloA * hw);
+  ctx.globalCompositeOperation = app.theme.glowBlend;
   // the burning core's glow sits behind the glass so it lights the petals from inside
   let flick = 1;
   for (const [hz, amt] of F.flicker) flick += amt * Math.sin(TAU * hz * T);
@@ -266,7 +286,7 @@ export function drawFantasy(ctx, app) {
   // motes orbiting outside the petals
   const mv = clamp01((f.core - 1 + F.moteFade) / F.moteFade) * f.core * (1 - (hs.moteHide || 0));
   if (mv > 0) {
-    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalCompositeOperation = app.theme.glowBlend;
     for (const m of f.motes) {
       const a = m.ph + TAU * m.hz * T;
       const x = cx + Math.cos(a) * m.r * U;
@@ -278,6 +298,46 @@ export function drawFantasy(ctx, app) {
   }
 }
 
+// The seed's light climbing the stem into the bud while it swells.
+function drawStemLight(ctx, app, f) {
+  if (app.show.mode !== 'full') return;
+  const S = LIGHT.stem;
+  const p = (app.s - S.start) / S.dur;
+  if (p <= 0 || p >= 1) return;
+  const U = app.L.U;
+  const spr = glow(PALETTE.seed);
+  const head = easeInOutSine(p);
+  // blended normally: the light passes in front of paler petals on its way up
+  ctx.globalCompositeOperation = 'source-over';
+  [0].concat(S.trail).forEach((back, i) => {
+    const u = head - back;
+    if (u <= 0) return;
+    const [x, y] = pointAt(f.full, u);
+    drawGlow(ctx, spr, x, y, S.sizeU * U * (1 - i * S.trailShrink), S.alpha * Math.pow(S.trailFade, i) * Math.sin(Math.PI * p));
+  });
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// A soft pool of the flower's light on the grass below it.
+function drawPool(ctx, app, f) {
+  const P = LIGHT.pool;
+  const a = P.alpha * f.core * TUNE.glow * app.theme.glow;
+  if (a <= 0.002) return;
+  const S = ensureSprites();
+  const nC = PALETTE.fantasy.length;
+  const hc = mod((app.clock.T / FANTASY.cycleS) * nC, nC);
+  const ha = Math.floor(hc), hw = smooth(hc - ha);
+  const R = P.rU * app.L.U;
+  ctx.globalCompositeOperation = app.theme.glowBlend;
+  place(ctx, app.dpr, f.x, f.baseY, 0, 1, P.squash);
+  ctx.globalAlpha = a * (1 - hw);
+  ctx.drawImage(S.halos[ha], -R, -R, R * 2, R * 2);
+  ctx.globalAlpha = a * hw;
+  ctx.drawImage(S.halos[(ha + 1) % nC], -R, -R, R * 2, R * 2);
+  resetTransform(ctx, app.dpr);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
 
 export function fantasyRadius(app) {
   const f = app.fantasy;

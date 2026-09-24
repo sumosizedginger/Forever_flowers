@@ -35,6 +35,26 @@ export function starSprite(color) {
   return glowCache.get(key);
 }
 
+// A four point star: two thin crossed diamonds fading from a bright middle.
+export function sparkleSprite(color) {
+  const key = `p${safe(color)}`;
+  if (glowCache.has(key)) return glowCache.get(key);
+  const px = SPRITE.sparklePx;
+  const c = makeCanvas(px, px);
+  const g = c.getContext('2d');
+  const m = px / 2;
+  const w = px * SPRITE.sparkleW;
+  const grad = g.createRadialGradient(m, m, 0, m, m, m);
+  for (const [at, a] of SPRITE.sparkleStops) grad.addColorStop(at, rgba(color, a));
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(m, 0); g.lineTo(m + w, m); g.lineTo(m, px); g.lineTo(m - w, m); g.closePath();
+  g.moveTo(0, m); g.lineTo(m, m - w); g.lineTo(px, m); g.lineTo(m, m + w); g.closePath();
+  g.fill();
+  glowCache.set(key, c);
+  return c;
+}
+
 // A horizontal streak, bright at the right end, for shooting stars.
 export function streakSprite(color) {
   const key = `k${safe(color)}`;

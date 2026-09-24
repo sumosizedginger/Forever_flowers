@@ -1,29 +1,58 @@
 // Two butterflies drifting in after the exhale. Paths are smooth functions of
 // time; wings are one cached sprite per butterfly, mirrored and flapped.
 import { BUTTERFLY, BEATS, WAKE, PALETTE, MOTION } from './config.js';
-import { TAU, makeRng, lerp, clamp, smooth, mix } from './util.js';
+import { TAU, makeRng, lerp, clamp, smooth, mix, darker, rgba } from './util.js';
 import { makeCanvas, glow, drawGlow, resetTransform } from './sprites.js';
 
+// One side's pair of wings: deep at the body, the color, a light flush, then a
+// dark border with pale spots, and fine veins. Drawn once per butterfly.
 function wingSprite(colors) {
   const B = BUTTERFLY;
+  const W = B.wing;
   const px = B.px;
   const c = makeCanvas(px, px * 2);
   const g = c.getContext('2d');
-  const grad = g.createLinearGradient(0, px, px, px);
-  grad.addColorStop(0, colors[1]);
-  grad.addColorStop(1, mix(colors[0], PALETTE.fantasyEdge, B.edgeMix));
-  g.fillStyle = grad;
-  g.globalAlpha = B.wingAlpha;
-  const wing = (pts, [sx, sy]) => {
+  const shape = (pts, [sx, sy]) => {
     const P = pts.map(([x, y]) => [px * sx * x, px + px * sy * y]);
     g.moveTo(0, px);
     g.bezierCurveTo(P[0][0], P[0][1], P[1][0], P[1][1], P[2][0], P[2][1]);
     g.quadraticCurveTo(P[3][0], P[3][1], 0, px);
+    return P;
   };
+  const grad = g.createRadialGradient(0, px, 0, 0, px, px * W.reach);
+  grad.addColorStop(0, darker(colors[1], W.root));
+  grad.addColorStop(W.colorAt, colors[1]);
+  grad.addColorStop(W.flushAt, mix(colors[0], PALETTE.fantasyEdge, B.edgeMix));
+  grad.addColorStop(1, colors[0]);
+  g.fillStyle = grad;
   g.beginPath();
-  wing(B.up, B.upper);
-  wing(B.low, B.lower);
+  const up = shape(B.up, B.upper);
+  const low = shape(B.low, B.lower);
   g.fill();
+  g.globalCompositeOperation = 'source-atop';
+  g.strokeStyle = rgba(B.body, W.borderAlpha);
+  g.lineWidth = W.borderW;
+  g.beginPath();
+  shape(B.up, B.upper);
+  shape(B.low, B.lower);
+  g.stroke();
+  g.strokeStyle = rgba(darker(colors[1], W.root), W.veinAlpha);
+  g.lineWidth = W.veinW;
+  g.beginPath();
+  for (const [x, y] of [up[0], up[1], up[2], low[1], low[2]]) {
+    g.moveTo(0, px);
+    g.quadraticCurveTo(x * W.veinBend, px + (y - px) * W.veinBend * W.veinLift, x * W.veinReach, px + (y - px) * W.veinReach);
+  }
+  g.stroke();
+  g.fillStyle = rgba(PALETTE.fantasyEdge, W.spotAlpha);
+  g.beginPath();
+  for (const [x, y] of [up[1], up[2], low[1]]) {
+    const sx = x * W.spotAt, sy = px + (y - px) * W.spotAt;
+    g.moveTo(sx + W.spotR, sy);
+    g.arc(sx, sy, W.spotR, 0, TAU);
+  }
+  g.fill();
+  g.globalCompositeOperation = 'source-over';
   return c;
 }
 
@@ -82,9 +111,9 @@ export function drawButterflies(ctx, app) {
     const [x2] = position(app, b, T + dt, s + dt, enter);
     const tilt = clamp((x2 - x) / (L.U * dt), -1, 1) * B.tilt;
     const open = lerp(B.fold, 1, Math.abs(Math.sin(Math.PI * b.flap * T)));
-    ctx.globalCompositeOperation = 'lighter';
-    drawGlow(ctx, glow(b.colors[0]), x, y, L.U * B.glowU, B.glowAlpha);
-    ctx.globalCompositeOperation = 'source-over';
+    // a faint soft light behind, blended normally so it never adds toward white
+    drawGlow(ctx, glow(b.colors[0]), x, y, L.U * B.glowU, B.glowAlpha * app.theme.fireflies);
+    ctx.globalAlpha = 1;
     const cs = Math.cos(tilt), sn = Math.sin(tilt);
     const k = span / px;
     for (const side of [1, -1]) {

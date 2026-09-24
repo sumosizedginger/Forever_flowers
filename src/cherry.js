@@ -54,20 +54,25 @@ export function buildCherry(app) {
   const n = rng.int(COUNTS.blossoms[0], COUNTS.blossoms[1]);
   const blossoms = [];
   const maxY = H * LB.maxY;
-  for (let i = 0; i < n * 3 && blossoms.length < n; i++) {
+  // sakura grow in small clusters along the limbs
+  for (let i = 0; i < n * 4 && blossoms.length < n; i++) {
     const li = rng.next() < B.mainShare ? 0 : rng.int(1, limbs.length - 1);
     const limb = limbs[li];
     const t = rng.range(B.tMin[li === 0 ? 0 : 1], 1);
     const p = limb.pts[Math.round(t * (limb.pts.length - 1))];
-    const r = U * rng.range(SIZE.blossomU[0], SIZE.blossomU[1]);
-    const off = rng.range(-1, 1) * U * B.blossomSide;
-    const x = p.x + p.nx * off, y = p.y + p.ny * off;
-    if (x - r < L.minX || y - r < L.minY || y + r > maxY) continue;
-    if (blossoms.some((b) => Math.hypot(b.x - x, b.y - y) < (b.r + r) * B.spacing)) continue;
-    blossoms.push({
-      x, y, r, rot: rng.range(0, TAU), bud: rng.next() < COUNTS.budShare,
-      path: li === 0 ? t : limb.at + t * limb.span, pop: 0,
-    });
+    const k = rng.int(B.cluster[0], B.cluster[1]);
+    for (let j = 0; j < k && blossoms.length < n; j++) {
+      const r = U * rng.range(SIZE.blossomU[0], SIZE.blossomU[1]);
+      const a = rng.range(0, TAU);
+      const off = U * B.clusterU * Math.sqrt(rng.next());
+      const x = p.x + Math.cos(a) * off, y = p.y + Math.sin(a) * off * B.clusterSquash + U * B.hang;
+      if (x - r < L.minX || y - r < L.minY || y + r > maxY) continue;
+      if (blossoms.some((b) => Math.hypot(b.x - x, b.y - y) < (b.r + r) * B.spacing)) continue;
+      blossoms.push({
+        x, y, r, rot: rng.range(0, TAU), squash: rng.range(B.squash[0], 1), bud: rng.next() < COUNTS.budShare,
+        path: li === 0 ? t : limb.at + t * limb.span, pop: 0,
+      });
+    }
   }
   blossoms.sort((a, b) => a.path - b.path);
   blossoms.forEach((b, i) => { b.order = i; });
@@ -139,13 +144,24 @@ export function drawBlossom(g, b, p, th) {
   g.translate(b.x, b.y);
   g.rotate(b.rot);
   if (b.bud) {
+    // a closed bud: a pink teardrop sitting in a small green cup
+    const hl = (r * S.budLen) / 2, hw = (r * S.budW) / 2;
+    const [up, down] = S.budBulge;
     g.fillStyle = mix(th.sakuraCenter, th.sakuraEdge, S.budMix);
     g.beginPath();
-    g.ellipse(0, 0, r * S.budW / 2, r * S.budLen / 2, 0, 0, TAU);
+    g.moveTo(0, -hl);
+    g.bezierCurveTo(hw, -hl * up, hw, hl * down, 0, hl);
+    g.bezierCurveTo(-hw, hl * down, -hw, -hl * up, 0, -hl);
+    g.fill();
+    const [at, cw, ch] = S.calyx;
+    g.fillStyle = th.leaf[1];
+    g.beginPath();
+    g.ellipse(0, hl * at * 2, r * S.budW * cw, r * S.budLen * ch, 0, 0, TAU);
     g.fill();
     g.restore();
     return;
   }
+  g.scale(1, b.squash || 1);
   const grad = g.createRadialGradient(0, 0, 0, 0, 0, r);
   grad.addColorStop(0, th.sakuraCenter);
   grad.addColorStop(S.midAt, mix(th.sakuraCenter, th.sakuraEdge, S.midMix));

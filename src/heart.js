@@ -151,7 +151,7 @@ function drawCharge(ctx, app) {
   if (c <= 0) return;
   const R = HEART.ringRU * U;
   const end = -Math.PI / 2 + TAU * c;
-  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalCompositeOperation = 'source-over';
   ctx.strokeStyle = rgba(HEART.ringColor, HEART.ringAlpha * Math.sqrt(c));
   ctx.lineWidth = HEART.ringWidth;
   ctx.lineCap = 'round';
@@ -184,7 +184,7 @@ function drawNova(ctx, app) {
   const fade = r > T_FADE ? clamp01((r - T_FADE) / HEART.fade) : 0;
   const cx = f.hx, cy = f.hy;
   const pos = [];
-  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalCompositeOperation = 'source-over';
   for (let i = 0; i < h.motes.length; i++) {
     const m = h.motes[i];
     const local = r - T_FLY - m.d;

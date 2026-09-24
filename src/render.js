@@ -26,7 +26,7 @@ export function render(app) {
   drawStars(ctx, app, app.starReveal);
   ctx.globalCompositeOperation = 'source-over';
   drawMoon(ctx, app);
-  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalCompositeOperation = app.theme.glowBlend;
   drawShooting(ctx, app);
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
@@ -35,11 +35,17 @@ export function render(app) {
   drawGrass(ctx, app);
   for (const fn of layers.front) { fn(ctx, app); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; resetTransform(ctx, dpr); }
 
+  // asleep, the scene dims toward the night indigo rather than toward black
+  if (app.darken > 0.002) {
+    ctx.globalAlpha = Math.min(1, app.darken);
+    ctx.fillStyle = PALETTE.zenith;
+    ctx.fillRect(0, 0, L.W, L.H);
+  }
   if (app.overlay > 0.002) {
     ctx.globalAlpha = Math.min(1, app.overlay);
     ctx.fillStyle = PALETTE.black;
     ctx.fillRect(0, 0, L.W, L.H);
-    ctx.globalAlpha = 1;
   }
+  ctx.globalAlpha = 1;
   for (const fn of layers.top) { fn(ctx, app); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; resetTransform(ctx, dpr); }
 }

@@ -1,6 +1,7 @@
 // The beat sheet for the field: stem growth and blooms as pure functions of
 // show time, for the full show and the five second wake up.
-import { BEATS, WAKE, TUNE, MOTION, INPUT } from './config.js';
+import { BEATS, WAKE, TUNE, MOTION } from './config.js';
+import { SLEEP } from './config-garden.js';
 import { win, lerp, smooth, easeInOutSine, easeOutBack, cubicBezier } from './util.js';
 
 let curve = null;
@@ -27,7 +28,7 @@ export function flowerTimes(app) {
   const s = app.s;
   const fl = app.flowers;
   const bloom = bloomEase();
-  const dim = lerp(1, INPUT.dimOpen, app.dimLevel);
+  const dim = lerp(1, SLEEP.fold, app.dimLevel);
   if (app.show.mode === 'wake') {
     const nr = fl.roses.length, nw = fl.wilds.length;
     for (const f of fl.roses) {
@@ -37,6 +38,16 @@ export function flowerTimes(app) {
     for (const f of fl.wilds) {
       f.grow = 1;
       f.open = lerp(WAKE.startOpen, 1, popEase(win(s, wakeStart(f.order, nw), WAKE.dur * f.bloomMul)));
+    }
+    const nf = fl.favs.length;
+    for (const f of fl.favs) {
+      f.grow = 1;
+      f.open = lerp(WAKE.startOpen, 1, bloom(win(s, wakeStart(f.order, nf), WAKE.dur * f.bloomMul)));
+    }
+    const nm = fl.meadow.length;
+    for (const f of fl.meadow) {
+      f.grow = 1;
+      f.open = lerp(WAKE.startOpen, 1, popEase(win(s, wakeStart(f.order, nm), WAKE.dur * f.bloomMul)));
     }
   } else {
     const rs = BEATS.roseStems, ws = BEATS.wildStems, wp = BEATS.wildPop;
@@ -50,10 +61,24 @@ export function flowerTimes(app) {
       f.grow = easeInOutSine(win(s, ws.start + j * ws.stagger, ws.dur));
       f.open = popEase(win(s, wp.start + j * wp.stagger, wp.dur * f.bloomMul));
     }
+    for (const f of fl.meadow) {
+      const j = f.order;
+      f.grow = easeInOutSine(win(s, ws.start + j * ws.stagger, ws.dur));
+      f.open = popEase(win(s, wp.start + j * wp.stagger, wp.dur * f.bloomMul));
+    }
+    const fs = BEATS.favStems, fb = BEATS.favBloom;
+    for (const f of fl.favs) {
+      const j = f.order;
+      f.grow = easeInOutSine(win(s, fs.start + j * fs.stagger, fs.dur));
+      f.open = bloom(win(s, fb.start + j * fb.stagger, fb.dur * f.bloomMul));
+    }
   }
   for (const f of fl.roses) f.openEff = f.open * dim;
   for (const f of fl.wilds) f.openEff = f.open * dim;
+  for (const f of fl.favs) f.openEff = f.open * dim;
+  for (const f of fl.meadow) f.openEff = f.open * dim;
   app.openDim = dim;
+  app.fantasyDim = lerp(1, SLEEP.fantasyFold, app.dimLevel);
 }
 
 // Held breath, and the end of the intro.

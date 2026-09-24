@@ -1,6 +1,7 @@
 // Touch. One pointer at a time; taps resolve on release; the states are
 // INTRO, LIVE, DIM, CHARGING and NOVA exactly as the brief lays them out.
 import { INPUT, MOTION } from './config.js';
+import { SLEEP } from './config-garden.js';
 import { clamp, lerp, smooth, smoothstep } from './util.js';
 import { hitFantasy, fantasyRadius } from './fantasy.js';
 import { hitFlower, kick, plant, allFlowers, stemBases } from './flowers.js';
@@ -176,7 +177,7 @@ export function updateInput(app, dt) {
     if (inp.idle >= INPUT.idleS) enterDim(app);
   }
   app.dimLevel = lerp(inp.dimFrom, inp.dimTo, smooth((T - inp.dimT0) / inp.dimDur));
-  app.darken = INPUT.dimDark * app.dimLevel;
+  app.darken = SLEEP.dim * app.dimLevel;
 
   const L = MOTION.lean;
   const U = app.L.U;

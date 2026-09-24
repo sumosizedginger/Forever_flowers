@@ -20,5 +20,5 @@ export function update(app, dt) {
     if (app.bgMix >= 1) app.bgPrev = null;
   }
   for (const fn of steps) fn(app, dt);
-  app.overlay = Math.max(1 - fade, 1 - (1 - (app.darken || 0)) * (1 - app.theme.darken));
+  app.overlay = 1 - fade;
 }

@@ -18,7 +18,8 @@ export function drawSeed(ctx, app) {
   const after = s - B.land;
   const fade = after > 0 ? 1 - clamp01(after / SEED.sink) : 1;
   const flash = after > 0 ? Math.exp(-after / SEED.flashS) : 0;
-  ctx.globalCompositeOperation = 'lighter';
+  // blended normally: the seed lands right where the fantasy bud begins to grow
+  ctx.globalCompositeOperation = 'source-over';
   if (after < 0) {
     const len = U * B.trailU * p * p;
     if (len > 1) {
@@ -88,7 +89,7 @@ export function drawFireflies(ctx, app) {
   const T = app.clock.T;
   const spr = glow(PALETTE.firefly);
   const F = FIREFLY;
-  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalCompositeOperation = app.theme.glowBlend;
   for (const f of ff.list) {
     const x = f.hx + f.R * Math.sin(f.wx * T + f.px);
     const y = f.hy + f.R * F.ySquash * Math.sin(f.wy * T + f.py);
