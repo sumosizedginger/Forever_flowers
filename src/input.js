@@ -1,6 +1,6 @@
 // Touch. One pointer at a time; taps resolve on release; the states are
 // INTRO, LIVE, DIM, CHARGING and NOVA exactly as the brief lays them out.
-import { INPUT, MOTION } from './config.js';
+import { INPUT, MOTION, HEART } from './config.js';
 import { SLEEP } from './config-garden.js';
 import { clamp, lerp, smooth, smoothstep } from './util.js';
 import { hitFantasy, fantasyRadius } from './fantasy.js';
@@ -13,10 +13,11 @@ import { buildGrass } from './grass.js';
 import { pressHeart, cancelHeart, startNova } from './heart.js';
 import { savePlanted } from './garden.js';
 import { markHeartFound } from './life.js';
+import { holdAwake } from './wakelock.js';
 
 export function makeInput() {
   return {
-    p: null, idle: 0, ignoreUntil: -Infinity, leaning: false, leanX: 0, leanY: 0,
+    p: null, idle: 0, since: 0, ignoreUntil: -Infinity, leaning: false, leanX: 0, leanY: 0,
     dimFrom: 0, dimTo: 0, dimT0: 0, dimDur: 1, nextShoot: null,
   };
 }
@@ -93,9 +94,11 @@ function onDown(app, e) {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
   const [x, y] = pos(app, e);
   inp.idle = 0;
+  inp.since = 0;
   const p = { id: e.pointerId, x0: x, y0: y, x, y, t0: app.clock.T, moved: 0, mode: 'normal', fantasy: false };
   inp.p = p;
   try { app.canvas.setPointerCapture(e.pointerId); } catch (err) { /* capture is optional */ }
+  holdAwake(app, true);
   if (app.state === 'DIM') { wake(app); p.mode = 'wake'; return; }
   if (app.clock.T < inp.ignoreUntil) { p.mode = 'ignored'; return; }
   const h = app.heart;
@@ -115,6 +118,7 @@ function onMove(app, e) {
   p.y = y;
   p.moved = Math.max(p.moved, Math.hypot(x - p.x0, y - p.y0));
   inp.idle = 0;
+  inp.since = 0;
   if (p.mode !== 'normal') return;
   const ph = app.heart.phase;
   if (p.fantasy && (ph === 'press' || ph === 'charging')) {
@@ -137,6 +141,7 @@ function onUp(app, e) {
   inp.p = null;
   inp.leaning = false;
   inp.idle = 0;
+  inp.since = 0;
   if (p.mode !== 'normal') return;
   const held = app.clock.T - p.t0;
   const isTap = held < INPUT.tapMaxS && p.moved < INPUT.tapMovePx;
@@ -148,8 +153,9 @@ function onUp(app, e) {
       sound(app, 'nova');
       return;
     }
+    // letting go before the charge completes is always a tap on the flower
     cancelHeart(app);
-    if (isTap) tapFantasy(app);
+    if (p.moved < INPUT.tapMovePx) tapFantasy(app);
     return;
   }
   if (isTap) resolveTap(app, p.x0, p.y0);
@@ -173,6 +179,12 @@ export function attachInput(app) {
   cv.addEventListener('pointercancel', (e) => onCancel(app, e));
 }
 
+// Render at half rate once she has not touched it for a while, and while asleep.
+export function lowPower(app) {
+  if (app.state === 'DIM') return true;
+  return app.state === 'LIVE' && app.input.idle >= SLEEP.lowPowerS && app.heart.phase === 'idle';
+}
+
 export function updateInput(app, dt) {
   const inp = app.input;
   const T = app.clock.T;
@@ -180,19 +192,32 @@ export function updateInput(app, dt) {
     inp.idle += dt;
     if (inp.idle >= INPUT.idleS) enterDim(app);
   }
+  // the sleep timer: after long enough without a touch the music ends and the screen may sleep
+  inp.since = inp.p ? 0 : inp.since + dt;
+  const asleep = inp.since >= SLEEP.timerS;
+  if (asleep !== app.asleep) {
+    app.asleep = asleep;
+    holdAwake(app, !asleep);
+  }
   app.dimLevel = lerp(inp.dimFrom, inp.dimTo, smooth((T - inp.dimT0) / inp.dimDur));
   app.darken = SLEEP.dim * app.dimLevel;
 
   const L = MOTION.lean;
   const U = app.L.U;
-  const tau = inp.leaning ? L.response : L.decay / L.decayTaus;
+  const react = app.heart.react || 0;
+  const tau = inp.leaning || react > 0 ? L.response : L.decay / L.decayTaus;
   const k = 1 - Math.exp(-dt / tau);
-  for (const f of allFlowers(app).concat(app.fantasy)) {
+  const fan = app.fantasy;
+  for (const f of allFlowers(app).concat(fan)) {
     let target = 0;
     if (inp.leaning) {
       const dx = inp.leanX - f.hx;
       const w = 1 - smoothstep(0, L.reachU * U, Math.hypot(dx, inp.leanY - f.hy));
       target = L.max * f.h * clamp(dx / (L.fullU * U), -1, 1) * w;
+    } else if (react > 0 && f !== fan) {
+      // while the heart is out, the field leans toward it
+      const dx = fan.hx - f.hx;
+      target = HEART.leanMax * f.h * clamp(dx / (HEART.leanFullU * U), -1, 1) * react;
     }
     f.leanPx += (target - f.leanPx) * k;
   }

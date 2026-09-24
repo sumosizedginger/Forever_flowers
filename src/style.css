@@ -55,3 +55,9 @@ canvas#c {
   position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
+/* until she has used it once, the sound button breathes softly twice, then keeps a brighter ring */
+#snd.invite { border-color: var(--invite-line); animation: invite var(--invite-dur) ease-in-out var(--invite-delay) var(--invite-count); }
+@keyframes invite {
+  0%, 100% { background: var(--btn-bg); box-shadow: 0 0 0 0 transparent; }
+  50% { background: var(--invite-bg); box-shadow: 0 0 14px 3px var(--invite-glow); }
+}

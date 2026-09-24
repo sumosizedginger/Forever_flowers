@@ -14,12 +14,13 @@ import { drawHint, hintPose } from './hint.js';
 import { buildFront, drawFront } from './front.js';
 import { buildCherry, cherryTimes, updateCherry, drawCherry, blossomBoxes } from './cherry.js';
 import { buildPetals, drawPetals } from './petals.js';
-import { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasy, drawFantasyHalo, fantasyBox } from './fantasy.js';
+import { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasy, drawFantasyHalo, drawFantasyNight, fantasyBox } from './fantasy.js';
 import { drawSeed, buildFireflies, drawFireflies, drawPollen } from './fx.js';
 import { buildButterflies, drawButterflies } from './butterflies.js';
 import { drawHearts, heartCount } from './hearts.js';
-import { makeHeart, layoutHeart, updateHeart, drawHeartSecret, heartPhase, startNova, heartBox, NOVA_LENGTH } from './heart.js';
-import { makeInput, attachInput, updateInput, enterDim } from './input.js';
+import { makeHeart, layoutHeart, updateHeart, drawHeartSecret, heartPhase, startNova, heartBox, autoHeart, NOVA_LENGTH } from './heart.js';
+import { makeInput, attachInput, updateInput, enterDim, lowPower } from './input.js';
+import { makeWakeLock, holdAwake } from './wakelock.js';
 import { plantedCount, allFlowers } from './flowers.js';
 import { fantasyRadius } from './fantasy.js';
 import { flowerTimes, showTimes } from './choreo.js';
@@ -40,6 +41,7 @@ const seed = life.seed;
 const app = {
   params, canvas, ctx, seed, reduced: life.reduced, visits: life.visits,
   days: life.days, newToday: life.newToday, heartFound: life.heartFound,
+  soundWanted: life.soundOn, soundUsed: life.soundUsed, autoHeartDone: false, asleep: false, wake: makeWakeLock(),
   dpr: 1, L: null, tod: null, theme: null,
   live: makeRng(seed ^ 0x11fe),
   clock: makeClock(params.t),
@@ -98,6 +100,9 @@ function replay() {
   app.fx.shooting.length = 0;
   app.heart = makeHeart();
   app.input = makeInput();
+  app.autoHeartDone = false;
+  app.asleep = false;
+  holdAwake(app, true);
   app.dimLevel = 0;
   app.darken = 0;
   for (const f of allFlowers(app).concat(app.fantasy)) { f.spring.x = 0; f.spring.v = 0; f.leanPx = 0; }
@@ -109,6 +114,7 @@ setupTune(app);
 const clockStep = watchClock(app, rebuildWorld);
 
 addStep(showTimes);
+addStep(autoHeart);
 addStep(updateInput);
 addStep(updateHeart);
 addStep(flowerTimes);
@@ -136,6 +142,7 @@ addLayer('front', drawNewSparkle);
 addLayer('front', drawButterflies);
 addLayer('front', drawHearts);
 addLayer('front', drawHeartSecret);
+addLayer('top', drawFantasyNight);
 addLayer('top', drawSeed);
 
 function relayout() {
@@ -148,9 +155,13 @@ function relayout() {
   rebuildWorld();
 }
 
+let skip = false;
 function frame(now) {
   requestAnimationFrame(frame);
   if (app.needsLayout) { app.needsLayout = false; relayout(); }
+  // half rate while nobody is touching it, to spare her battery at night
+  skip = lowPower(app) ? !skip : false;
+  if (skip) return;
   const t0 = performance.now();
   const dt = tick(app.clock, now);
   update(app, dt);
@@ -166,7 +177,14 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseClock(app.clock);
   else resumeClock(app.clock);
   app.audio.suspend(document.hidden);
+  // the system drops the wake lock when the page hides; take it again on return
+  if (!document.hidden && app.wake.want) { app.wake.sentinel = null; holdAwake(app, true); }
 });
+// a remembered sound choice starts at her first touch, the first moment audio is allowed
+window.addEventListener('pointerup', () => {
+  if (app.soundWanted && app.audio && !app.audio.on) app.audio.setOn(true);
+}, true);
+holdAwake(app, true);
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 
@@ -186,6 +204,11 @@ installTestHooks(app, {
   get visits() { return app.visits; },
   get garden() { const fl = app.flowers; return { days: fl.daily.length, mid: fl.daily.filter((f) => !f.far).length, far: fl.daily.filter((f) => f.far).length, meadow: fl.meadow.length, newToday: fl.daily.some((f) => f.isNew) }; },
   get heartFound() { return app.heartFound; },
+  get wakeLock() { return app.wake.state; },
+  get asleep() { return app.asleep; },
+  get lowPower() { return lowPower(app); },
+  get autoHeartDone() { return app.autoHeartDone; },
+  get soundWanted() { return app.soundWanted; },
   get hint() { return hintPose(app); },
   get tune() { return { ...TUNE }; },
   replay: () => replay(),

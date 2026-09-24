@@ -3,7 +3,7 @@
 // Petals are cached sprites per ring and color, crossfaded and transformed.
 import { FANTASY, SIZE, BEATS, WAKE, MOTION, TUNE, SHAPE, PALETTE, INPUT, HEART } from './config.js';
 import { TAU, makeRng, lerp, clamp01, win, smooth, easeInOutSine, mix, darker, rgba, mod } from './util.js';
-import { LIGHT } from './config-garden.js';
+import { LIGHT, SLEEP } from './config-garden.js';
 import { makeCanvas, glow, drawGlow, place, resetTransform } from './sprites.js';
 import { shapeStem, makeLeaves, drawLeaves, fillTapered, pointAt } from './stem.js';
 import { breeze, gust } from './wind.js';
@@ -229,14 +229,61 @@ export function drawFantasy(ctx, app) {
   const U = L.U;
   const T = app.clock.T;
   const hs = app.heart || {};
-  const flare = hs.flare || 0;
-  const stretch = hs.stretch || 0;
   drawPool(ctx, app, f);
   drawStem(ctx, app, f);
   drawLeaves(ctx, app, [f]);
   resetTransform(ctx, dpr);
   drawStemLight(ctx, app, f);
+  drawHead(ctx, app, f, 1);
 
+  // motes orbiting outside the petals
+  const q = F.squash;
+  const cx = f.hx, cy = f.hy;
+  const mv = clamp01((f.core - 1 + F.moteFade) / F.moteFade) * f.core * (1 - (hs.moteHide || 0));
+  if (mv > 0) {
+    ctx.globalCompositeOperation = app.theme.glowBlend;
+    for (const m of f.motes) {
+      const a = m.ph + TAU * m.hz * T;
+      const x = cx + Math.cos(a) * m.r * U;
+      const y = cy + Math.sin(a) * m.r * U * q;
+      const tw = (1 + Math.sin(a * F.moteTwinkle + m.tw)) / 2;
+      drawGlow(ctx, S.mote, x, y, m.size * U * (1 + tw * F.moteGrow), F.moteAlpha * mv * lerp(F.moteDim, 1, tw));
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+}
+
+// Asleep, the flower stays lit above the dimmed field as a nightlight: a slow
+// breathing glow, then the head itself drawn again over the dimming.
+export function drawFantasyNight(ctx, app) {
+  const f = app.fantasy;
+  const k = app.dimLevel;
+  if (!f || k <= 0.01 || f.grow < 1) return;
+  const S = ensureSprites();
+  const nC = PALETTE.fantasy.length;
+  const hc = mod((app.clock.T / FANTASY.cycleS) * nC, nC);
+  const ha = Math.floor(hc), hw = smooth(hc - ha);
+  const breath = lerp(SLEEP.breatheMin, 1, (1 + Math.sin(TAU * SLEEP.breatheHz * app.clock.T)) / 2);
+  const a = SLEEP.glowAlpha * k * breath * app.theme.glow;
+  const R = SLEEP.glowU * app.L.U;
+  ctx.globalCompositeOperation = app.theme.glowBlend;
+  drawGlow(ctx, S.halos[ha], f.hx, f.hy, R, a * (1 - hw));
+  drawGlow(ctx, S.halos[(ha + 1) % nC], f.hx, f.hy, R, a * hw);
+  ctx.globalCompositeOperation = 'source-over';
+  drawHead(ctx, app, f, k);
+  ctx.globalAlpha = 1;
+}
+
+// The core glow, the glass petals and the burning core, every alpha scaled by mul.
+function drawHead(ctx, app, f, mul) {
+  const S = ensureSprites();
+  const F = FANTASY;
+  const { dpr, L } = app;
+  const U = L.U;
+  const T = app.clock.T;
+  const hs = app.heart || {};
+  const flare = hs.flare || 0;
+  const stretch = hs.stretch || 0;
   const cx = f.hx, cy = f.hy;
   const breathe = 1 + F.breathe[1] * Math.sin(TAU * F.breathe[0] * T);
   const r = f.r * f.scale * breathe * (1 + F.budSwell * f.swell * (1 - f.open));
@@ -248,7 +295,7 @@ export function drawFantasy(ctx, app) {
   let flick = 1;
   for (const [hz, amt] of F.flicker) flick += amt * Math.sin(TAU * hz * T);
   const coreMul = 1 + HEART.flareCore * flare;
-  if (f.core > 0) drawGlow(ctx, S.coreGlow, cx, cy, F.coreGlowU * U * coreMul, F.coreGlowAlpha * f.core * flick * glowMul * coreMul);
+  if (f.core > 0) drawGlow(ctx, S.coreGlow, cx, cy, F.coreGlowU * U * coreMul, F.coreGlowAlpha * f.core * flick * glowMul * coreMul * mul);
   ctx.globalCompositeOperation = 'source-over';
 
   // petals, back ring first
@@ -268,9 +315,9 @@ export function drawFantasy(ctx, app) {
     const c = mod(phase + p.ph * nC, nC);
     const ia = Math.floor(c), w = smooth(c - ia);
     const set = S.rings[p.k];
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = mul;
     ctx.drawImage(set[ia], -sw / 2, -sh, sw, sh);
-    ctx.globalAlpha = w;
+    ctx.globalAlpha = w * mul;
     ctx.drawImage(set[(ia + 1) % nC], -sw / 2, -sh, sw, sh);
   }
   resetTransform(ctx, dpr);
@@ -278,23 +325,9 @@ export function drawFantasy(ctx, app) {
   // the burning core itself, over the glass
   if (f.core > 0) {
     const cr = SIZE.fantasy.coreU * U * f.scale * lerp(1, coreMul, F.coreFlareSize) * flick;
-    ctx.globalAlpha = clamp01(f.core);
+    ctx.globalAlpha = clamp01(f.core) * mul;
     ctx.drawImage(S.core, cx - cr, cy - cr, cr * 2, cr * 2);
     ctx.globalAlpha = 1;
-  }
-
-  // motes orbiting outside the petals
-  const mv = clamp01((f.core - 1 + F.moteFade) / F.moteFade) * f.core * (1 - (hs.moteHide || 0));
-  if (mv > 0) {
-    ctx.globalCompositeOperation = app.theme.glowBlend;
-    for (const m of f.motes) {
-      const a = m.ph + TAU * m.hz * T;
-      const x = cx + Math.cos(a) * m.r * U;
-      const y = cy + Math.sin(a) * m.r * U * q;
-      const tw = (1 + Math.sin(a * F.moteTwinkle + m.tw)) / 2;
-      drawGlow(ctx, S.mote, x, y, m.size * U * (1 + tw * F.moteGrow), F.moteAlpha * mv * lerp(F.moteDim, 1, tw));
-    }
-    ctx.globalCompositeOperation = 'source-over';
   }
 }
 

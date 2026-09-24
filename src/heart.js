@@ -2,6 +2,7 @@
 // motes spiral in, the petals stretch. Let go at full charge and it flares,
 // then 64 motes fly out into a heart that beats at 72 bpm, and drift away.
 import { HEART, HEART_CURVE, INPUT, PALETTE, SIZE } from './config.js';
+import { AUTOHEART } from './config-garden.js';
 import { TAU, lerp, clamp01, smooth, smoothstep, easeInOutCubic, easeOutCubic, easeInQuad, heartXY, rgba, mix, mod, makeRng } from './util.js';
 import { glow, drawGlow } from './sprites.js';
 
@@ -13,7 +14,25 @@ const T_END = T_FADE + HEART.fade;
 export const NOVA_LENGTH = T_END;
 
 export function makeHeart() {
-  return { phase: 'idle', active: false, charge: 0, full: false, stretch: 0, flare: 0, beat: 0, moteHide: 0, pressT: 0, releaseT: 0, shape: null, motes: [] };
+  return { phase: 'idle', active: false, auto: false, charge: 0, full: false, stretch: 0, flare: 0, beat: 0, react: 0, moteHide: 0, pressT: 0, releaseT: 0, shape: null, motes: [] };
+}
+
+// The first full show, and every replay, ends with the heart playing once by
+// itself: the flower charges on its own and releases on the downbeat at 20s.
+export function autoHeart(app) {
+  if (app.autoHeartDone || app.show.mode !== 'full') return;
+  const s = app.s;
+  if (s < AUTOHEART.charge) return;
+  if (s > AUTOHEART.giveUp) { app.autoHeartDone = true; return; }
+  const h = app.heart;
+  const f = app.fantasy;
+  if (app.state !== 'LIVE' || app.input.p || h.phase !== 'idle' || f.open < 1) return;
+  app.autoHeartDone = true;
+  h.phase = 'charging';
+  h.auto = true;
+  h.pressT = app.clock.T - INPUT.chargeDelay;
+  h.full = false;
+  app.state = 'CHARGING';
 }
 
 // 64 points spaced evenly along the heart outline, in curve units.
@@ -69,6 +88,7 @@ export function heartPhase(app) {
 export function pressHeart(app) {
   const h = app.heart;
   h.phase = 'press';
+  h.auto = false;
   h.pressT = app.clock.T;
   h.full = false;
   h.charge = 0;
@@ -112,8 +132,10 @@ export function updateHeart(app, dt) {
       h.charge = clamp01((held - INPUT.chargeDelay) / (INPUT.chargeFull - INPUT.chargeDelay));
       h.full = h.charge >= 1;
       h.stretch = HEART.stretch * easeOutCubic(h.charge);
+      if (h.auto && h.full) startNova(app);
     }
     h.flare = 0;
+    h.react = 0;
   } else if (h.phase === 'nova') {
     const r = T - h.releaseT;
     h.stretch = HEART.stretch * (1 - smooth(r / T_FLY));
@@ -121,14 +143,19 @@ export function updateHeart(app, dt) {
     // the orbiting motes step aside while the heart's own motes are out
     h.moteHide = r < T_FADE ? smooth(r / T_FLY) : 1 - smooth((r - T_FADE) / HEART.fade);
     h.beat = 0;
+    // the field turns toward the heart while it is out
+    h.react = r < T_HOLD ? smooth(r / T_HOLD) : 1 - smooth((r - T_FADE) / HEART.fade);
     if (r >= T_HOLD && r < T_FADE) {
+      // lub-dub on the music's beat grid, which starts at show time zero
       const period = 60 / HEART.bpm;
-      const ph = mod(r - T_HOLD, period);
+      const ph = mod(app.s, period);
       const env = (x) => (x < 0 ? 0 : x < HEART.beatAttack ? x / HEART.beatAttack : Math.exp(-(x - HEART.beatAttack) / HEART.beatDecay));
       h.beat = HEART.lub * env(ph) + HEART.dub * env(ph - HEART.dubAt);
     }
     if (r >= T_END) {
       h.phase = 'idle';
+      h.auto = false;
+      h.react = 0;
       h.flare = 0;
       h.stretch = 0;
       h.moteHide = 0;
@@ -138,6 +165,7 @@ export function updateHeart(app, dt) {
     h.stretch *= Math.exp(-dt / HEART.relaxS);
     if (h.stretch < 1e-4) h.stretch = 0;
     h.flare = 0;
+    h.react = 0;
     if (h.phase === 'relax' && h.stretch === 0) h.phase = 'idle';
   }
   h.active = h.phase === 'charging' || h.phase === 'nova';

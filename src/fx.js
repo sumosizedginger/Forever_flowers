@@ -1,5 +1,5 @@
 // The falling seed and its pulse ring, fireflies at night, pollen by day.
-import { BEATS, WAKE, SEED, FIREFLY, POLLEN, MOTION, PALETTE, INPUT } from './config.js';
+import { BEATS, WAKE, SEED, FIREFLY, POLLEN, MOTION, PALETTE, INPUT, HEART } from './config.js';
 import { TAU, makeRng, lerp, clamp01, win, easeInCubic, easeOutCubic, rgba, mod } from './util.js';
 import { glow, drawGlow, streakSprite, place, resetTransform } from './sprites.js';
 
@@ -79,7 +79,8 @@ export function buildFireflies(app) {
 function fireflyVis(app) {
   const s = app.s;
   const up = app.show.mode === 'wake' ? win(s, WAKE.fireflies[0], WAKE.fireflies[1]) : win(s, BEATS.fireflies[0], BEATS.fireflies[1]);
-  return up * lerp(1, INPUT.dimFireflies, app.dimLevel);
+  const boost = 1 + HEART.fireflyBoost * ((app.heart && app.heart.react) || 0);
+  return up * lerp(1, INPUT.dimFireflies, app.dimLevel) * boost;
 }
 
 export function drawFireflies(ctx, app) {

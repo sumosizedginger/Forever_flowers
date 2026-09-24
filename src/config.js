@@ -203,6 +203,7 @@ export const HEART = {
   curveU: 1.6, curveMin: 0.5, moteRU: 0.16, moteAlpha: 0.9, showR: [1.25, 1.65],
   ringAlpha: 0.55, ringColor: '#FFE08A', dotU: 0.22, dotAlpha: 0.6, spin: 1.25, chargeInner: 1.3,
   relaxS: 0.12, beatGlow: 0.5, driftU: 0.3, samples: 720, coreU: 0.05, coreAlpha: 0.85, coreMix: 0.5,
+  leanMax: 0.05, leanFullU: 3, fireflyBoost: 0.5,   // the field turning toward the heart
 };
 
 export const GOLD = {
@@ -239,6 +240,7 @@ export const LAYOUT = {
 export const UI = {
   size: 44, gap: 8, margin: 12, icon: 20, zonePad: 8,
   opacity: 0.62, dimOpacity: 0.3, bgAlpha: 0.34, lineAlpha: 0.16, inkAlpha: 0.72, focusAlpha: 0.85,
+  invite: { dur: 2.4, count: 2, bgAlpha: 0.22, glowAlpha: 0.3, lineAlpha: 0.42 },
 };
 
 export const SIZE = {

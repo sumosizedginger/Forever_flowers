@@ -99,7 +99,7 @@ export const LIGHT = {
 };
 
 export const SLEEP = {
-  fold: 0.3, fantasyFold: 0.7, dim: 0.25, breatheHz: 0.1, glowU: 2.2, glowAlpha: 0.22, coreAlpha: 0.5,
+  fold: 0.3, fantasyFold: 0.7, dim: 0.25, breatheHz: 0.1, breatheMin: 0.6, glowU: 2.2, glowAlpha: 0.22,
   timerS: 600, lowPowerS: 30,
 };
 

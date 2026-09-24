@@ -83,6 +83,12 @@ canvas#c {
 #safe {
   position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+/* until she has used it once, the sound button breathes softly twice, then keeps a brighter ring */
+#snd.invite { border-color: var(--invite-line); animation: invite var(--invite-dur) ease-in-out var(--invite-delay) var(--invite-count); }
+@keyframes invite {
+  0%, 100% { background: var(--btn-bg); box-shadow: 0 0 0 0 transparent; }
+  50% { background: var(--invite-bg); box-shadow: 0 0 14px 3px var(--invite-glow); }
 }</style>
 </head>
 <body>
@@ -305,6 +311,7 @@ const HEART = {
   curveU: 1.6, curveMin: 0.5, moteRU: 0.16, moteAlpha: 0.9, showR: [1.25, 1.65],
   ringAlpha: 0.55, ringColor: '#FFE08A', dotU: 0.22, dotAlpha: 0.6, spin: 1.25, chargeInner: 1.3,
   relaxS: 0.12, beatGlow: 0.5, driftU: 0.3, samples: 720, coreU: 0.05, coreAlpha: 0.85, coreMix: 0.5,
+  leanMax: 0.05, leanFullU: 3, fireflyBoost: 0.5,   // the field turning toward the heart
 };
 
 const GOLD = {
@@ -341,6 +348,7 @@ const LAYOUT = {
 const UI = {
   size: 44, gap: 8, margin: 12, icon: 20, zonePad: 8,
   opacity: 0.62, dimOpacity: 0.3, bgAlpha: 0.34, lineAlpha: 0.16, inkAlpha: 0.72, focusAlpha: 0.85,
+  invite: { dur: 2.4, count: 2, bgAlpha: 0.22, glowAlpha: 0.3, lineAlpha: 0.42 },
 };
 
 const SIZE = {
@@ -861,7 +869,7 @@ const LIGHT = {
 };
 
 const SLEEP = {
-  fold: 0.3, fantasyFold: 0.7, dim: 0.25, breatheHz: 0.1, glowU: 2.2, glowAlpha: 0.22, coreAlpha: 0.5,
+  fold: 0.3, fantasyFold: 0.7, dim: 0.25, breatheHz: 0.1, breatheMin: 0.6, glowU: 2.2, glowAlpha: 0.22,
   timerS: 600, lowPowerS: 30,
 };
 
@@ -3396,7 +3404,7 @@ __m["fantasy.js"] = (() => {
 // Petals are cached sprites per ring and color, crossfaded and transformed.
 const { FANTASY, SIZE, BEATS, WAKE, MOTION, TUNE, SHAPE, PALETTE, INPUT, HEART } = __m["config.js"];
 const { TAU, makeRng, lerp, clamp01, win, smooth, easeInOutSine, mix, darker, rgba, mod } = __m["util.js"];
-const { LIGHT } = __m["config-garden.js"];
+const { LIGHT, SLEEP } = __m["config-garden.js"];
 const { makeCanvas, glow, drawGlow, place, resetTransform } = __m["sprites.js"];
 const { shapeStem, makeLeaves, drawLeaves, fillTapered, pointAt } = __m["stem.js"];
 const { breeze, gust } = __m["wind.js"];
@@ -3622,14 +3630,61 @@ function drawFantasy(ctx, app) {
   const U = L.U;
   const T = app.clock.T;
   const hs = app.heart || {};
-  const flare = hs.flare || 0;
-  const stretch = hs.stretch || 0;
   drawPool(ctx, app, f);
   drawStem(ctx, app, f);
   drawLeaves(ctx, app, [f]);
   resetTransform(ctx, dpr);
   drawStemLight(ctx, app, f);
+  drawHead(ctx, app, f, 1);
 
+  // motes orbiting outside the petals
+  const q = F.squash;
+  const cx = f.hx, cy = f.hy;
+  const mv = clamp01((f.core - 1 + F.moteFade) / F.moteFade) * f.core * (1 - (hs.moteHide || 0));
+  if (mv > 0) {
+    ctx.globalCompositeOperation = app.theme.glowBlend;
+    for (const m of f.motes) {
+      const a = m.ph + TAU * m.hz * T;
+      const x = cx + Math.cos(a) * m.r * U;
+      const y = cy + Math.sin(a) * m.r * U * q;
+      const tw = (1 + Math.sin(a * F.moteTwinkle + m.tw)) / 2;
+      drawGlow(ctx, S.mote, x, y, m.size * U * (1 + tw * F.moteGrow), F.moteAlpha * mv * lerp(F.moteDim, 1, tw));
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+}
+
+// Asleep, the flower stays lit above the dimmed field as a nightlight: a slow
+// breathing glow, then the head itself drawn again over the dimming.
+function drawFantasyNight(ctx, app) {
+  const f = app.fantasy;
+  const k = app.dimLevel;
+  if (!f || k <= 0.01 || f.grow < 1) return;
+  const S = ensureSprites();
+  const nC = PALETTE.fantasy.length;
+  const hc = mod((app.clock.T / FANTASY.cycleS) * nC, nC);
+  const ha = Math.floor(hc), hw = smooth(hc - ha);
+  const breath = lerp(SLEEP.breatheMin, 1, (1 + Math.sin(TAU * SLEEP.breatheHz * app.clock.T)) / 2);
+  const a = SLEEP.glowAlpha * k * breath * app.theme.glow;
+  const R = SLEEP.glowU * app.L.U;
+  ctx.globalCompositeOperation = app.theme.glowBlend;
+  drawGlow(ctx, S.halos[ha], f.hx, f.hy, R, a * (1 - hw));
+  drawGlow(ctx, S.halos[(ha + 1) % nC], f.hx, f.hy, R, a * hw);
+  ctx.globalCompositeOperation = 'source-over';
+  drawHead(ctx, app, f, k);
+  ctx.globalAlpha = 1;
+}
+
+// The core glow, the glass petals and the burning core, every alpha scaled by mul.
+function drawHead(ctx, app, f, mul) {
+  const S = ensureSprites();
+  const F = FANTASY;
+  const { dpr, L } = app;
+  const U = L.U;
+  const T = app.clock.T;
+  const hs = app.heart || {};
+  const flare = hs.flare || 0;
+  const stretch = hs.stretch || 0;
   const cx = f.hx, cy = f.hy;
   const breathe = 1 + F.breathe[1] * Math.sin(TAU * F.breathe[0] * T);
   const r = f.r * f.scale * breathe * (1 + F.budSwell * f.swell * (1 - f.open));
@@ -3641,7 +3696,7 @@ function drawFantasy(ctx, app) {
   let flick = 1;
   for (const [hz, amt] of F.flicker) flick += amt * Math.sin(TAU * hz * T);
   const coreMul = 1 + HEART.flareCore * flare;
-  if (f.core > 0) drawGlow(ctx, S.coreGlow, cx, cy, F.coreGlowU * U * coreMul, F.coreGlowAlpha * f.core * flick * glowMul * coreMul);
+  if (f.core > 0) drawGlow(ctx, S.coreGlow, cx, cy, F.coreGlowU * U * coreMul, F.coreGlowAlpha * f.core * flick * glowMul * coreMul * mul);
   ctx.globalCompositeOperation = 'source-over';
 
   // petals, back ring first
@@ -3661,9 +3716,9 @@ function drawFantasy(ctx, app) {
     const c = mod(phase + p.ph * nC, nC);
     const ia = Math.floor(c), w = smooth(c - ia);
     const set = S.rings[p.k];
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = mul;
     ctx.drawImage(set[ia], -sw / 2, -sh, sw, sh);
-    ctx.globalAlpha = w;
+    ctx.globalAlpha = w * mul;
     ctx.drawImage(set[(ia + 1) % nC], -sw / 2, -sh, sw, sh);
   }
   resetTransform(ctx, dpr);
@@ -3671,23 +3726,9 @@ function drawFantasy(ctx, app) {
   // the burning core itself, over the glass
   if (f.core > 0) {
     const cr = SIZE.fantasy.coreU * U * f.scale * lerp(1, coreMul, F.coreFlareSize) * flick;
-    ctx.globalAlpha = clamp01(f.core);
+    ctx.globalAlpha = clamp01(f.core) * mul;
     ctx.drawImage(S.core, cx - cr, cy - cr, cr * 2, cr * 2);
     ctx.globalAlpha = 1;
-  }
-
-  // motes orbiting outside the petals
-  const mv = clamp01((f.core - 1 + F.moteFade) / F.moteFade) * f.core * (1 - (hs.moteHide || 0));
-  if (mv > 0) {
-    ctx.globalCompositeOperation = app.theme.glowBlend;
-    for (const m of f.motes) {
-      const a = m.ph + TAU * m.hz * T;
-      const x = cx + Math.cos(a) * m.r * U;
-      const y = cy + Math.sin(a) * m.r * U * q;
-      const tw = (1 + Math.sin(a * F.moteTwinkle + m.tw)) / 2;
-      drawGlow(ctx, S.mote, x, y, m.size * U * (1 + tw * F.moteGrow), F.moteAlpha * mv * lerp(F.moteDim, 1, tw));
-    }
-    ctx.globalCompositeOperation = 'source-over';
   }
 }
 
@@ -3750,11 +3791,11 @@ function hitFantasy(app, x, y, pad) {
   return Math.hypot(x - f.hx, y - f.hy) < fantasyRadius(app) * (pad || INPUT.hitPad);
 }
 
-return { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasyHalo, drawFantasy, fantasyRadius, fantasyBox, hitFantasy };
+return { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasyHalo, drawFantasy, drawFantasyNight, fantasyRadius, fantasyBox, hitFantasy };
 })();
 __m["fx.js"] = (() => {
 // The falling seed and its pulse ring, fireflies at night, pollen by day.
-const { BEATS, WAKE, SEED, FIREFLY, POLLEN, MOTION, PALETTE, INPUT } = __m["config.js"];
+const { BEATS, WAKE, SEED, FIREFLY, POLLEN, MOTION, PALETTE, INPUT, HEART } = __m["config.js"];
 const { TAU, makeRng, lerp, clamp01, win, easeInCubic, easeOutCubic, rgba, mod } = __m["util.js"];
 const { glow, drawGlow, streakSprite, place, resetTransform } = __m["sprites.js"];
 
@@ -3834,7 +3875,8 @@ function buildFireflies(app) {
 function fireflyVis(app) {
   const s = app.s;
   const up = app.show.mode === 'wake' ? win(s, WAKE.fireflies[0], WAKE.fireflies[1]) : win(s, BEATS.fireflies[0], BEATS.fireflies[1]);
-  return up * lerp(1, INPUT.dimFireflies, app.dimLevel);
+  const boost = 1 + HEART.fireflyBoost * ((app.heart && app.heart.react) || 0);
+  return up * lerp(1, INPUT.dimFireflies, app.dimLevel) * boost;
 }
 
 function drawFireflies(ctx, app) {
@@ -4094,6 +4136,7 @@ __m["heart.js"] = (() => {
 // motes spiral in, the petals stretch. Let go at full charge and it flares,
 // then 64 motes fly out into a heart that beats at 72 bpm, and drift away.
 const { HEART, HEART_CURVE, INPUT, PALETTE, SIZE } = __m["config.js"];
+const { AUTOHEART } = __m["config-garden.js"];
 const { TAU, lerp, clamp01, smooth, smoothstep, easeInOutCubic, easeOutCubic, easeInQuad, heartXY, rgba, mix, mod, makeRng } = __m["util.js"];
 const { glow, drawGlow } = __m["sprites.js"];
 
@@ -4105,7 +4148,25 @@ const T_END = T_FADE + HEART.fade;
 const NOVA_LENGTH = T_END;
 
 function makeHeart() {
-  return { phase: 'idle', active: false, charge: 0, full: false, stretch: 0, flare: 0, beat: 0, moteHide: 0, pressT: 0, releaseT: 0, shape: null, motes: [] };
+  return { phase: 'idle', active: false, auto: false, charge: 0, full: false, stretch: 0, flare: 0, beat: 0, react: 0, moteHide: 0, pressT: 0, releaseT: 0, shape: null, motes: [] };
+}
+
+// The first full show, and every replay, ends with the heart playing once by
+// itself: the flower charges on its own and releases on the downbeat at 20s.
+function autoHeart(app) {
+  if (app.autoHeartDone || app.show.mode !== 'full') return;
+  const s = app.s;
+  if (s < AUTOHEART.charge) return;
+  if (s > AUTOHEART.giveUp) { app.autoHeartDone = true; return; }
+  const h = app.heart;
+  const f = app.fantasy;
+  if (app.state !== 'LIVE' || app.input.p || h.phase !== 'idle' || f.open < 1) return;
+  app.autoHeartDone = true;
+  h.phase = 'charging';
+  h.auto = true;
+  h.pressT = app.clock.T - INPUT.chargeDelay;
+  h.full = false;
+  app.state = 'CHARGING';
 }
 
 // 64 points spaced evenly along the heart outline, in curve units.
@@ -4161,6 +4222,7 @@ function heartPhase(app) {
 function pressHeart(app) {
   const h = app.heart;
   h.phase = 'press';
+  h.auto = false;
   h.pressT = app.clock.T;
   h.full = false;
   h.charge = 0;
@@ -4204,8 +4266,10 @@ function updateHeart(app, dt) {
       h.charge = clamp01((held - INPUT.chargeDelay) / (INPUT.chargeFull - INPUT.chargeDelay));
       h.full = h.charge >= 1;
       h.stretch = HEART.stretch * easeOutCubic(h.charge);
+      if (h.auto && h.full) startNova(app);
     }
     h.flare = 0;
+    h.react = 0;
   } else if (h.phase === 'nova') {
     const r = T - h.releaseT;
     h.stretch = HEART.stretch * (1 - smooth(r / T_FLY));
@@ -4213,14 +4277,19 @@ function updateHeart(app, dt) {
     // the orbiting motes step aside while the heart's own motes are out
     h.moteHide = r < T_FADE ? smooth(r / T_FLY) : 1 - smooth((r - T_FADE) / HEART.fade);
     h.beat = 0;
+    // the field turns toward the heart while it is out
+    h.react = r < T_HOLD ? smooth(r / T_HOLD) : 1 - smooth((r - T_FADE) / HEART.fade);
     if (r >= T_HOLD && r < T_FADE) {
+      // lub-dub on the music's beat grid, which starts at show time zero
       const period = 60 / HEART.bpm;
-      const ph = mod(r - T_HOLD, period);
+      const ph = mod(app.s, period);
       const env = (x) => (x < 0 ? 0 : x < HEART.beatAttack ? x / HEART.beatAttack : Math.exp(-(x - HEART.beatAttack) / HEART.beatDecay));
       h.beat = HEART.lub * env(ph) + HEART.dub * env(ph - HEART.dubAt);
     }
     if (r >= T_END) {
       h.phase = 'idle';
+      h.auto = false;
+      h.react = 0;
       h.flare = 0;
       h.stretch = 0;
       h.moteHide = 0;
@@ -4230,6 +4299,7 @@ function updateHeart(app, dt) {
     h.stretch *= Math.exp(-dt / HEART.relaxS);
     if (h.stretch < 1e-4) h.stretch = 0;
     h.flare = 0;
+    h.react = 0;
     if (h.phase === 'relax' && h.stretch === 0) h.phase = 'idle';
   }
   h.active = h.phase === 'charging' || h.phase === 'nova';
@@ -4348,12 +4418,46 @@ function heartBox(app) {
   return { kind: 'heart', idx: 0, x: x0 - pad, y: y0 - pad, w: x1 - x0 + pad * 2, h: y1 - y0 + pad * 2 };
 }
 
-return { NOVA_LENGTH, makeHeart, layoutHeart, heartPhase, pressHeart, cancelHeart, startNova, updateHeart, drawHeartSecret, heartBox };
+return { NOVA_LENGTH, makeHeart, autoHeart, layoutHeart, heartPhase, pressHeart, cancelHeart, startNova, updateHeart, drawHeartSecret, heartBox };
+})();
+__m["wakelock.js"] = (() => {
+// Keep the screen on while she is watching; let it go once the field has slept
+// for a while, so a phone left on the pillow can still turn itself off.
+function makeWakeLock() {
+  return { sentinel: null, want: false, pending: false, state: 'none' };
+}
+
+function holdAwake(app, want) {
+  const w = app.wake;
+  w.want = want;
+  const api = typeof navigator !== 'undefined' ? navigator.wakeLock : null;
+  if (!api || typeof api.request !== 'function') { w.state = 'unsupported'; return; }
+  if (want) {
+    if (w.sentinel || w.pending || document.visibilityState !== 'visible') return;
+    w.pending = true;
+    let req;
+    try { req = api.request('screen'); } catch (e) { w.pending = false; w.state = 'denied'; return; }
+    req.then((s) => {
+      w.pending = false;
+      w.sentinel = s;
+      w.state = 'held';
+      s.addEventListener('release', () => { if (w.sentinel === s) w.sentinel = null; w.state = 'released'; });
+      if (!w.want) holdAwake(app, false);
+    }).catch(() => { w.pending = false; w.state = 'denied'; });
+  } else if (w.sentinel) {
+    const s = w.sentinel;
+    w.sentinel = null;
+    w.state = 'released';
+    s.release().catch(() => { /* already released */ });
+  }
+}
+
+return { makeWakeLock, holdAwake };
 })();
 __m["input.js"] = (() => {
 // Touch. One pointer at a time; taps resolve on release; the states are
 // INTRO, LIVE, DIM, CHARGING and NOVA exactly as the brief lays them out.
-const { INPUT, MOTION } = __m["config.js"];
+const { INPUT, MOTION, HEART } = __m["config.js"];
 const { SLEEP } = __m["config-garden.js"];
 const { clamp, lerp, smooth, smoothstep } = __m["util.js"];
 const { hitFantasy, fantasyRadius } = __m["fantasy.js"];
@@ -4366,10 +4470,11 @@ const { buildGrass } = __m["grass.js"];
 const { pressHeart, cancelHeart, startNova } = __m["heart.js"];
 const { savePlanted } = __m["garden.js"];
 const { markHeartFound } = __m["life.js"];
+const { holdAwake } = __m["wakelock.js"];
 
 function makeInput() {
   return {
-    p: null, idle: 0, ignoreUntil: -Infinity, leaning: false, leanX: 0, leanY: 0,
+    p: null, idle: 0, since: 0, ignoreUntil: -Infinity, leaning: false, leanX: 0, leanY: 0,
     dimFrom: 0, dimTo: 0, dimT0: 0, dimDur: 1, nextShoot: null,
   };
 }
@@ -4446,9 +4551,11 @@ function onDown(app, e) {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
   const [x, y] = pos(app, e);
   inp.idle = 0;
+  inp.since = 0;
   const p = { id: e.pointerId, x0: x, y0: y, x, y, t0: app.clock.T, moved: 0, mode: 'normal', fantasy: false };
   inp.p = p;
   try { app.canvas.setPointerCapture(e.pointerId); } catch (err) { /* capture is optional */ }
+  holdAwake(app, true);
   if (app.state === 'DIM') { wake(app); p.mode = 'wake'; return; }
   if (app.clock.T < inp.ignoreUntil) { p.mode = 'ignored'; return; }
   const h = app.heart;
@@ -4468,6 +4575,7 @@ function onMove(app, e) {
   p.y = y;
   p.moved = Math.max(p.moved, Math.hypot(x - p.x0, y - p.y0));
   inp.idle = 0;
+  inp.since = 0;
   if (p.mode !== 'normal') return;
   const ph = app.heart.phase;
   if (p.fantasy && (ph === 'press' || ph === 'charging')) {
@@ -4490,6 +4598,7 @@ function onUp(app, e) {
   inp.p = null;
   inp.leaning = false;
   inp.idle = 0;
+  inp.since = 0;
   if (p.mode !== 'normal') return;
   const held = app.clock.T - p.t0;
   const isTap = held < INPUT.tapMaxS && p.moved < INPUT.tapMovePx;
@@ -4501,8 +4610,9 @@ function onUp(app, e) {
       sound(app, 'nova');
       return;
     }
+    // letting go before the charge completes is always a tap on the flower
     cancelHeart(app);
-    if (isTap) tapFantasy(app);
+    if (p.moved < INPUT.tapMovePx) tapFantasy(app);
     return;
   }
   if (isTap) resolveTap(app, p.x0, p.y0);
@@ -4526,6 +4636,12 @@ function attachInput(app) {
   cv.addEventListener('pointercancel', (e) => onCancel(app, e));
 }
 
+// Render at half rate once she has not touched it for a while, and while asleep.
+function lowPower(app) {
+  if (app.state === 'DIM') return true;
+  return app.state === 'LIVE' && app.input.idle >= SLEEP.lowPowerS && app.heart.phase === 'idle';
+}
+
 function updateInput(app, dt) {
   const inp = app.input;
   const T = app.clock.T;
@@ -4533,19 +4649,32 @@ function updateInput(app, dt) {
     inp.idle += dt;
     if (inp.idle >= INPUT.idleS) enterDim(app);
   }
+  // the sleep timer: after long enough without a touch the music ends and the screen may sleep
+  inp.since = inp.p ? 0 : inp.since + dt;
+  const asleep = inp.since >= SLEEP.timerS;
+  if (asleep !== app.asleep) {
+    app.asleep = asleep;
+    holdAwake(app, !asleep);
+  }
   app.dimLevel = lerp(inp.dimFrom, inp.dimTo, smooth((T - inp.dimT0) / inp.dimDur));
   app.darken = SLEEP.dim * app.dimLevel;
 
   const L = MOTION.lean;
   const U = app.L.U;
-  const tau = inp.leaning ? L.response : L.decay / L.decayTaus;
+  const react = app.heart.react || 0;
+  const tau = inp.leaning || react > 0 ? L.response : L.decay / L.decayTaus;
   const k = 1 - Math.exp(-dt / tau);
-  for (const f of allFlowers(app).concat(app.fantasy)) {
+  const fan = app.fantasy;
+  for (const f of allFlowers(app).concat(fan)) {
     let target = 0;
     if (inp.leaning) {
       const dx = inp.leanX - f.hx;
       const w = 1 - smoothstep(0, L.reachU * U, Math.hypot(dx, inp.leanY - f.hy));
       target = L.max * f.h * clamp(dx / (L.fullU * U), -1, 1) * w;
+    } else if (react > 0 && f !== fan) {
+      // while the heart is out, the field leans toward it
+      const dx = fan.hx - f.hx;
+      target = HEART.leanMax * f.h * clamp(dx / (HEART.leanFullU * U), -1, 1) * react;
     }
     f.leanPx += (target - f.leanPx) * k;
   }
@@ -4561,7 +4690,7 @@ function updateInput(app, dt) {
   }
 }
 
-return { makeInput, enterDim, wake, resolveTap, attachInput, updateInput };
+return { makeInput, enterDim, wake, resolveTap, attachInput, lowPower, updateInput };
 })();
 __m["audio.js"] = (() => {
 // Web Audio only, no files, off until she turns it on. Bells are a sine plus an
@@ -4742,7 +4871,8 @@ return { makeAudio };
 __m["ui.js"] = (() => {
 // The only interface: two quiet round buttons, sound and replay, top right.
 // Hidden during the intro, real buttons with labels and keyboard focus.
-const { UI, BEATS, PALETTE } = __m["config.js"];
+const { UI, BEATS, PALETTE, STORAGE } = __m["config.js"];
+const { store } = __m["life.js"];
 const { rgba } = __m["util.js"];
 const { wake } = __m["input.js"];
 
@@ -4760,6 +4890,12 @@ function setupUI(app, onReplay) {
   css.setProperty('--btn-line', rgba(PALETTE.buttonInk, UI.lineAlpha));
   css.setProperty('--btn-ink', rgba(PALETTE.buttonInk, UI.inkAlpha));
   css.setProperty('--btn-focus', rgba(PALETTE.buttonInk, UI.focusAlpha));
+  css.setProperty('--invite-dur', `${UI.invite.dur}s`);
+  css.setProperty('--invite-delay', `${BEATS.buttonsFade}s`);
+  css.setProperty('--invite-count', String(UI.invite.count));
+  css.setProperty('--invite-bg', rgba(PALETTE.buttonInk, UI.invite.bgAlpha));
+  css.setProperty('--invite-glow', rgba(PALETTE.buttonInk, UI.invite.glowAlpha));
+  css.setProperty('--invite-line', rgba(PALETTE.buttonInk, UI.invite.lineAlpha));
 
   const el = document.getElementById('ui');
   const snd = document.getElementById('snd');
@@ -4767,6 +4903,7 @@ function setupUI(app, onReplay) {
   // The first touch while dim only wakes, buttons included.
   el.addEventListener('pointerdown', () => {
     app.input.idle = 0;
+    app.input.since = 0;
     if (app.state === 'DIM') wake(app);
   }, true);
   const blocked = () => {
@@ -4774,14 +4911,19 @@ function setupUI(app, onReplay) {
     return app.clock.T < app.input.ignoreUntil;
   };
   const sync = () => {
-    const on = !!(app.audio && app.audio.on);
+    const on = !!((app.audio && app.audio.on) || app.soundWanted);
     snd.setAttribute('aria-pressed', on ? 'true' : 'false');
     snd.setAttribute('aria-label', on ? 'Turn sound off' : 'Turn sound on');
   };
   snd.addEventListener('click', () => {
     if (blocked()) return;
     app.input.idle = 0;
-    if (app.audio) app.audio.setOn(!app.audio.on);
+    const want = !((app.audio && app.audio.on) || app.soundWanted);
+    app.soundWanted = want;
+    if (app.audio) app.audio.setOn(want);
+    store.set(STORAGE.sound, want ? '1' : '0');
+    if (!app.soundUsed) { app.soundUsed = true; store.set(STORAGE.soundUsed, '1'); }
+    snd.classList.remove('invite');
     sync();
   });
   rep.addEventListener('click', () => {
@@ -4800,6 +4942,8 @@ function updateUI(app) {
   if (show !== ui.shown) {
     ui.shown = show;
     ui.el.classList.toggle('on', show);
+    // until she has tried it once, the sound button glows softly as it appears
+    if (show && !app.soundUsed) document.getElementById('snd').classList.add('invite');
   }
   const dim = app.state === 'DIM';
   if (dim !== ui.dim) {
@@ -5034,12 +5178,13 @@ const { drawHint, hintPose } = __m["hint.js"];
 const { buildFront, drawFront } = __m["front.js"];
 const { buildCherry, cherryTimes, updateCherry, drawCherry, blossomBoxes } = __m["cherry.js"];
 const { buildPetals, drawPetals } = __m["petals.js"];
-const { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasy, drawFantasyHalo, fantasyBox } = __m["fantasy.js"];
+const { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasy, drawFantasyHalo, drawFantasyNight, fantasyBox } = __m["fantasy.js"];
 const { drawSeed, buildFireflies, drawFireflies, drawPollen } = __m["fx.js"];
 const { buildButterflies, drawButterflies } = __m["butterflies.js"];
 const { drawHearts, heartCount } = __m["hearts.js"];
-const { makeHeart, layoutHeart, updateHeart, drawHeartSecret, heartPhase, startNova, heartBox, NOVA_LENGTH } = __m["heart.js"];
-const { makeInput, attachInput, updateInput, enterDim } = __m["input.js"];
+const { makeHeart, layoutHeart, updateHeart, drawHeartSecret, heartPhase, startNova, heartBox, autoHeart, NOVA_LENGTH } = __m["heart.js"];
+const { makeInput, attachInput, updateInput, enterDim, lowPower } = __m["input.js"];
+const { makeWakeLock, holdAwake } = __m["wakelock.js"];
 const { plantedCount, allFlowers } = __m["flowers.js"];
 const { fantasyRadius } = __m["fantasy.js"];
 const { flowerTimes, showTimes } = __m["choreo.js"];
@@ -5060,6 +5205,7 @@ const seed = life.seed;
 const app = {
   params, canvas, ctx, seed, reduced: life.reduced, visits: life.visits,
   days: life.days, newToday: life.newToday, heartFound: life.heartFound,
+  soundWanted: life.soundOn, soundUsed: life.soundUsed, autoHeartDone: false, asleep: false, wake: makeWakeLock(),
   dpr: 1, L: null, tod: null, theme: null,
   live: makeRng(seed ^ 0x11fe),
   clock: makeClock(params.t),
@@ -5118,6 +5264,9 @@ function replay() {
   app.fx.shooting.length = 0;
   app.heart = makeHeart();
   app.input = makeInput();
+  app.autoHeartDone = false;
+  app.asleep = false;
+  holdAwake(app, true);
   app.dimLevel = 0;
   app.darken = 0;
   for (const f of allFlowers(app).concat(app.fantasy)) { f.spring.x = 0; f.spring.v = 0; f.leanPx = 0; }
@@ -5129,6 +5278,7 @@ setupTune(app);
 const clockStep = watchClock(app, rebuildWorld);
 
 addStep(showTimes);
+addStep(autoHeart);
 addStep(updateInput);
 addStep(updateHeart);
 addStep(flowerTimes);
@@ -5156,6 +5306,7 @@ addLayer('front', drawNewSparkle);
 addLayer('front', drawButterflies);
 addLayer('front', drawHearts);
 addLayer('front', drawHeartSecret);
+addLayer('top', drawFantasyNight);
 addLayer('top', drawSeed);
 
 function relayout() {
@@ -5168,9 +5319,13 @@ function relayout() {
   rebuildWorld();
 }
 
+let skip = false;
 function frame(now) {
   requestAnimationFrame(frame);
   if (app.needsLayout) { app.needsLayout = false; relayout(); }
+  // half rate while nobody is touching it, to spare her battery at night
+  skip = lowPower(app) ? !skip : false;
+  if (skip) return;
   const t0 = performance.now();
   const dt = tick(app.clock, now);
   update(app, dt);
@@ -5186,7 +5341,14 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseClock(app.clock);
   else resumeClock(app.clock);
   app.audio.suspend(document.hidden);
+  // the system drops the wake lock when the page hides; take it again on return
+  if (!document.hidden && app.wake.want) { app.wake.sentinel = null; holdAwake(app, true); }
 });
+// a remembered sound choice starts at her first touch, the first moment audio is allowed
+window.addEventListener('pointerup', () => {
+  if (app.soundWanted && app.audio && !app.audio.on) app.audio.setOn(true);
+}, true);
+holdAwake(app, true);
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 
@@ -5206,6 +5368,11 @@ installTestHooks(app, {
   get visits() { return app.visits; },
   get garden() { const fl = app.flowers; return { days: fl.daily.length, mid: fl.daily.filter((f) => !f.far).length, far: fl.daily.filter((f) => f.far).length, meadow: fl.meadow.length, newToday: fl.daily.some((f) => f.isNew) }; },
   get heartFound() { return app.heartFound; },
+  get wakeLock() { return app.wake.state; },
+  get asleep() { return app.asleep; },
+  get lowPower() { return lowPower(app); },
+  get autoHeartDone() { return app.autoHeartDone; },
+  get soundWanted() { return app.soundWanted; },
   get hint() { return hintPose(app); },
   get tune() { return { ...TUNE }; },
   replay: () => replay(),
