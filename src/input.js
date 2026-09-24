@@ -77,7 +77,7 @@ export function resolveTap(app, x, y) {
   if (st === 'NOVA') return;
   if (y < app.L.horizonY) {
     spawnShootingStar(app, x, y);
-    sound(app, 'star');
+    sound(app, 'star', x);
     return;
   }
   if (st === 'LIVE') {

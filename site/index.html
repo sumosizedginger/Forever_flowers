@@ -367,26 +367,6 @@ const COUNTS = {
   grassPerPx: 0.28, grassClump: 5, backGrassPerPx: 0.5, heartsLife: 2.6,
 };
 
-const AUDIO = {
-  partial: 2.76, partialGain: 0.32, attack: 0.01, decay: 2.6,
-  delay: 0.33, feedback: 0.35, lowpass: 2400, voiceMax: 0.12, wildScale: 0.5,
-  bellGain: 0.1, fantasySpacing: 0.12, master: 0.9, fadeS: 0.4, pingWindow: 0.25,
-  pad: { lowpass: 650, gain: 0.045, chordS: 8, attack: 2.6, release: 3.2, detune: 4 },
-  notes: {
-    C5: 523.25, D5: 587.33, E5: 659.26, G5: 783.99, A5: 880, C6: 1046.5, D6: 1174.66, E6: 1318.51, G6: 1567.98,
-  },
-  scale: ['C5', 'D5', 'E5', 'G5', 'A5', 'C6', 'D6', 'E6', 'G6'],
-  rosePhrase: ['E5', 'G5', 'A5', 'C6', 'D6'],
-  fantasyArp: ['C5', 'E5', 'G5', 'C6', 'E6'],
-  goldChime: ['G5', 'C6', 'E6', 'G6'], goldSpacing: 0.07,
-  novaChord: ['C5', 'G5', 'C6', 'E6'], novaSpacing: 0.09,
-  shakeNotes: ['D6', 'E6', 'G6'], starNote: 'G6',
-  floor: 0.0001, tail: 0.05, lookahead: 0.5,
-  chords: [
-    [130.81, 164.81, 196], [110, 130.81, 164.81], [87.31, 110, 130.81], [98, 123.47, 146.83],
-  ],
-};
-
 // Drawing proportions. Rose and wildflower sizes are fractions of head radius.
 const SHAPE = {
   stem: {
@@ -496,7 +476,7 @@ const STORAGE = {
 
 const PERF = { samples: 1200 };
 
-return { TUNE, TUNE_RANGES, PALETTE, TOD, SPRITE, WORLD, BEATS, WAKE, PREVIEW, MOTION, INPUT, HEART, GOLD, SHOOTING, LAYOUT, UI, SIZE, COUNTS, AUDIO, SHAPE, FANTASY, HEART_CURVE, HEARTS, SEED, FIREFLY, POLLEN, BUTTERFLY, STORAGE, PERF };
+return { TUNE, TUNE_RANGES, PALETTE, TOD, SPRITE, WORLD, BEATS, WAKE, PREVIEW, MOTION, INPUT, HEART, GOLD, SHOOTING, LAYOUT, UI, SIZE, COUNTS, SHAPE, FANTASY, HEART_CURVE, HEARTS, SEED, FIREFLY, POLLEN, BUTTERFLY, STORAGE, PERF };
 })();
 __m["params.js"] = (() => {
 // URL test hooks. Without a param nothing she sees changes.
@@ -4534,7 +4514,7 @@ function resolveTap(app, x, y) {
   if (st === 'NOVA') return;
   if (y < app.L.horizonY) {
     spawnShootingStar(app, x, y);
-    sound(app, 'star');
+    sound(app, 'star', x);
     return;
   }
   if (st === 'LIVE') {
@@ -4692,177 +4672,772 @@ function updateInput(app, dt) {
 
 return { makeInput, enterDim, wake, resolveTap, attachInput, lowPower, updateInput };
 })();
-__m["audio.js"] = (() => {
-// Web Audio only, no files, off until she turns it on. Bells are a sine plus an
-// inharmonic partial through a feedback delay into a lowpass; a soft triangle
-// pad drifts through C, Am, F, G underneath.
-const { AUDIO, BEATS, WAKE, TUNE, FANTASY } = __m["config.js"];
-const { wakeStart } = __m["choreo.js"];
+__m["config-music.js"] = (() => {
+// The music: a lullaby at 72 bpm in 3/4, C major, synthesized in the page.
+// Notes are MIDI numbers. Bar positions and lengths are in beats; cue times
+// are seconds from the cue's start. Gains are peak voice gains; none exceeds
+// the 0.12 ceiling.
+
+const MUSIC = {
+  bpm: 72, beatsPerBar: 3, lookahead: 0.25, latency: 0.04, sync: 0.08, smooth: 0.05, cueBars: 4, seedMix: 0x5a5a, barCache: 8,
+  master: 0.85, fadeIn: 3, fadeOut: 1.2, closeFade: 6, dry: 1, wet: 0.34, highpass: 90,
+  comp: { threshold: -20, knee: 12, ratio: 5, attack: 0.006, release: 0.28 },
+  voiceMax: 0.12,
+  // bars of the show: the full intro cue, the heart finale bars, then the lullaby
+  introBars: 8, finaleBars: 3, wakeBars: 2,
+};
+
+const REVERB = {
+  seconds: 2.8, tau: 0.62, pre: 0.018, bright: 0.55, dark: 0.08, norm: 0.3, seed: [3, 7],
+  early: [[11, 0.35], [19, 0.28], [29, 0.22], [41, 0.17], [53, 0.12], [67, 0.08]],
+};
+
+const VOICES = {
+  piano: {
+    // harmonic amplitudes for the felt piano's wave, from the fundamental up
+    wave: [1, 0.55, 0.3, 0.17, 0.1, 0.06, 0.035, 0.02],
+    gain: 0.11, detune: [-3, 3], attack: 0.006, sustain: 0.38, fastTau: 0.09, fastHold: 0.12,
+    tau: [1.5, 0.55], tauRange: [36, 96], release: 0.14,
+    cut: [4, 9], cutMax: 7000, cutEnd: 2.2, cutFloor: 380, cutTau: 0.35, q: 0.5,
+    hammer: 0.22, hammerMul: 3, hammerQ: 1.1, hammerTau: 0.012, hammerLen: 0.05, send: 0.8,
+  },
+  box: {
+    gain: 0.075, attack: 0.002, detuneCents: 5, send: 1,
+    parts: [[1, 1, 1.9], [2, 0.12, 0.5], [5.4, 0.22, 0.09]],   // [ratio, gain, decay seconds]
+  },
+  harp: {
+    wave: [1, 0.42, 0.22, 0.13, 0.08, 0.05, 0.03, 0.02, 0.012, 0.008],
+    gain: 0.06, attack: 0.003, tau: 0.55, cut: 8, cutEnd: 2, cutTau: 0.12, send: 0.9,
+  },
+  celesta: {
+    gain: 0.07, attack: 0.002, send: 1,
+    parts: [[1, 1, 1.6], [4, 0.16, 0.25], [2, 0.1, 0.7]],
+  },
+  strings: {
+    gain: 0.012, detune: 7, cut: 1300, q: 0.4, attack: 1.4, release: 1.6, vibHz: 4.6, vibCents: 5, send: 1.2,
+  },
+};
+
+// Chord voicings: [bass, then three tones above it for the rocking accompaniment].
+const CHORDS = {
+  C: [48, 55, 60, 64], GB: [47, 55, 62, 67], Am: [45, 52, 60, 64], EmG: [43, 52, 59, 64],
+  F: [41, 53, 57, 60], CE: [52, 55, 60, 67], Dm7: [50, 57, 60, 65], G: [43, 55, 59, 62],
+  CG: [43, 52, 55, 60], G7: [43, 53, 59, 62], Fmaj7: [53, 57, 60, 64], Em7: [52, 55, 59, 62],
+  Gsus: [43, 55, 60, 62], Am7: [45, 55, 60, 64],
+};
+
+// Pentatonic tones of each chord's color, for harp runs and tap-along notes.
+const SCALE = [0, 2, 4, 7, 9];
+
+// The rocking accompaniment: six eighths per bar, as [beat, voicing index, beats, velocity].
+const ROCK = [[0, 0, 3, 0.62], [0.5, 1, 1.5, 0.36], [1, 2, 1.5, 0.4], [1.5, 3, 1.5, 0.42], [2, 2, 1, 0.37], [2.5, 1, 1, 0.34]];
+
+// The lullaby, 32 bars: A, A', B, A''. Each bar is [chord, melody], melody as
+// [beat, note, beats, velocity]. The last eighth of a bar may carry the pickup
+// into the next. Built on a short-long "heartbeat" figure.
+const A1 = [
+  ['C', [[0, 76, 1.5, 0.8], [1.5, 74, 0.5, 0.6], [2, 72, 1, 0.7]]],
+  ['GB', [[0, 74, 2, 0.74], [2.5, 67, 0.5, 0.55]]],
+  ['Am', [[0, 72, 1.5, 0.78], [1.5, 71, 0.5, 0.58], [2, 69, 1, 0.68]]],
+  ['EmG', [[0, 71, 2, 0.7], [2, 67, 1, 0.55]]],
+  ['F', [[0, 69, 0.5, 0.6], [0.5, 72, 0.5, 0.66], [1, 77, 2, 0.86]]],
+  ['CE', [[0, 76, 1.5, 0.78], [1.5, 74, 0.5, 0.6], [2, 72, 1, 0.7]]],
+  ['Dm7', [[0, 74, 1.5, 0.74], [1.5, 76, 0.5, 0.62], [2, 77, 1, 0.76]]],
+  ['G', [[0, 74, 2.5, 0.72], [2.5, 67, 0.5, 0.55]]],
+];
+const A2 = A1.slice(0, 4).concat([
+  ['F', [[0, 69, 0.5, 0.6], [0.5, 72, 0.5, 0.66], [1, 77, 1.5, 0.86], [2.5, 76, 0.5, 0.6]]],
+  ['CG', [[0, 76, 1, 0.72], [1, 74, 1, 0.64], [2, 72, 1, 0.66]]],
+  ['G7', [[0, 77, 1.5, 0.76], [1.5, 76, 0.5, 0.6], [2, 74, 1, 0.66]]],
+]);
+const B = [
+  ['Fmaj7', [[0, 84, 1.5, 0.8], [1.5, 83, 0.5, 0.62], [2, 81, 1, 0.72]]],
+  ['G', [[0, 83, 2, 0.74], [2.5, 74, 0.5, 0.55]]],
+  ['Em7', [[0, 83, 1.5, 0.78], [1.5, 81, 0.5, 0.6], [2, 79, 1, 0.68]]],
+  ['Am', [[0, 81, 2, 0.72], [2.5, 72, 0.5, 0.55]]],
+  ['Dm7', [[0, 81, 1.5, 0.78], [1.5, 79, 0.5, 0.6], [2, 77, 1, 0.68]]],
+  ['Em7', [[0, 79, 1.5, 0.74], [1.5, 76, 0.5, 0.58], [2, 74, 1, 0.64]]],
+  ['Fmaj7', [[0, 72, 1, 0.62], [1, 76, 1, 0.68], [2, 81, 1, 0.74]]],
+  ['Gsus', [[0, 79, 2, 0.7], [2.5, 67, 0.5, 0.55]]],
+];
+const LULLABY = [
+  ...A1,
+  ...A2, ['C', [[0, 72, 2, 0.72], [2.5, 76, 0.5, 0.58]]],
+  ...B,
+  ...A2, ['C', [[0, 72, 2, 0.7], [2.5, 67, 0.5, 0.52]]],
+];
+
+// How each pass through the lullaby is arranged, cycling: melody voice (or none),
+// accompaniment level, strings, and whether the music box doubles or echoes.
+const PASS = { stringsVel: 0.8, boxVel: 0.8, boxPan: 0.2, echoBeats: 1, phrase: 8, harpAt: 1.5, harpBeats: 1.25, harpBase: 72, harpVel: 0.2 };
+const PASSES = [
+  { ...PASS, melody: 'piano', rock: 1, strings: 'B', box: 'double-last', boxVel: 0.45 },
+  { ...PASS, melody: 'box', rock: 0.85, strings: 'B', box: 'none' },
+  { ...PASS, melody: 'none', rock: 0.8, strings: 'none', box: 'echo', boxVel: 0.55 },
+  { ...PASS, melody: 'piano', rock: 0.95, strings: 'all', box: 'harp-ends', stringsVel: 0.6 },
+];
+
+// Where the B section and the last A sit in the 32 bars.
+const FORM = { bSection: [16, 24], lastSection: 24 };
+
+// The intro, scored to the beat sheet. [seconds, voice, notes, seconds long, velocity, pan]
+const INTRO = {
+  chords: ['C', 'C', 'Fmaj7', 'Am7', 'Gsus', 'C', 'GB', 'Am'],      // one per bar of the intro
+  events: [
+    [0.833, 'box', [88], 1.5, 0.4, 0],
+    [1.25, 'harp', [86], 1, 0.34, -0.1], [1.667, 'harp', [84], 1, 0.32, 0], [2.083, 'harp', [81], 1, 0.3, 0.1],
+    [2.5, 'piano', [48, 55, 64], 4, 0.6, 0], [2.5, 'strings', [60, 64, 67], 7.3, 0.7, 0],
+    [2.917, 'harp', [67], 1, 0.3, -0.4], [3.333, 'harp', [72], 1, 0.32, -0.2], [3.75, 'harp', [76], 1, 0.34, 0],
+    [4.167, 'harp', [79], 1, 0.36, 0.2], [4.583, 'harp', [84], 1, 0.38, 0.4],
+    [5, 'piano', [53, 60, 69], 2.5, 0.42, 0], [7.5, 'piano', [45, 52, 60], 2.5, 0.42, 0],
+    [10, 'piano', [43, 60, 62], 2, 0.4, 0], [10, 'strings', [55, 60, 62, 67], 2, 1.2, 0],
+    [12.083, 'piano', [67], 0.5, 0.52, 0],
+    [12.5, 'strings', [60, 64, 67], 7.5, 0.6, 0],
+    [12.917, 'box', [91], 1, 0.26, 0.3], [13.333, 'box', [96], 1, 0.24, -0.3],
+    [14.167, 'harp', [60, 64, 67, 72], 2, 0.34, 0],
+  ],
+  // theme bars 1 to 3 as the fantasy flower opens, bars 6 to 8 of the show, piano doubled by music box
+  themeFrom: 5, themeBars: 3, themeBoxUp: 12, themeBox: 0.55,
+  shimmer: { from: 10, to: 11.9, step: 0.2083, notes: [86, 91], vel: [0.1, 0.3] },
+  climb: { from: 10, dur: 1.4, notes: [67, 69, 71, 74, 76, 79, 81, 83, 86], vel: 0.26 },
+  exhale: { from: 15, dur: 1.6, notes: [96, 93, 91, 88, 86, 84, 81, 79, 76, 74, 72], vel: 0.28, pan: [-0.7, 0.7] },
+  rosePhrase: [76, 79, 81, 84, 86], roseVel: 0.66,
+  favPhrase: [88, 86, 84, 81, 79, 76, 74, 72, 69, 67, 64], favVel: 0.34,
+  wildNotes: [84, 86, 88, 91, 93, 96], wildVel: 0.16, wildEvery: 2,
+  blossomNotes: [77, 79, 81, 84, 86, 89, 91, 93], blossomVel: 0.18, blossomEvery: 3,
+  rockFrom: 5, rockVel: 0.6,
+};
+
+// The two bars before the lullaby on a return visit.
+const WAKE_CUE = {
+  chords: ['C', 'GB'],
+  events: [[0, 'strings', [60, 64, 67], 5, 0.5, 0]],
+  chime: { times: [0.2, 0.6, 1.0, 1.5, 2.0, 2.4], notes: [79, 84, 86, 88, 91, 96], vel: 0.2 },
+  newFlower: { at: 3.4, notes: [91, 96, 100], step: 0.1, vel: 0.26 },
+  rockFrom: 1, rockVel: 0.5,
+};
+
+// The heart's own cue, seconds from release. Heartbeats sit on the global beat grid.
+const HEART_CUE = {
+  shimmer: { notes: [79, 84, 88, 91, 96, 100], step: 0.1, vel: [0.14, 0.34] },
+  bloom: { notes: [72, 76, 79, 84], roll: 0.04, vel: 0.55, strings: 5.2, stringsBase: 72, stringsVel: 0.9 },
+  fly: { from: 0.6, dur: 1.2, notes: [72, 74, 76, 79, 81, 84, 86, 88, 91, 93, 96], vel: 0.24, pan: [-0.5, 0.5] },
+  lub: [48, 60], dub: [55, 67], lubVel: 0.58, dubVel: 0.38, dubAt: 0.28,
+  motif: { notes: [[0, 79, 0.5], [0.5, 88, 1.5], [2, 86, 0.5], [2.5, 84, 1]], vel: 0.42 },
+  fade: { from: 5.3, step: 0.3, notes: [96, 93, 91, 88, 86, 84], vel: [0.36, 0.12], chord: [48, 55, 64], chordAt: 6.1, chordVel: 0.36 },
+  finaleChords: ['F', 'CE', 'G'], finaleRock: 0.55,
+};
+
+// Tap-along: which voice and register answers each touch.
+const TAPS = {
+  rose: { voice: 'piano', octave: 72, vel: 0.5 }, flower: { voice: 'box', octave: 84, vel: 0.34 },
+  fantasy: { voice: 'box', octave: 84, step: 0.09, vel: 0.34 },
+  gold: { notes: [[0, 79, 0.2], [0.16, 88, 0.9], [0.5, 96, 0.6]], vel: 0.42 },
+  shake: { octave: 91, n: 3, step: 0.07, vel: 0.24 }, plant: { voice: 'piano', octave: 60, vel: 0.34 },
+  star: { n: 7, top: 96, dur: 0.6, vel: 0.22 },
+};
+
+// Asleep, then the sleep timer's goodbye.
+const SLEEP_MUSIC = { rock: 0.62, close: { chord: [48, 55, 64, 72], roll: 0.06, vel: 0.4, box: [88, 91, 96], step: 0.45, boxVel: 0.22 } };
+
+return { MUSIC, REVERB, VOICES, CHORDS, SCALE, ROCK, LULLABY, PASSES, FORM, INTRO, WAKE_CUE, HEART_CUE, TAPS, SLEEP_MUSIC };
+})();
+__m["synth.js"] = (() => {
+// The instruments, all synthesized: a felt piano, a music box, a soft harp,
+// a celesta and warm strings, through a generated room reverb and a gentle
+// limiter. Every voice schedules itself at an exact audio time and cleans up.
+const { MUSIC, REVERB, VOICES } = __m["config-music.js"];
+const { clamp, lerp } = __m["util.js"];
+
+const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+function periodic(ctx, amps) {
+  const real = new Float32Array(amps.length + 1);
+  const imag = new Float32Array(amps.length + 1);
+  amps.forEach((a, i) => { imag[i + 1] = a; });
+  return ctx.createPeriodicWave(real, imag);
+}
+
+// A small room: decaying noise that darkens as it fades, after a few early reflections.
+function roomImpulse(ctx) {
+  const R = REVERB;
+  const rate = ctx.sampleRate;
+  const len = Math.floor(rate * R.seconds);
+  const buf = ctx.createBuffer(2, len, rate);
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c);
+    let s = R.seed[c];
+    let lp = 0;
+    let peak = 0;
+    for (let i = 0; i < len; i++) {
+      s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+      const n = s / 2147483648 - 1;
+      const t = i / rate;
+      lp += lerp(R.bright, R.dark, t / R.seconds) * (n - lp);
+      d[i] = t < R.pre ? 0 : lp * Math.exp(-t / R.tau);
+      peak = Math.max(peak, Math.abs(d[i]));
+    }
+    for (const [ms, g] of R.early) d[Math.floor((ms / 1000) * rate)] += g * peak;
+    for (let i = 0; i < len; i++) d[i] *= R.norm / peak;
+  }
+  return buf;
+}
+
+// Pass a context to render offline; by default a live one is made.
+function makeSynth(given) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!given && !AC) return null;
+  const ctx = given || new AC();
+  const master = ctx.createGain();
+  master.gain.value = 0;
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = MUSIC.highpass;
+  const comp = ctx.createDynamicsCompressor();
+  const C = MUSIC.comp;
+  comp.threshold.value = C.threshold;
+  comp.knee.value = C.knee;
+  comp.ratio.value = C.ratio;
+  comp.attack.value = C.attack;
+  comp.release.value = C.release;
+  master.connect(hp);
+  hp.connect(comp);
+  comp.connect(ctx.destination);
+  const dry = ctx.createGain();
+  dry.gain.value = MUSIC.dry;
+  dry.connect(master);
+  const send = ctx.createGain();
+  const verb = ctx.createConvolver();
+  verb.buffer = roomImpulse(ctx);
+  const wet = ctx.createGain();
+  wet.gain.value = MUSIC.wet;
+  send.connect(verb);
+  verb.connect(wet);
+  wet.connect(master);
+  const noise = ctx.createBuffer(1, Math.floor(ctx.sampleRate * VOICES.piano.hammerLen), ctx.sampleRate);
+  const nd = noise.getChannelData(0);
+  let ns = 1;
+  for (let i = 0; i < nd.length; i++) { ns = (Math.imul(ns, 1664525) + 1013904223) >>> 0; nd[i] = ns / 2147483648 - 1; }
+  const waves = { piano: periodic(ctx, VOICES.piano.wave), harp: periodic(ctx, VOICES.harp.wave) };
+  const syn = { ctx, master, dry, send, noise, waves, count: 0 };
+
+  // A voice's output: its own gain, a pan, then dry and reverb.
+  syn.out = (pan, sendAmt) => {
+    const g = ctx.createGain();
+    let node = g;
+    if (ctx.createStereoPanner && pan) {
+      const p = ctx.createStereoPanner();
+      p.pan.value = clamp(pan, -1, 1);
+      g.connect(p);
+      node = p;
+    }
+    node.connect(dry);
+    const s = ctx.createGain();
+    s.gain.value = sendAmt;
+    node.connect(s);
+    s.connect(send);
+    return g;
+  };
+  return syn;
+}
+
+const peakOf = (v, gain) => Math.min(gain * clamp(v, 0, 1), MUSIC.voiceMax);
+
+// Felt piano: two gently detuned strings, a lowpass that closes as the note
+// fades (the felt), a quick drop after the strike, a soft hammer.
+function piano(syn, t, midi, vel, dur, pan) {
+  const P = VOICES.piano;
+  const { ctx } = syn;
+  const f = mtof(midi);
+  const peak = peakOf(vel, P.gain);
+  const out = syn.out(pan, P.send);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.Q.value = P.q;
+  lp.frequency.setValueAtTime(Math.min(P.cutMax, f * lerp(P.cut[0], P.cut[1], vel)), t);
+  lp.frequency.setTargetAtTime(Math.max(P.cutFloor, f * P.cutEnd), t + P.attack, P.cutTau);
+  const env = ctx.createGain();
+  const tau = lerp(P.tau[0], P.tau[1], clamp((midi - P.tauRange[0]) / (P.tauRange[1] - P.tauRange[0]), 0, 1));
+  const slowAt = t + P.attack + P.fastHold;
+  const end = t + Math.max(dur, P.attack + P.fastHold);
+  env.gain.setValueAtTime(0, t);
+  env.gain.linearRampToValueAtTime(peak, t + P.attack);
+  env.gain.setTargetAtTime(peak * P.sustain, t + P.attack, P.fastTau);
+  env.gain.setTargetAtTime(0, slowAt, tau);
+  env.gain.setTargetAtTime(0, end, P.release);
+  lp.connect(env);
+  env.connect(out);
+  const stop = end + P.release * 8;
+  for (const det of P.detune) {
+    const o = ctx.createOscillator();
+    o.setPeriodicWave(syn.waves.piano);
+    o.frequency.value = f;
+    o.detune.value = det;
+    o.connect(lp);
+    o.start(t);
+    o.stop(stop);
+  }
+  const n = ctx.createBufferSource();
+  n.buffer = syn.noise;
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = Math.min(P.cutMax, f * P.hammerMul);
+  bp.Q.value = P.hammerQ;
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(peak * P.hammer, t);
+  ng.gain.setTargetAtTime(0, t, P.hammerTau);
+  n.connect(bp);
+  bp.connect(ng);
+  ng.connect(out);
+  n.start(t);
+  syn.count++;
+}
+
+// Sine partials with their own decays: the music box and the celesta.
+function bell(syn, spec, t, midi, vel, pan, cents) {
+  const { ctx } = syn;
+  const f = mtof(midi) * Math.pow(2, (cents || 0) / 1200);
+  const peak = Math.min(spec.gain * clamp(vel, 0, 1), MUSIC.voiceMax);
+  const out = syn.out(pan, spec.send);
+  const sum = spec.parts.reduce((a, p) => a + p[1], 0);
+  for (const [ratio, g, decay] of spec.parts) {
+    const o = ctx.createOscillator();
+    o.frequency.value = f * ratio;
+    const e = ctx.createGain();
+    e.gain.setValueAtTime(0, t);
+    e.gain.linearRampToValueAtTime((peak * g) / sum, t + spec.attack);
+    e.gain.setTargetAtTime(0, t + spec.attack, decay / 3);
+    o.connect(e);
+    e.connect(out);
+    o.start(t);
+    o.stop(t + spec.attack + decay * 3);
+  }
+  syn.count++;
+}
+
+const musicBox = (syn, t, midi, vel, pan, cents) => bell(syn, VOICES.box, t, midi, vel, pan, cents);
+const celesta = (syn, t, midi, vel, pan) => bell(syn, VOICES.celesta, t, midi, vel, pan, 0);
+
+// A soft plucked string: bright at the pluck, mellowing fast.
+function harp(syn, t, midi, vel, pan) {
+  const H = VOICES.harp;
+  const { ctx } = syn;
+  const f = mtof(midi);
+  const out = syn.out(pan, H.send);
+  const o = ctx.createOscillator();
+  o.setPeriodicWave(syn.waves.harp);
+  o.frequency.value = f;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(Math.min(VOICES.piano.cutMax, f * H.cut), t);
+  lp.frequency.setTargetAtTime(f * H.cutEnd, t, H.cutTau);
+  const e = ctx.createGain();
+  e.gain.setValueAtTime(0, t);
+  e.gain.linearRampToValueAtTime(Math.min(H.gain * clamp(vel, 0, 1), MUSIC.voiceMax), t + H.attack);
+  e.gain.setTargetAtTime(0, t + H.attack, H.tau);
+  o.connect(lp);
+  lp.connect(e);
+  e.connect(out);
+  o.start(t);
+  o.stop(t + H.attack + H.tau * 8);
+  syn.count++;
+}
+
+// Warm strings under a chord: detuned saws through a lowpass, with a slow vibrato.
+function strings(syn, t, notes, vel, dur) {
+  const S = VOICES.strings;
+  const { ctx } = syn;
+  const out = syn.out(0, S.send);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = S.cut;
+  lp.Q.value = S.q;
+  const e = ctx.createGain();
+  const peak = Math.min(S.gain * clamp(vel, 0, 2), MUSIC.voiceMax);
+  e.gain.setValueAtTime(0, t);
+  e.gain.linearRampToValueAtTime(peak, t + Math.min(S.attack, dur / 2));
+  e.gain.setValueAtTime(peak, t + Math.max(dur, S.attack));
+  e.gain.linearRampToValueAtTime(0, t + Math.max(dur, S.attack) + S.release);
+  lp.connect(e);
+  e.connect(out);
+  const lfo = ctx.createOscillator();
+  lfo.frequency.value = S.vibHz;
+  const depth = ctx.createGain();
+  depth.gain.value = S.vibCents;
+  lfo.connect(depth);
+  const stop = t + Math.max(dur, S.attack) + S.release + 0.1;
+  for (const m of notes) {
+    for (const side of [-1, 1]) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = mtof(m);
+      o.detune.value = side * S.detune;
+      depth.connect(o.detune);
+      o.connect(lp);
+      o.start(t);
+      o.stop(stop);
+    }
+  }
+  lfo.start(t);
+  lfo.stop(stop);
+  syn.count++;
+}
+
+return { mtof, makeSynth, piano, musicBox, celesta, harp, strings };
+})();
+__m["score.js"] = (() => {
+// The score as events in show time: { t, voice, notes, dur, vel, pan }, times
+// and lengths in seconds. The intro and wake cues are fixed lists built once
+// per show; the lullaby is arranged bar by bar from the show clock, so turning
+// sound on joins the music already playing.
+const { MUSIC, CHORDS, ROCK, LULLABY, FORM, PASSES, INTRO, WAKE_CUE, HEART_CUE, SLEEP_MUSIC } = __m["config-music.js"];
+const { BEATS, TUNE, HEART } = __m["config.js"];
+
+const BEAT = 60 / MUSIC.bpm;
+const BAR = BEAT * MUSIC.beatsPerBar;
+const T_HOLD = HEART.flarePeak + HEART.stagger + HEART.fly;
+const T_FADE = T_HOLD + HEART.hold;
+
+const ev = (t, voice, notes, dur, vel, pan) => ({ t, voice, notes, dur, vel, pan: pan || 0 });
+
+function lullabyStart(mode) {
+  return mode === 'wake' ? MUSIC.wakeBars : MUSIC.introBars + MUSIC.finaleBars;
+}
+
+function chordAt(mode, s) {
+  const b = Math.max(0, Math.floor(s / BAR));
+  const start = lullabyStart(mode);
+  if (b >= start) return LULLABY[(b - start) % LULLABY.length][0];
+  if (mode === 'wake') return WAKE_CUE.chords[Math.min(b, WAKE_CUE.chords.length - 1)];
+  if (b < MUSIC.introBars) return INTRO.chords[b];
+  return HEART_CUE.finaleChords[b - MUSIC.introBars];
+}
+
+// The chord's tones placed in the octave that starts at base.
+function chordTones(chord, base) {
+  const pcs = [...new Set(CHORDS[chord].map((n) => n % 12))];
+  return pcs.map((pc) => base + ((pc - (base % 12) + 12) % 12)).sort((a, b) => a - b);
+}
+
+function rock(list, b, chord, vel) {
+  const v = CHORDS[chord];
+  for (const [beat, i, beats, g] of ROCK) list.push(ev(b * BAR + beat * BEAT, 'piano', [v[i]], beats * BEAT, g * vel));
+}
+
+// A run of notes spread evenly across a span, optionally panning as it goes.
+function run(list, voice, from, dur, notes, vel, pan) {
+  notes.forEach((n, i) => {
+    const k = notes.length > 1 ? i / (notes.length - 1) : 0;
+    list.push(ev(from + k * dur, voice, [n], 1, vel, pan ? pan[0] + (pan[1] - pan[0]) * k : 0));
+  });
+}
+
+// Everything the full intro plays, keyed to the beat sheet and to the field's own bloom order.
+function introCue(app) {
+  const I = INTRO;
+  const list = I.events.map(([t, voice, notes, dur, vel, pan]) => ev(t, voice, notes, dur, vel, pan));
+  const fl = app.flowers;
+  fl.roses.slice().sort((a, b) => a.order - b.order).forEach((f, j) => {
+    list.push(ev(BEATS.roseBloom.start + j * TUNE.bloomStagger, 'piano', [I.rosePhrase[j % I.rosePhrase.length]], BEAT, I.roseVel));
+  });
+  fl.favs.slice().sort((a, b) => a.order - b.order).forEach((f, j) => {
+    list.push(ev(BEATS.favBloom.start + j * BEATS.favBloom.stagger, 'box', [I.favPhrase[j % I.favPhrase.length]], 1, I.favVel));
+  });
+  fl.wilds.slice().sort((a, b) => a.order - b.order).forEach((f, j) => {
+    if (j % I.wildEvery) return;
+    list.push(ev(BEATS.wildPop.start + j * BEATS.wildPop.stagger, 'box', [I.wildNotes[(j / I.wildEvery) % I.wildNotes.length]], 1, I.wildVel, 0));
+  });
+  const nb = app.cherry ? app.cherry.blossoms.length : 0;
+  for (let i = 0, k = 0; i < nb; i += I.blossomEvery, k++) {
+    list.push(ev(BEATS.blossoms.start + i * BEATS.blossoms.stagger, 'harp', [I.blossomNotes[k % I.blossomNotes.length]], 1, I.blossomVel, -0.5));
+  }
+  const S = I.shimmer;
+  for (let t = S.from, k = 0; t < S.to; t += S.step, k++) {
+    list.push(ev(t, 'box', [S.notes[k % S.notes.length]], 1, S.vel[0] + (S.vel[1] - S.vel[0]) * ((t - S.from) / (S.to - S.from))));
+  }
+  run(list, 'harp', I.climb.from, I.climb.dur, I.climb.notes, I.climb.vel);
+  run(list, 'harp', I.exhale.from, I.exhale.dur, I.exhale.notes, I.exhale.vel, I.exhale.pan);
+  // the theme arrives with the fantasy flower, rocking underneath from the roses on
+  for (let k = 0; k < I.themeBars; k++) {
+    const b = I.themeFrom + k;
+    for (const [beat, n, beats, g] of LULLABY[k][1]) {
+      const t = b * BAR + beat * BEAT;
+      list.push(ev(t, 'piano', [n], beats * BEAT, g));
+      list.push(ev(t, 'box', [n + I.themeBoxUp], beats * BEAT, g * I.themeBox));
+    }
+  }
+  for (let b = I.rockFrom; b < MUSIC.introBars; b++) rock(list, b, I.chords[b], I.rockVel);
+  return list;
+}
+
+function wakeCue(app) {
+  const W = WAKE_CUE;
+  const list = W.events.map(([t, voice, notes, dur, vel, pan]) => ev(t, voice, notes, dur, vel, pan));
+  W.chime.times.forEach((t, i) => list.push(ev(t, 'box', [W.chime.notes[i % W.chime.notes.length]], 1, W.chime.vel)));
+  if (app.flowers.daily.some((f) => f.isNew)) {
+    W.newFlower.notes.forEach((n, i) => list.push(ev(W.newFlower.at + i * W.newFlower.step, 'celesta', [n], 1, W.newFlower.vel)));
+  }
+  for (let b = W.rockFrom; b < MUSIC.wakeBars; b++) rock(list, b, W.chords[b], W.rockVel);
+  return list;
+}
+
+// One bar after the intro: the finale bars, then the lullaby arranged by pass
+// and by what the scene is doing (asleep it thins, the heart takes the melody).
+function barEvents(mode, b, opts) {
+  const list = [];
+  const start = lullabyStart(mode);
+  if (b < start) {
+    if (mode === 'full' && b >= MUSIC.introBars) rock(list, b, HEART_CUE.finaleChords[b - MUSIC.introBars], HEART_CUE.finaleRock);
+    return list;
+  }
+  const L = b - start;
+  const pass = PASSES[Math.floor(L / LULLABY.length) % PASSES.length];
+  const k = L % LULLABY.length;
+  const [chord, melody] = LULLABY[k];
+  const t0 = b * BAR;
+  rock(list, b, chord, opts.dim ? SLEEP_MUSIC.rock : pass.rock);
+  if (opts.dim || opts.heart) return list;
+  const inB = k >= FORM.bSection[0] && k < FORM.bSection[1];
+  if (pass.strings === 'all' || (pass.strings === 'B' && inB)) {
+    list.push(ev(t0, 'strings', CHORDS[chord].slice(1).map((n) => n + 12), BAR, pass.stringsVel));
+  }
+  for (const [beat, n, beats, g] of melody) {
+    const t = t0 + beat * BEAT;
+    if (pass.melody === 'piano') list.push(ev(t, 'piano', [n], beats * BEAT, g));
+    if (pass.melody === 'box') list.push(ev(t, 'box', [n + 12], beats * BEAT, g * pass.boxVel));
+    if (pass.box === 'double-last' && k >= FORM.lastSection) list.push(ev(t, 'box', [n + 12], beats * BEAT, g * pass.boxVel, pass.boxPan));
+  }
+  if (pass.box === 'echo' && k % 2 === 0 && melody.length) {
+    const [beat, n, beats, g] = melody[0];
+    list.push(ev(t0 + (beat + pass.echoBeats) * BEAT, 'box', [n + 12], beats * BEAT, g * pass.boxVel));
+  }
+  if (pass.box === 'harp-ends' && k % pass.phrase === pass.phrase - 1) {
+    run(list, 'harp', t0 + pass.harpAt * BEAT, pass.harpBeats * BEAT, chordTones(chord, pass.harpBase).concat(chordTones(chord, pass.harpBase + 12)), pass.harpVel);
+  }
+  return list;
+}
+
+// The heart's own cue, from the moment of release at show time sR.
+function heartCue(sR, chord) {
+  const C = HEART_CUE;
+  const list = [];
+  C.bloom.notes.forEach((n, i) => list.push(ev(sR + i * C.bloom.roll, 'piano', [n], BAR, C.bloom.vel)));
+  list.push(ev(sR, 'strings', chordTones(chord, C.bloom.stringsBase), C.bloom.strings, C.bloom.stringsVel));
+  run(list, 'harp', sR + C.fly.from, C.fly.dur, C.fly.notes, C.fly.vel, C.fly.pan);
+  const first = Math.ceil((sR + T_HOLD) / BEAT) * BEAT;
+  for (let t = first; t < sR + T_FADE; t += BEAT) {
+    list.push(ev(t, 'piano', C.lub, BEAT, C.lubVel));
+    list.push(ev(t + C.dubAt * BEAT, 'piano', C.dub, BEAT, C.dubVel));
+  }
+  for (const [beat, n, beats] of C.motif.notes) list.push(ev(first + beat * BEAT, 'box', [n], beats * BEAT, C.motif.vel));
+  const F = C.fade;
+  F.notes.forEach((n, i) => list.push(ev(sR + F.from + i * F.step, 'box', [n], 1, F.vel[0] + (F.vel[1] - F.vel[0]) * (i / (F.notes.length - 1)))));
+  list.push(ev(sR + F.chordAt, 'piano', F.chord, BAR, F.chordVel));
+  return list;
+}
+
+// While she holds the flower: a rising shimmer that stops if she lets go early.
+function chargeCue(sC) {
+  const S = HEART_CUE.shimmer;
+  return S.notes.map((n, i) => ev(sC + i * S.step, 'box', [n], 1, S.vel[0] + (S.vel[1] - S.vel[0]) * (i / (S.notes.length - 1)), 0));
+}
+
+// The sleep timer's goodbye, at a bar line.
+function closeCue(t) {
+  const C = SLEEP_MUSIC.close;
+  const list = C.chord.map((n, i) => ev(t + i * C.roll, 'piano', [n], BAR * 2, C.vel));
+  C.box.forEach((n, i) => list.push(ev(t + (i + 1) * C.step, 'box', [n], 1, C.boxVel)));
+  return list;
+}
+
+
+return { BEAT, BAR, lullabyStart, chordAt, chordTones, introCue, wakeCue, barEvents, heartCue, chargeCue, closeCue };
+})();
+__m["music.js"] = (() => {
+// The music, off until she turns it on. A scheduler reads the score in show
+// time a moment ahead and hands each note to the synth at an exact audio time,
+// so the heart's lub-dub and the roses land on the beat. Touches answer
+// straight away in the chord that is playing.
+const { MUSIC, TAPS, VOICES } = __m["config-music.js"];
+const { INPUT } = __m["config.js"];
+const { lerp, makeRng } = __m["util.js"];
+const { makeSynth, piano, musicBox, harp, strings, celesta } = __m["synth.js"];
+const { BAR, chordAt, chordTones, introCue, wakeCue, barEvents, heartCue, chargeCue, closeCue } = __m["score.js"];
+
+const VOICE = {
+  piano: (syn, t, e) => e.notes.forEach((n) => piano(syn, t, n, e.vel, e.dur, e.pan)),
+  box: (syn, t, e, cents) => e.notes.forEach((n) => musicBox(syn, t, n, e.vel, e.pan, cents)),
+  harp: (syn, t, e) => e.notes.forEach((n) => harp(syn, t, n, e.vel, e.pan)),
+  celesta: (syn, t, e) => e.notes.forEach((n) => celesta(syn, t, n, e.vel, e.pan)),
+  strings: (syn, t, e) => strings(syn, t, e.notes, e.vel, e.dur),
+};
 
 function makeAudio(app) {
-  const A = AUDIO;
-  let ctx = null;
-  let master, bells, padBus;
+  let syn = null;
   let on = false;
-  let nextChord = 0, chordIdx = 0, padVoices = [];
+  let schedTo = 0;
+  let offset = null;
+  let cue = null, cueKey = null;
+  let extra = [];
+  let lastRelease = null, lastPress = null, closedAt = null;
+  const stats = { notes: 0, bar: 0 };
 
-  function init() {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return false;
-    ctx = new AC();
-    master = ctx.createGain();
-    master.gain.value = 0;
-    master.connect(ctx.destination);
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = A.lowpass;
-    lp.connect(master);
-    bells = ctx.createGain();
-    bells.connect(lp);
-    const delay = ctx.createDelay(1);
-    delay.delayTime.value = A.delay;
-    const fb = ctx.createGain();
-    fb.gain.value = A.feedback;
-    bells.connect(delay);
-    delay.connect(fb);
-    fb.connect(delay);
-    delay.connect(lp);
-    const padLp = ctx.createBiquadFilter();
-    padLp.type = 'lowpass';
-    padLp.frequency.value = A.pad.lowpass;
-    padBus = ctx.createGain();
-    padBus.gain.value = A.pad.gain;
-    padLp.connect(padBus);
-    padBus.connect(master);
-    padBus.input = padLp;
-    return true;
+  // its own randomness, so turning sound on never changes what she sees
+  const rng = makeRng(app.seed ^ MUSIC.seedMix);
+  const cents = () => rng.range(-1, 1) * VOICES.box.detuneCents;
+
+  function play(e) {
+    const at = e.t + offset + MUSIC.latency;
+    if (at < syn.ctx.currentTime - MUSIC.lookahead) return;
+    VOICE[e.voice](syn, Math.max(syn.ctx.currentTime, at), e, cents());
+    stats.notes++;
   }
 
-  // One bell voice; the two partials together never exceed the voice ceiling.
-  function bell(name, scale, when) {
-    if (!on || !ctx) return;
-    const f = A.notes[name];
-    if (!f) return;
-    const t = Math.max(ctx.currentTime, when || 0);
-    const peak = Math.min(A.bellGain * (scale || 1), A.voiceMax);
-    const parts = [[1, 1], [A.partial, A.partialGain]];
-    const sum = parts.reduce((s, p) => s + p[1], 0);
-    for (const [ratio, g] of parts) {
-      const osc = ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.value = f * ratio;
-      const env = ctx.createGain();
-      env.gain.setValueAtTime(0, t);
-      env.gain.linearRampToValueAtTime((peak * g) / sum, t + A.attack);
-      env.gain.exponentialRampToValueAtTime(A.floor, t + A.attack + A.decay);
-      osc.connect(env);
-      env.connect(bells);
-      osc.start(t);
-      osc.stop(t + A.attack + A.decay + A.tail);
+  // Something played right now, from a touch: show time is now, offset applies.
+  function now(list) {
+    if (!on || !syn) return;
+    if (offset === null) offset = syn.ctx.currentTime - app.s;
+    for (const e of list) play({ ...e, t: app.s + (e.t || 0) });
+  }
+
+  // a bar's events depend on the scene, so they are cached by bar and state
+  const bars = new Map();
+  function barList(b, opts) {
+    const key = `${app.show.mode}|${app.show.start}|${b}|${opts.dim}|${opts.heart}`;
+    if (!bars.has(key)) {
+      if (bars.size > MUSIC.barCache) bars.clear();
+      bars.set(key, barEvents(app.show.mode, b, opts));
     }
+    return bars.get(key);
   }
 
-  function arp(names, spacing, scale) {
-    if (!on || !ctx) return;
-    names.forEach((n, i) => bell(n, scale, ctx.currentTime + i * spacing));
-  }
-
-  function chord(freqs, at) {
-    const P = A.pad;
-    const voices = freqs.map((fr, i) => {
-      const osc = ctx.createOscillator();
-      osc.type = 'triangle';
-      osc.frequency.value = fr;
-      osc.detune.value = (i - 1) * P.detune;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0, at);
-      g.gain.linearRampToValueAtTime(1 / freqs.length, at + P.attack);
-      osc.connect(g);
-      g.connect(padBus.input);
-      osc.start(at);
-      return { osc, g };
-    });
-    for (const v of padVoices) {
-      v.g.gain.cancelScheduledValues(at);
-      v.g.gain.setValueAtTime(v.g.gain.value, at);
-      v.g.gain.linearRampToValueAtTime(0, at + P.release);
-      v.osc.stop(at + P.release + A.tail);
+  function showCue() {
+    const key = `${app.show.mode}|${app.show.start}`;
+    if (cueKey !== key) {
+      cueKey = key;
+      cue = app.show.mode === 'full' ? introCue(app) : wakeCue(app);
     }
-    padVoices = voices;
+    return cue;
   }
 
-  function tickPad() {
-    if (!on || !ctx) return;
-    const now = ctx.currentTime;
-    if (now + A.lookahead >= nextChord) {
-      chord(A.chords[chordIdx % A.chords.length], Math.max(now, nextChord));
-      chordIdx++;
-      nextChord = Math.max(now, nextChord) + A.pad.chordS;
-    }
+  function fade(to, dur) {
+    const g = syn.master.gain;
+    const t = syn.ctx.currentTime;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(g.value, t);
+    g.linearRampToValueAtTime(to, t + dur);
   }
 
   function setOn(v) {
-    if (v && !ctx && !init()) return false;
-    on = v;
-    if (!ctx) return false;
-    const now = ctx.currentTime;
-    master.gain.cancelScheduledValues(now);
-    master.gain.setValueAtTime(master.gain.value, now);
-    if (v) {
-      if (ctx.state !== 'running') ctx.resume();
-      master.gain.linearRampToValueAtTime(A.master, now + A.fadeS);
-      nextChord = now;
-    } else {
-      master.gain.linearRampToValueAtTime(0, now + A.fadeS);
+    if (v && !syn) {
+      syn = makeSynth();
+      if (!syn) return false;
     }
+    on = v;
+    if (!syn) return false;
+    if (v) {
+      // on iPhone, let the music play even when the ringer switch is on silent
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* older Safari */ }
+      if (syn.ctx.state !== 'running') syn.ctx.resume().catch(() => {});
+      schedTo = app.s;
+      offset = null;
+      closedAt = null;
+      fade(MUSIC.master, MUSIC.fadeIn);
+    } else fade(0, MUSIC.fadeOut);
     return on;
   }
 
-  // Notes tied to the show: the rose phrase, wildflower shimmer, the fantasy arpeggio.
-  function showEvents() {
-    const list = [];
-    const fl = app.flowers;
-    const wake = app.show.mode === 'wake';
-    const byOrder = fl.roses.slice().sort((a, b) => a.order - b.order);
-    byOrder.forEach((f, j) => {
-      const at = wake ? wakeStart(f.order, fl.roses.length) : BEATS.roseBloom.start + j * TUNE.bloomStagger;
-      list.push([at, () => bell(A.rosePhrase[j % A.rosePhrase.length])]);
-    });
-    fl.wilds.forEach((f) => {
-      const at = wake ? wakeStart(f.order, fl.wilds.length) : BEATS.wildPop.start + f.order * BEATS.wildPop.stagger;
-      list.push([at, () => bell(A.scale[f.order % A.scale.length], A.wildScale)]);
-    });
-    const fAt = wake ? WAKE.fantasy[0] : BEATS.fantasyOpen.start;
-    list.push([fAt, () => arp(A.fantasyArp, A.fantasySpacing)]);
-    return list;
+  function watchHeart(list, until) {
+    const h = app.heart;
+    const start = app.show.start;
+    if (h.phase === 'charging' && h.pressT !== lastPress) {
+      lastPress = h.pressT;
+      list.push(...chargeCue(h.pressT - start + INPUT.chargeDelay));
+    }
+    if (h.phase === 'nova' && h.releaseT !== lastRelease) {
+      lastRelease = h.releaseT;
+      const sR = h.releaseT - start;
+      list.push(...heartCue(sR, chordAt(app.show.mode, sR)));
+    }
+    return list.filter((e) => e.t < until + BAR * MUSIC.cueBars);
   }
 
   function step() {
-    tickPad();
-    if (!on) return;
-    const s = app.s, prev = app.prevS;
-    if (s <= prev) return;
-    for (const [at, play] of showEvents()) if (prev < at && s >= at && s - at < A.pingWindow) play();
+    if (!on || !syn) return;
+    const s = app.s;
+    const target = syn.ctx.currentTime - s;
+    if (offset === null || Math.abs(target - offset) > MUSIC.sync) offset = target;
+    else offset = lerp(offset, target, MUSIC.smooth);
+    if (s < schedTo - BAR) { schedTo = s; extra = []; lastRelease = null; lastPress = null; }
+    if (schedTo < s) schedTo = s;
+    const until = s + MUSIC.lookahead;
+    if (until <= schedTo) return;
+    extra = watchHeart(extra, until);
+    // the sleep timer: a closing phrase on the next bar line, then quiet until she wakes it
+    if (app.asleep) {
+      if (closedAt === null) {
+        closedAt = Math.ceil(s / BAR) * BAR;
+        extra.push(...closeCue(closedAt));
+        const g = syn.master.gain;
+        g.setTargetAtTime(0, syn.ctx.currentTime + (closedAt - s) + BAR, MUSIC.closeFade / 3);
+      }
+    } else if (closedAt !== null) {
+      closedAt = null;
+      fade(MUSIC.master, MUSIC.fadeIn);
+    }
+    const inWindow = (e) => e.t >= schedTo && e.t < until;
+    if (closedAt === null) {
+      for (const e of showCue()) if (inWindow(e)) play(e);
+      const opts = { dim: app.state === 'DIM', heart: app.heart.phase === 'nova' || app.heart.phase === 'charging' };
+      for (let b = Math.max(0, Math.floor(schedTo / BAR)); b * BAR < until; b++) {
+        for (const e of barList(b, opts)) if (inWindow(e)) play(e);
+      }
+    }
+    for (const e of extra) if (inWindow(e)) play(e);
+    extra = extra.filter((e) => e.t >= until);
+    stats.bar = Math.floor(s / BAR);
+    schedTo = until;
   }
 
-  const pickNote = () => A.scale[Math.floor(app.live.next() * A.scale.length)];
+  const chord = () => chordAt(app.show.mode, app.s);
+  const pick = (list) => list[Math.floor(rng.next() * list.length)];
 
   return {
     get on() { return on; },
+    get stats() { return { on, notes: stats.notes, bar: stats.bar, voices: syn ? syn.count : 0, state: syn ? syn.ctx.state : 'none' }; },
     setOn,
     step,
     suspend(hidden) {
-      if (!ctx) return;
-      if (hidden) ctx.suspend();
-      else if (on) ctx.resume();
+      if (!syn) return;
+      if (hidden) syn.ctx.suspend().catch(() => {});
+      else if (on) syn.ctx.resume().catch(() => {});
     },
-    tap: () => bell(pickNote()),
-    gold: () => arp(A.goldChime, A.goldSpacing),
-    fantasy: () => arp(A.fantasyArp, A.fantasySpacing),
-    shake: () => arp(A.shakeNotes, A.goldSpacing, A.wildScale),
-    plant: () => bell(pickNote(), A.wildScale),
-    star: () => bell(A.starNote, A.wildScale),
-    nova: () => arp(A.novaChord, A.novaSpacing),
+    tap(f) {
+      const T = f && f.species === 'rose' ? TAPS.rose : TAPS.flower;
+      now([{ voice: T.voice, notes: [pick(chordTones(chord(), T.octave))], dur: BAR, vel: T.vel, pan: 0 }]);
+    },
+    fantasy() {
+      const F = TAPS.fantasy;
+      now(chordTones(chord(), F.octave).map((n, i) => ({ t: i * F.step, voice: F.voice, notes: [n], dur: 1, vel: F.vel, pan: 0 })));
+    },
+    gold() {
+      now(TAPS.gold.notes.map(([t, n, dur]) => ({ t, voice: 'celesta', notes: [n], dur, vel: TAPS.gold.vel, pan: 0 })));
+    },
+    shake() {
+      const S = TAPS.shake;
+      now(chordTones(chord(), S.octave).slice(0, S.n).map((n, i) => ({ t: i * S.step, voice: 'box', notes: [n], dur: 1, vel: S.vel, pan: -0.5 })));
+    },
+    plant() {
+      const P = TAPS.plant;
+      now([{ voice: P.voice, notes: [pick(chordTones(chord(), P.octave))], dur: BAR, vel: P.vel, pan: 0 }]);
+    },
+    star(x) {
+      const S = TAPS.star;
+      const tones = chordTones(chord(), S.top - 12).concat(chordTones(chord(), S.top)).reverse().slice(0, S.n);
+      const from = x !== undefined && app.L ? (x / app.L.W) * 2 - 1 : 0;
+      now(tones.map((n, i) => ({ t: (i / (tones.length - 1)) * S.dur, voice: 'harp', notes: [n], dur: 1, vel: S.vel, pan: lerp(from, -from, i / (tones.length - 1)) })));
+    },
+    nova() { /* the heart's cue follows the heart itself, see watchHeart */ },
   };
 }
 
@@ -5189,7 +5764,7 @@ const { plantedCount, allFlowers } = __m["flowers.js"];
 const { fantasyRadius } = __m["fantasy.js"];
 const { flowerTimes, showTimes } = __m["choreo.js"];
 const { bootLife, watchClock, setThemeColor } = __m["life.js"];
-const { makeAudio } = __m["audio.js"];
+const { makeAudio } = __m["music.js"];
 const { setupUI, updateUI } = __m["ui.js"];
 const { setupTune } = __m["tune.js"];
 const { render, addLayer } = __m["render.js"];
@@ -5364,6 +5939,7 @@ installTestHooks(app, {
   get fantasy() { return { x: app.fantasy.hx, y: app.fantasy.hy, r: fantasyRadius(app) }; },
   get gold() { return app.gold; },
   get sound() { return app.audio.on; },
+  get music() { return app.audio.stats; },
   get buttons() { return app.ui.shown; },
   get visits() { return app.visits; },
   get garden() { const fl = app.flowers; return { days: fl.daily.length, mid: fl.daily.filter((f) => !f.far).length, far: fl.daily.filter((f) => f.far).length, meadow: fl.meadow.length, newToday: fl.daily.some((f) => f.isNew) }; },

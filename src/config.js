@@ -259,26 +259,6 @@ export const COUNTS = {
   grassPerPx: 0.28, grassClump: 5, backGrassPerPx: 0.5, heartsLife: 2.6,
 };
 
-export const AUDIO = {
-  partial: 2.76, partialGain: 0.32, attack: 0.01, decay: 2.6,
-  delay: 0.33, feedback: 0.35, lowpass: 2400, voiceMax: 0.12, wildScale: 0.5,
-  bellGain: 0.1, fantasySpacing: 0.12, master: 0.9, fadeS: 0.4, pingWindow: 0.25,
-  pad: { lowpass: 650, gain: 0.045, chordS: 8, attack: 2.6, release: 3.2, detune: 4 },
-  notes: {
-    C5: 523.25, D5: 587.33, E5: 659.26, G5: 783.99, A5: 880, C6: 1046.5, D6: 1174.66, E6: 1318.51, G6: 1567.98,
-  },
-  scale: ['C5', 'D5', 'E5', 'G5', 'A5', 'C6', 'D6', 'E6', 'G6'],
-  rosePhrase: ['E5', 'G5', 'A5', 'C6', 'D6'],
-  fantasyArp: ['C5', 'E5', 'G5', 'C6', 'E6'],
-  goldChime: ['G5', 'C6', 'E6', 'G6'], goldSpacing: 0.07,
-  novaChord: ['C5', 'G5', 'C6', 'E6'], novaSpacing: 0.09,
-  shakeNotes: ['D6', 'E6', 'G6'], starNote: 'G6',
-  floor: 0.0001, tail: 0.05, lookahead: 0.5,
-  chords: [
-    [130.81, 164.81, 196], [110, 130.81, 164.81], [87.31, 110, 130.81], [98, 123.47, 146.83],
-  ],
-};
-
 // Drawing proportions. Rose and wildflower sizes are fractions of head radius.
 export const SHAPE = {
   stem: {

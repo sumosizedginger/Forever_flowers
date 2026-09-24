@@ -25,7 +25,7 @@ import { plantedCount, allFlowers } from './flowers.js';
 import { fantasyRadius } from './fantasy.js';
 import { flowerTimes, showTimes } from './choreo.js';
 import { bootLife, watchClock, setThemeColor } from './life.js';
-import { makeAudio } from './audio.js';
+import { makeAudio } from './music.js';
 import { setupUI, updateUI } from './ui.js';
 import { setupTune } from './tune.js';
 import { render, addLayer } from './render.js';
@@ -200,6 +200,7 @@ installTestHooks(app, {
   get fantasy() { return { x: app.fantasy.hx, y: app.fantasy.hy, r: fantasyRadius(app) }; },
   get gold() { return app.gold; },
   get sound() { return app.audio.on; },
+  get music() { return app.audio.stats; },
   get buttons() { return app.ui.shown; },
   get visits() { return app.visits; },
   get garden() { const fl = app.flowers; return { days: fl.daily.length, mid: fl.daily.filter((f) => !f.far).length, far: fl.daily.filter((f) => f.far).length, meadow: fl.meadow.length, newToday: fl.daily.some((f) => f.isNew) }; },
