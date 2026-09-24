@@ -226,7 +226,7 @@ export const LAYOUT = {
   ],
   roseOrder: [0, 4, 1, 3, 2],   // outside in, alternating left and right
   wildCount: [10, 14], wildY: [0.745, 0.815], wildJitter: 0.3,
-  branch: { anchorY: 0.07, tipY: 0.14, maxY: 0.2, reachW: 0.56, reachU: 7.4, anchorU: 0.6, c1: [0.35, 0.06], c2: [0.3, -0.035] },
+  branch: { anchorY: 0.07, tipY: 0.13, maxY: 0.2, reachW: 0.56, reachU: 9.5, anchorU: 0.6 },
   edgeMarginPx: 6, swayMargin: 0.05,
 };
 
@@ -242,14 +242,12 @@ export const SIZE = {
   // the heart outline is 5.8U wide and must clear the petals, which caps the head near 1.4U
   fantasy: { rU: 1.4, stemW: 0.11, haloU: 4.2, coreU: 0.3 },
   wild: { rU: [0.25, 0.36], stemW: 0.04 },
-  blossomU: [0.17, 0.25], budU: 0.08,
   leafU: [0.45, 0.75], heartU: [0.18, 0.28],
-  butterflyU: 0.36, starPx: [0.8, 2.1],
+  starPx: [0.8, 2.1],
 };
 
 export const COUNTS = {
   starsPerPx: 1 / 2600, stars: [70, 220], starTwinkleHz: [0.08, 0.35],
-  blossoms: [32, 42], budShare: 0.22,
   grassPerPx: 0.28, grassClump: 5, backGrassPerPx: 0.5, heartsLife: 2.6,
 };
 
@@ -279,18 +277,7 @@ export const SHAPE = {
   ],
   wildShade: { base: 0.3, edge: 0.18, dots: 5, dotR: 0.05, dotAt: 0.55, spin: 0.35 },
   wildPetal: [0.3, 0.85, 0.35, 0.5],
-  blossom: {
-    petals: 5, notch: 0.2, w: 0.66, stamens: 7, stamenLen: 0.62, dotR: 0.075, stamenRot: 0.22,
-    lineW: 0.05, budLen: 1.5, budW: 0.8, budMix: 0.22, midAt: 0.44, midMix: 0.45, budBulge: [0.2, 0.3], calyx: [0.36, 0.3, 0.17],
-    ctrl: [0.3, 0.92, 1.15, 0.3],
-  },
-  branch: {
-    widthU: [0.34, 0.04], steps: 40, sag: 0.1, rise: 0.05,
-    twigs: [[0.2, -0.6, 0.26], [0.33, 0.5, 0.26], [0.46, -0.5, 0.32], [0.58, 0.55, 0.24], [0.7, -0.45, 0.26], [0.84, 0.5, 0.18]],
-    twigSteps: 12, twigWidth: 0.55, rimAlpha: 0.22, rimW: 0.35, rimMix: 0.3, rimAt: 0.45,
-    swayDeg: 0.6, swayHz: 0.13, shakeDeg: 2.2, blossomSide: 0.35, pad: 1.2,
-    mainShare: 0.45, tMin: [0.24, 0.2], spacing: 0.72, cluster: [2, 4], clusterU: 0.34, clusterSquash: 0.8, hang: 0.08, squash: [0.62, 1],
-  },
+  blossom: { midMix: 0.45 },
   petal: {
     sprite: [30, 38], notch: 0.16, flipMin: 0.18, aspect: 1.27, fadeIn: 0.4, gap: [0.5, 3], srcSpread: 0.5,
     ctrl: [0.95, 0.72, 0.9, 0.12], rim: 0.3, base: 0.28,
@@ -340,20 +327,6 @@ export const SEED = {
 
 export const FIREFLY = { haloMul: 2.4, haloAlpha: 0.3, coreMul: 0.55, coreAlpha: 0.85, pulsePow: 1.5, yRange: [0.44, 0.86], ySquash: 0.6 };
 export const POLLEN = { yRange: [0.3, 0.86], hz: [0.03, 0.07], riseU: 0.12, riseMul: [0.5, 1], sizeU: [0.035, 0.07], alpha: 0.35 };
-
-export const BUTTERFLY = {
-  flapHz: [4.5, 6], spanU: 0.62, enterS: 4.5, region: [0.28, 0.66], wanderHz: [[0.043, 0.071], [0.052, 0.089]],
-  bob: [0.9, 0.12], tilt: 0.35, glowAlpha: 0.14, glowU: 1.1, bodyW: 0.07, bodyL: 0.42,
-  wing: {
-    reach: 1.05, root: 0.35, colorAt: 0.35, flushAt: 0.72, borderAlpha: 0.75, borderW: 7, veinAlpha: 0.3, veinW: 1.6,
-    veinBend: 0.45, veinLift: 0.6, veinReach: 0.85, spotAlpha: 0.7, spotR: 3.2, spotAt: 0.9,
-  },
-  upper: [1, 0.72], lower: [0.68, 0.55], fold: 0.22, edgeMix: 0.22, body: '#2C1A26', px: 96,
-  // wing outlines as [x, y] multiples of the wing size: bezier c1, c2, end, then quadratic control
-  up: [[0.4, -1], [1, -1.1], [0.9, -0.3], [0.6, 0]],
-  low: [[0.6, 0.2], [1, 1], [0.5, 0.95], [0.2, 0.6]],
-  wander: { ax: 0.42, mixX: [0.65, 0.35], mulX: 2.3, mixY: [0.6, 0.4], mulY: 1.7, jitter: 0.15 },
-};
 
 export const STORAGE = {
   visits: 'ff.visits', gold: 'ff.goldSeen', seed: 'ff.seed', firstDay: 'ff.firstDay', lastDay: 'ff.lastDay',

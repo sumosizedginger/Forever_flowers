@@ -16,7 +16,7 @@ import { buildCherry, cherryTimes, updateCherry, drawCherry, blossomBoxes } from
 import { buildPetals, drawPetals } from './petals.js';
 import { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasy, drawFantasyHalo, drawFantasyNight, fantasyBox } from './fantasy.js';
 import { drawSeed, buildFireflies, drawFireflies, drawPollen } from './fx.js';
-import { buildButterflies, drawButterflies } from './butterflies.js';
+import { buildButterflies, drawButterflies, butterflySpots } from './butterflies.js';
 import { drawHearts, heartCount } from './hearts.js';
 import { makeHeart, layoutHeart, updateHeart, drawHeartSecret, heartPhase, startNova, heartBox, autoHeart, NOVA_LENGTH } from './heart.js';
 import { makeInput, attachInput, updateInput, enterDim, lowPower } from './input.js';
@@ -138,10 +138,10 @@ addLayer('mid', drawFantasy);
 addLayer('mid', drawRoseLayer);
 addLayer('mid', drawFrontLayer);
 addLayer('mid', drawPetals);
+addLayer('front', drawButterflies);
 addLayer('front', drawFront);
 addLayer('front', drawHint);
 addLayer('front', drawNewSparkle);
-addLayer('front', drawButterflies);
 addLayer('front', drawHearts);
 addLayer('front', drawHeartSecret);
 addLayer('top', drawFantasyNight);
@@ -213,6 +213,7 @@ installTestHooks(app, {
   get autoHeartDone() { return app.autoHeartDone; },
   get soundWanted() { return app.soundWanted; },
   get hint() { return hintPose(app); },
+  get butterflies() { return butterflySpots(app); },
   get tune() { return { ...TUNE }; },
   replay: () => replay(),
   novaLength: NOVA_LENGTH,

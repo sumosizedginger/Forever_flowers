@@ -148,3 +148,17 @@ export const LEAVES = {
   plain: { sprite: [48, 128], ctrl: [0.92, 0.78, 0.83, 0.23], rib: 0.85 },
   blade: { sprite: [36, 128], ctrl: [0.9, 0.8, 0.7, 0.2], rib: 0.9 },
 };
+
+// The cherry branch: a crooked main limb from the left edge (a walk pulled
+// toward its tip), side limbs that fork once, blossom clusters on stalks.
+export const BRANCH = {
+  main: { steps: 14, kink: 0.12, pull: 0.3, w: [0.4, 0.05] },
+  sides: { n: [5, 10], perU: 1.25, from: 0.14, to: 0.88, angle: [0.45, 0.95], len: [0.2, 0.34], shrink: 0.35, steps: 7, kink: 0.2, curl: 0.04, w: 0.6, tipW: 0.03 },
+  forks: { at: [0.4, 0.7], angle: [0.4, 0.8], len: [0.35, 0.55], steps: 4, lag: 0.6 },
+  nodeU: 0.34, nodeFrom: 0.22, cluster: [3, 5], tipCluster: [2, 3], tipBud: 0.45, hang: 0.8,
+  pedicelU: [0.1, 0.26], pedicelW: 0.018, pedicelMix: 0.35, pathLag: 1,
+  budShare: 0.18, budOpen: 0.24, calyx: { rad: 0.11, z: -0.1, mix: 0.6 },
+  blossoms: [54, 68], spacing: 0.6, rU: [0.17, 0.25], popMin: 0.2,
+  rimAlpha: 0.4, rimW: 0.3, rimAt: 0.38, rimMix: 0.45, lenticels: { per: 0.9, len: 0.22, w: 0.022, alpha: 0.2, mix: 0.4, off: 0.3 },
+  swayDeg: 0.6, swayHz: 0.13, shakeDeg: 2.2, pad: 1.3,
+};

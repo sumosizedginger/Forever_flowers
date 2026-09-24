@@ -334,7 +334,7 @@ const LAYOUT = {
   ],
   roseOrder: [0, 4, 1, 3, 2],   // outside in, alternating left and right
   wildCount: [10, 14], wildY: [0.745, 0.815], wildJitter: 0.3,
-  branch: { anchorY: 0.07, tipY: 0.14, maxY: 0.2, reachW: 0.56, reachU: 7.4, anchorU: 0.6, c1: [0.35, 0.06], c2: [0.3, -0.035] },
+  branch: { anchorY: 0.07, tipY: 0.13, maxY: 0.2, reachW: 0.56, reachU: 9.5, anchorU: 0.6 },
   edgeMarginPx: 6, swayMargin: 0.05,
 };
 
@@ -350,14 +350,12 @@ const SIZE = {
   // the heart outline is 5.8U wide and must clear the petals, which caps the head near 1.4U
   fantasy: { rU: 1.4, stemW: 0.11, haloU: 4.2, coreU: 0.3 },
   wild: { rU: [0.25, 0.36], stemW: 0.04 },
-  blossomU: [0.17, 0.25], budU: 0.08,
   leafU: [0.45, 0.75], heartU: [0.18, 0.28],
-  butterflyU: 0.36, starPx: [0.8, 2.1],
+  starPx: [0.8, 2.1],
 };
 
 const COUNTS = {
   starsPerPx: 1 / 2600, stars: [70, 220], starTwinkleHz: [0.08, 0.35],
-  blossoms: [32, 42], budShare: 0.22,
   grassPerPx: 0.28, grassClump: 5, backGrassPerPx: 0.5, heartsLife: 2.6,
 };
 
@@ -387,18 +385,7 @@ const SHAPE = {
   ],
   wildShade: { base: 0.3, edge: 0.18, dots: 5, dotR: 0.05, dotAt: 0.55, spin: 0.35 },
   wildPetal: [0.3, 0.85, 0.35, 0.5],
-  blossom: {
-    petals: 5, notch: 0.2, w: 0.66, stamens: 7, stamenLen: 0.62, dotR: 0.075, stamenRot: 0.22,
-    lineW: 0.05, budLen: 1.5, budW: 0.8, budMix: 0.22, midAt: 0.44, midMix: 0.45, budBulge: [0.2, 0.3], calyx: [0.36, 0.3, 0.17],
-    ctrl: [0.3, 0.92, 1.15, 0.3],
-  },
-  branch: {
-    widthU: [0.34, 0.04], steps: 40, sag: 0.1, rise: 0.05,
-    twigs: [[0.2, -0.6, 0.26], [0.33, 0.5, 0.26], [0.46, -0.5, 0.32], [0.58, 0.55, 0.24], [0.7, -0.45, 0.26], [0.84, 0.5, 0.18]],
-    twigSteps: 12, twigWidth: 0.55, rimAlpha: 0.22, rimW: 0.35, rimMix: 0.3, rimAt: 0.45,
-    swayDeg: 0.6, swayHz: 0.13, shakeDeg: 2.2, blossomSide: 0.35, pad: 1.2,
-    mainShare: 0.45, tMin: [0.24, 0.2], spacing: 0.72, cluster: [2, 4], clusterU: 0.34, clusterSquash: 0.8, hang: 0.08, squash: [0.62, 1],
-  },
+  blossom: { midMix: 0.45 },
   petal: {
     sprite: [30, 38], notch: 0.16, flipMin: 0.18, aspect: 1.27, fadeIn: 0.4, gap: [0.5, 3], srcSpread: 0.5,
     ctrl: [0.95, 0.72, 0.9, 0.12], rim: 0.3, base: 0.28,
@@ -449,20 +436,6 @@ const SEED = {
 const FIREFLY = { haloMul: 2.4, haloAlpha: 0.3, coreMul: 0.55, coreAlpha: 0.85, pulsePow: 1.5, yRange: [0.44, 0.86], ySquash: 0.6 };
 const POLLEN = { yRange: [0.3, 0.86], hz: [0.03, 0.07], riseU: 0.12, riseMul: [0.5, 1], sizeU: [0.035, 0.07], alpha: 0.35 };
 
-const BUTTERFLY = {
-  flapHz: [4.5, 6], spanU: 0.62, enterS: 4.5, region: [0.28, 0.66], wanderHz: [[0.043, 0.071], [0.052, 0.089]],
-  bob: [0.9, 0.12], tilt: 0.35, glowAlpha: 0.14, glowU: 1.1, bodyW: 0.07, bodyL: 0.42,
-  wing: {
-    reach: 1.05, root: 0.35, colorAt: 0.35, flushAt: 0.72, borderAlpha: 0.75, borderW: 7, veinAlpha: 0.3, veinW: 1.6,
-    veinBend: 0.45, veinLift: 0.6, veinReach: 0.85, spotAlpha: 0.7, spotR: 3.2, spotAt: 0.9,
-  },
-  upper: [1, 0.72], lower: [0.68, 0.55], fold: 0.22, edgeMix: 0.22, body: '#2C1A26', px: 96,
-  // wing outlines as [x, y] multiples of the wing size: bezier c1, c2, end, then quadratic control
-  up: [[0.4, -1], [1, -1.1], [0.9, -0.3], [0.6, 0]],
-  low: [[0.6, 0.2], [1, 1], [0.5, 0.95], [0.2, 0.6]],
-  wander: { ax: 0.42, mixX: [0.65, 0.35], mulX: 2.3, mixY: [0.6, 0.4], mulY: 1.7, jitter: 0.15 },
-};
-
 const STORAGE = {
   visits: 'ff.visits', gold: 'ff.goldSeen', seed: 'ff.seed', firstDay: 'ff.firstDay', lastDay: 'ff.lastDay',
   planted: 'ff.planted', heartFound: 'ff.heartFound', sound: 'ff.sound', soundUsed: 'ff.soundUsed',
@@ -470,7 +443,7 @@ const STORAGE = {
 
 const PERF = { samples: 1200 };
 
-return { TUNE, TUNE_RANGES, PALETTE, TOD, SPRITE, WORLD, BEATS, WAKE, PREVIEW, MOTION, INPUT, HEART, GOLD, SHOOTING, LAYOUT, UI, SIZE, COUNTS, SHAPE, FANTASY, HEART_CURVE, HEARTS, SEED, FIREFLY, POLLEN, BUTTERFLY, STORAGE, PERF };
+return { TUNE, TUNE_RANGES, PALETTE, TOD, SPRITE, WORLD, BEATS, WAKE, PREVIEW, MOTION, INPUT, HEART, GOLD, SHOOTING, LAYOUT, UI, SIZE, COUNTS, SHAPE, FANTASY, HEART_CURVE, HEARTS, SEED, FIREFLY, POLLEN, STORAGE, PERF };
 })();
 __m["params.js"] = (() => {
 // URL test hooks. Without a param nothing she sees changes.
@@ -1598,7 +1571,21 @@ const LEAVES = {
   blade: { sprite: [36, 128], ctrl: [0.9, 0.8, 0.7, 0.2], rib: 0.9 },
 };
 
-return { PETAL, LIGHTS, HEADS, MATERIAL, ROSE3D, DAISY3D, COSMOS3D, WILD3D, WILD_COMMON, SAKURA3D, GLASS, LEAVES };
+// The cherry branch: a crooked main limb from the left edge (a walk pulled
+// toward its tip), side limbs that fork once, blossom clusters on stalks.
+const BRANCH = {
+  main: { steps: 14, kink: 0.12, pull: 0.3, w: [0.4, 0.05] },
+  sides: { n: [5, 10], perU: 1.25, from: 0.14, to: 0.88, angle: [0.45, 0.95], len: [0.2, 0.34], shrink: 0.35, steps: 7, kink: 0.2, curl: 0.04, w: 0.6, tipW: 0.03 },
+  forks: { at: [0.4, 0.7], angle: [0.4, 0.8], len: [0.35, 0.55], steps: 4, lag: 0.6 },
+  nodeU: 0.34, nodeFrom: 0.22, cluster: [3, 5], tipCluster: [2, 3], tipBud: 0.45, hang: 0.8,
+  pedicelU: [0.1, 0.26], pedicelW: 0.018, pedicelMix: 0.35, pathLag: 1,
+  budShare: 0.18, budOpen: 0.24, calyx: { rad: 0.11, z: -0.1, mix: 0.6 },
+  blossoms: [54, 68], spacing: 0.6, rU: [0.17, 0.25], popMin: 0.2,
+  rimAlpha: 0.4, rimW: 0.3, rimAt: 0.38, rimMix: 0.45, lenticels: { per: 0.9, len: 0.22, w: 0.022, alpha: 0.2, mix: 0.4, off: 0.3 },
+  swayDeg: 0.6, swayHz: 0.13, shakeDeg: 2.2, pad: 1.3,
+};
+
+return { PETAL, LIGHTS, HEADS, MATERIAL, ROSE3D, DAISY3D, COSMOS3D, WILD3D, WILD_COMMON, SAKURA3D, GLASS, LEAVES, BRANCH };
 })();
 __m["leaves.js"] = (() => {
 // Leaf sprites, built once per time of day and drawn with a transform as the
@@ -3513,82 +3500,131 @@ function drawFront(ctx, app) {
 return { buildFront, drawFront };
 })();
 __m["cherry.js"] = (() => {
-// The cherry branch reaching in from the top left, its sakura, and the shake
-// on tap. Once grown and in full bloom the whole branch becomes one sprite.
-const { LAYOUT, SHAPE, SIZE, COUNTS, BEATS, WAKE, MOTION, TUNE, INPUT } = __m["config.js"];
-const { TAU, makeRng, lerp, clamp, clamp01, win, easeInOutSine, easeOutBack, rgba, mix, darker } = __m["util.js"];
+// The cherry branch reaching in from the top left: a crooked, tapering main
+// limb whose side limbs fork again, bark with a lit edge and the fine
+// horizontal marks cherry bark carries, and clusters of blossoms on short
+// stalks at the nodes with buds at the tips. Blossoms are 3D (models.js).
+// Once grown and in full bloom the whole branch becomes one sprite.
+const { LAYOUT, BEATS, WAKE, MOTION, TUNE, INPUT, SPRITE } = __m["config.js"];
+const { BRANCH, PETAL } = __m["config-flora.js"];
+const { TAU, makeRng, lerp, clamp, clamp01, win, easeInOutSine, easeOutBack, rgba, mix } = __m["util.js"];
 const { makeCanvas, place, resetTransform } = __m["sprites.js"];
+const { makePose, rgbOf } = __m["light3d.js"];
+const { renderHead } = __m["petal3d.js"];
+const { sakuraModel, sakuraParts } = __m["models.js"];
 
 const DEG = Math.PI / 180;
 
-function cubicAt(p, t) {
-  const u = 1 - t;
-  const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
-  return [a * p[0] + b * p[2] + c * p[4] + d * p[6], a * p[1] + b * p[3] + c * p[5] + d * p[7]];
-}
-
-function sample(p, n, w0, w1) {
-  const pts = [];
-  for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    const [x, y] = cubicAt(p, t);
-    pts.push({ x, y, w: lerp(w0, w1, t), t });
-  }
-  for (let i = 0; i <= n; i++) {
-    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n, i + 1)];
-    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    pts[i].nx = -(b.y - a.y) / len;
-    pts[i].ny = (b.x - a.x) / len;
+// A limb as a guided random walk: it turns a little at every step, pulled toward a target.
+function walk(rng, x, y, dir, len, steps, kink, curl, target, pull) {
+  const pts = [{ x, y }];
+  let a = dir;
+  const seg = len / steps;
+  for (let i = 0; i < steps; i++) {
+    a += rng.range(-kink, kink) + curl;
+    if (target) {
+      const want = Math.atan2(target[1] - y, target[0] - x);
+      a += Math.atan2(Math.sin(want - a), Math.cos(want - a)) * pull;
+    }
+    x += Math.cos(a) * seg;
+    y += Math.sin(a) * seg;
+    pts.push({ x, y });
   }
   return pts;
+}
+
+function finish(pts, w0, w1) {
+  const n = pts.length - 1;
+  pts.forEach((p, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n, i + 1)];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    p.nx = -(b.y - a.y) / len;
+    p.ny = (b.x - a.x) / len;
+    p.w = lerp(w0, w1, i / n);
+    p.t = i / n;
+  });
+  return pts;
+}
+
+// Keep a limb inside the branch's band at the top of the screen, cutting it short if it strays.
+function inBand(pts, L, maxY) {
+  const out = [];
+  for (const p of pts) {
+    if (p.y > maxY || p.y < L.minY || p.x > L.W - L.U) break;
+    out.push(p);
+  }
+  return out;
 }
 
 function buildCherry(app) {
   const { L } = app;
   const { U, H } = L;
-  const B = SHAPE.branch;
+  const B = BRANCH;
   const LB = LAYOUT.branch;
   const rng = makeRng(app.seed ^ 0xc4e7);
   const reach = Math.min(L.W * LB.reachW, U * LB.reachU);
-  const ax = L.safe.l - U * LB.anchorU, ay = H * LB.anchorY;
-  const tx = L.safe.l + reach, ty = H * LB.tipY;
-  const main = [ax, ay, ax + reach * LB.c1[0], ay + H * LB.c1[1], tx - reach * LB.c2[0], ty + H * LB.c2[1], tx, ty];
-  const w0 = U * B.widthU[0], w1 = U * B.widthU[1];
-  const limbs = [{ at: 0, pts: sample(main, B.steps, w0, w1), span: 1 }];
-  for (const [at, ang, lenF] of B.twigs) {
-    const [bx, by] = cubicAt(main, at);
-    const base = limbs[0].pts[Math.round(at * B.steps)];
-    const dirA = Math.atan2(base.ny, base.nx) - Math.PI / 2 + ang;
-    const len = reach * lenF;
-    const ex = bx + Math.cos(dirA) * len, ey = by + Math.sin(dirA) * len;
-    const bend = rng.range(-1, 1) * len * B.sag;
-    const twig = [bx, by, bx + (ex - bx) / 3 + bend, by + (ey - by) / 3 - len * B.rise, bx + ((ex - bx) * 2) / 3 + bend, by + ((ey - by) * 2) / 3, ex, ey];
-    limbs.push({ at, pts: sample(twig, B.twigSteps, base.w * B.twigWidth, w1), span: lenF });
-  }
-  // blossoms along the limbs, kept on screen and in the top band
-  const n = rng.int(COUNTS.blossoms[0], COUNTS.blossoms[1]);
-  const blossoms = [];
   const maxY = H * LB.maxY;
-  // sakura grow in small clusters along the limbs
-  for (let i = 0; i < n * 4 && blossoms.length < n; i++) {
-    const li = rng.next() < B.mainShare ? 0 : rng.int(1, limbs.length - 1);
-    const limb = limbs[li];
-    const t = rng.range(B.tMin[li === 0 ? 0 : 1], 1);
-    const p = limb.pts[Math.round(t * (limb.pts.length - 1))];
-    const k = rng.int(B.cluster[0], B.cluster[1]);
-    for (let j = 0; j < k && blossoms.length < n; j++) {
-      const r = U * rng.range(SIZE.blossomU[0], SIZE.blossomU[1]);
+  const ax = L.safe.l - U * LB.anchorU, ay = H * LB.anchorY;
+  const tip = [L.safe.l + reach, H * LB.tipY];
+  const M = B.main;
+  const main = finish(walk(rng, ax, ay, Math.atan2(tip[1] - ay, tip[0] - ax), reach + U * LB.anchorU, M.steps, M.kink, 0, tip, M.pull), M.w[0] * U, M.w[1] * U);
+  const limbs = [{ at: 0, pts: main, depth: 0 }];
+  const S = B.sides;
+  const n = clamp(Math.round(reach / (U * S.perU)), S.n[0], S.n[1]);
+  let side = rng.sign();
+  for (let k = 0; k < n; k++) {
+    const t = lerp(S.from, S.to, (k + rng.range(0.2, 0.8)) / n);
+    const base = main[Math.round(t * (main.length - 1))];
+    const dir = Math.atan2(base.ny, base.nx) - Math.PI / 2 + side * rng.range(S.angle[0], S.angle[1]);
+    const len = reach * rng.range(S.len[0], S.len[1]) * (1 - t * S.shrink);
+    const pts = inBand(walk(rng, base.x, base.y, dir, len, S.steps, S.kink, -side * S.curl, null, 0), L, maxY);
+    if (pts.length > 2) {
+      const limb = { at: t, pts: finish(pts, base.w * S.w, U * S.tipW), depth: 1 };
+      limbs.push(limb);
+      const F = B.forks;
+      const ft = rng.range(F.at[0], F.at[1]);
+      const fb = limb.pts[Math.round(ft * (limb.pts.length - 1))];
+      const fdir = Math.atan2(fb.ny, fb.nx) - Math.PI / 2 - side * rng.range(F.angle[0], F.angle[1]);
+      const fpts = inBand(walk(rng, fb.x, fb.y, fdir, len * rng.range(F.len[0], F.len[1]), F.steps, S.kink, side * S.curl, null, 0), L, maxY);
+      if (fpts.length > 2) limbs.push({ at: t + ft * (1 - t) * F.lag, pts: finish(fpts, fb.w * S.w, U * S.tipW), depth: 2 });
+    }
+    side = -side;
+  }
+  // blossoms: clusters on short stalks at the nodes of each limb, buds at the tips
+  const blossoms = [];
+  const want = rng.int(B.blossoms[0], B.blossoms[1]);
+  const place1 = (node, limb, isTip) => {
+    const k = isTip ? rng.int(B.tipCluster[0], B.tipCluster[1]) : rng.int(B.cluster[0], B.cluster[1]);
+    for (let j = 0; j < k && blossoms.length < want; j++) {
+      const r = U * rng.range(B.rU[0], B.rU[1]);
       const a = rng.range(0, TAU);
-      const off = U * B.clusterU * Math.sqrt(rng.next());
-      const x = p.x + Math.cos(a) * off, y = p.y + Math.sin(a) * off * B.clusterSquash + U * B.hang;
+      const len = U * rng.range(B.pedicelU[0], B.pedicelU[1]);
+      const x = node.x + Math.cos(a) * len, y = node.y + Math.sin(a) * len * B.hang;
       if (x - r < L.minX || y - r < L.minY || y + r > maxY) continue;
       if (blossoms.some((b) => Math.hypot(b.x - x, b.y - y) < (b.r + r) * B.spacing)) continue;
-      blossoms.push({
-        x, y, r, rot: rng.range(0, TAU), squash: rng.range(B.squash[0], 1), bud: rng.next() < COUNTS.budShare,
-        path: li === 0 ? t : limb.at + t * limb.span, pop: 0,
-      });
+      const bud = isTip ? rng.chance(B.tipBud) : rng.chance(B.budShare);
+      const b = { x, y, r, nx: node.x, ny: node.y, bud, rot: rng.range(0, TAU), path: limb.at + node.t * (1 - limb.at) * B.pathLag, pop: 0, cache: {} };
+      b.model = sakuraModel(rng);
+      blossoms.push(b);
     }
+  };
+  // every node of every limb, taken in a shuffled order so the blossoms spread over the whole branch
+  const nodes = [];
+  for (const limb of limbs) {
+    const pts = limb.pts;
+    const step = Math.max(1, Math.round((B.nodeU * U) / Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y)));
+    for (let i = Math.round(pts.length * B.nodeFrom); i < pts.length - 1; i += step) nodes.push([pts[i], limb, false, rng.next()]);
+    nodes.push([pts[pts.length - 1], limb, true, rng.next()]);
   }
+  nodes.sort((a, b) => a[3] - b[3]);
+  for (const [node, limb, isTip] of nodes) place1(node, limb, isTip);
+  // fine marks across the bark, scattered along the thicker limbs
+  const marks = [];
+  limbs.forEach((l, li) => {
+    if (l.depth > 1) return;
+    const n = Math.round(l.pts.length * B.lenticels.per * (l.depth ? 1 : 2));
+    for (let k = 0; k < n; k++) marks.push({ limb: li, t: rng.next(), off: rng.range(-1, 1) * B.lenticels.off });
+  });
   blossoms.sort((a, b) => a.path - b.path);
   blossoms.forEach((b, i) => { b.order = i; });
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -3596,112 +3632,126 @@ function buildCherry(app) {
   for (const l of limbs) for (const p of l.pts) grow(p.x, p.y, p.w);
   for (const b of blossoms) grow(b.x, b.y, b.r * B.pad);
   return {
-    ax, ay, limbs, blossoms, grow: 0,
+    ax, ay, limbs, blossoms, marks, grow: 0,
     box: { x0, y0, x1, y1 },
     spring: { x: 0, v: 0 }, cache: null, cacheKey: null,
   };
 }
 
+// One side of a limb as a smooth curve through the midpoints of its samples.
+function edge(ctx, pts, m, s, first) {
+  const P = (i) => [pts[i].x + (s * pts[i].nx * pts[i].w) / 2, pts[i].y + (s * pts[i].ny * pts[i].w) / 2];
+  const idx = s > 0 ? [...Array(m + 1).keys()] : [...Array(m + 1).keys()].reverse();
+  const [x0, y0] = P(idx[0]);
+  if (first) ctx.moveTo(x0, y0); else ctx.lineTo(x0, y0);
+  for (let k = 1; k < idx.length - 1; k++) {
+    const [x, y] = P(idx[k]), [nx, ny] = P(idx[k + 1]);
+    ctx.quadraticCurveTo(x, y, (x + nx) / 2, (y + ny) / 2);
+  }
+  const [xl, yl] = P(idx[idx.length - 1]);
+  ctx.lineTo(xl, yl);
+}
+
 function limbPath(ctx, pts, upto) {
   const m = Math.max(1, Math.floor(upto * (pts.length - 1)));
-  ctx.moveTo(pts[0].x + pts[0].nx * pts[0].w / 2, pts[0].y + pts[0].ny * pts[0].w / 2);
-  for (let i = 1; i <= m; i++) ctx.lineTo(pts[i].x + pts[i].nx * pts[i].w / 2, pts[i].y + pts[i].ny * pts[i].w / 2);
+  edge(ctx, pts, m, 1, true);
   const e = pts[m];
   ctx.arc(e.x, e.y, e.w / 2, Math.atan2(e.ny, e.nx), Math.atan2(e.ny, e.nx) + Math.PI);
-  for (let i = m; i >= 0; i--) ctx.lineTo(pts[i].x - pts[i].nx * pts[i].w / 2, pts[i].y - pts[i].ny * pts[i].w / 2);
+  edge(ctx, pts, m, -1, false);
   ctx.closePath();
 }
 
+const grownOf = (ch, l) => (l.at === 0 ? ch.grow : clamp01((ch.grow - l.at) / (1 - l.at)));
+
 function drawBranch(ctx, app, ch) {
   const th = app.theme;
-  const B = SHAPE.branch;
+  const B = BRANCH;
+  const U = app.L.U;
   ctx.fillStyle = th.branch;
   ctx.beginPath();
-  for (const l of ch.limbs) {
-    const g = l.at === 0 ? ch.grow : clamp01((ch.grow - l.at) / (1 - l.at));
-    if (g > 0) limbPath(ctx, l.pts, g);
-  }
+  for (const l of ch.limbs) { const g = grownOf(ch, l); if (g > 0) limbPath(ctx, l.pts, g); }
   ctx.fill();
-  ctx.strokeStyle = rgba(mix(th.branch, th.sakuraEdge, B.rimMix), B.rimAlpha);
-  ctx.lineWidth = app.L.U * B.widthU[1] * B.rimW;
-  ctx.beginPath();
+  // the edge that faces the moon or sun, and the fine marks across the bark
+  const lit = mix(th.branch, app.light.rimColor, B.rimMix);
+  const up = app.light.dir[2] >= 0 ? -1 : 1;
+  ctx.strokeStyle = rgba(lit, B.rimAlpha);
+  ctx.lineCap = 'round';
   for (const l of ch.limbs) {
-    const g = l.at === 0 ? ch.grow : clamp01((ch.grow - l.at) / (1 - l.at));
+    const g = grownOf(ch, l);
     const m = Math.floor(g * (l.pts.length - 1));
+    if (m < 1) continue;
+    ctx.lineWidth = Math.max(1, l.pts[0].w * B.rimW);
+    ctx.beginPath();
     for (let i = 0; i <= m; i++) {
       const p = l.pts[i];
-      const x = p.x - p.nx * p.w * B.rimAt, y = p.y - p.ny * p.w * B.rimAt;
+      const s = p.ny < 0 ? -up : up;
+      const x = p.x + p.nx * p.w * s * B.rimAt, y = p.y + p.ny * p.w * s * B.rimAt;
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
+    ctx.stroke();
+  }
+  const K = B.lenticels;
+  ctx.strokeStyle = rgba(mix(th.branch, app.light.rimColor, K.mix), K.alpha);
+  ctx.lineWidth = U * K.w;
+  ctx.beginPath();
+  for (const d of ch.marks) {
+    const l = ch.limbs[d.limb];
+    if (d.t > grownOf(ch, l)) continue;
+    const i = Math.floor(d.t * (l.pts.length - 1));
+    const p = l.pts[i], q = l.pts[Math.min(l.pts.length - 1, i + 1)];
+    const f = d.t * (l.pts.length - 1) - i;
+    const x = lerp(p.x, q.x, f) + p.nx * p.w * d.off, y = lerp(p.y, q.y, f) + p.ny * p.w * d.off;
+    const h = p.w * K.len * 0.5;
+    ctx.moveTo(x - p.nx * h, y - p.ny * h);
+    ctx.lineTo(x + p.nx * h, y + p.ny * h);
   }
   ctx.stroke();
 }
 
-function blossomPetal(g, r, w, rot) {
-  const n = SHAPE.blossom.notch;
-  const [a, b, c, d] = SHAPE.blossom.ctrl;
-  const cs = Math.cos(rot), sn = Math.sin(rot);
-  const X = (u, v) => u * cs - v * sn;
-  const Y = (u, v) => u * sn + v * cs;
-  g.moveTo(0, 0);
-  g.bezierCurveTo(X(r * a, -w), Y(r * a, -w), X(r * b, -w * c), Y(r * b, -w * c), X(r, -w * d), Y(r, -w * d));
-  g.lineTo(X(r * (1 - n), 0), Y(r * (1 - n), 0));
-  g.lineTo(X(r, w * d), Y(r, w * d));
-  g.bezierCurveTo(X(r * b, w * c), Y(r * b, w * c), X(r * a, w), Y(r * a, w), 0, 0);
+// A blossom's image for this opening, re-rendered only when the opening or the light changes.
+function blossomImage(b, e, app) {
+  const c = b.cache;
+  const q = Math.round(clamp(e, 0, 1) / PETAL.openStep) * PETAL.openStep;
+  const key = `${q}|${app.theme.name}|${b.r.toFixed(2)}|${app.dpr}`;
+  if (c.key === key) return c;
+  const scale = app.dpr * SPRITE.cacheScale;
+  const px = Math.ceil(b.r * BRANCH.pad * 2 * scale);
+  if (!c.canvas || c.canvas.width !== px) c.canvas = makeCanvas(px, px);
+  const g = c.canvas.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, px, px);
+  g.setTransform(scale, 0, 0, scale, px / 2, px / 2);
+  if (!b.pose) b.pose = makePose(b.model.pitch, b.model.yaw);
+  const parts = sakuraParts(b, b.bud ? BRANCH.budOpen * q : q, app.theme);
+  if (b.bud) parts.push({ kind: 'ball', z: BRANCH.calyx.z, rad: BRANCH.calyx.rad, rgb: rgbOf(mix(app.theme.branch, app.theme.sakuraCenter, BRANCH.calyx.mix)), mat: { trans: 0, rim: 0.4 }, bias: -1 });
+  renderHead(g, parts, b.pose, app.light, b.r);
+  c.key = key;
+  c.size = px / scale;
+  return c;
 }
 
-function drawBlossom(g, b, p, th) {
-  const S = SHAPE.blossom;
-  const s = Math.max(0, p);
-  if (s <= 0.001) return;
-  const r = b.r * s;
-  g.save();
-  g.translate(b.x, b.y);
-  g.rotate(b.rot);
-  if (b.bud) {
-    // a closed bud: a pink teardrop sitting in a small green cup
-    const hl = (r * S.budLen) / 2, hw = (r * S.budW) / 2;
-    const [up, down] = S.budBulge;
-    g.fillStyle = mix(th.sakuraCenter, th.sakuraEdge, S.budMix);
-    g.beginPath();
-    g.moveTo(0, -hl);
-    g.bezierCurveTo(hw, -hl * up, hw, hl * down, 0, hl);
-    g.bezierCurveTo(-hw, hl * down, -hw, -hl * up, 0, -hl);
-    g.fill();
-    const [at, cw, ch] = S.calyx;
-    g.fillStyle = th.leaf[1];
-    g.beginPath();
-    g.ellipse(0, hl * at * 2, r * S.budW * cw, r * S.budLen * ch, 0, 0, TAU);
-    g.fill();
-    g.restore();
-    return;
+function drawBlossoms(ctx, app, ch, settled) {
+  const B = BRANCH;
+  const U = app.L.U;
+  // the short stalks from each node
+  ctx.strokeStyle = mix(app.theme.branch, app.theme.leaf[1], B.pedicelMix);
+  ctx.lineWidth = U * B.pedicelW;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (const b of ch.blossoms) {
+    const p = settled ? 1 : b.pop;
+    if (p <= 0) continue;
+    ctx.moveTo(b.nx, b.ny);
+    ctx.lineTo(lerp(b.nx, b.x, clamp01(p)), lerp(b.ny, b.y, clamp01(p)));
   }
-  g.scale(1, b.squash || 1);
-  const grad = g.createRadialGradient(0, 0, 0, 0, 0, r);
-  grad.addColorStop(0, th.sakuraCenter);
-  grad.addColorStop(S.midAt, mix(th.sakuraCenter, th.sakuraEdge, S.midMix));
-  grad.addColorStop(1, th.sakuraEdge);
-  g.fillStyle = grad;
-  g.beginPath();
-  for (let i = 0; i < S.petals; i++) blossomPetal(g, r, (r * S.w) / 2, (i * TAU) / S.petals);
-  g.fill();
-  g.strokeStyle = th.stamen;
-  g.fillStyle = th.stamen;
-  g.lineWidth = r * S.lineW;
-  g.beginPath();
-  for (let i = 0; i < S.stamens; i++) {
-    const a = (i * TAU) / S.stamens + S.stamenRot;
-    g.moveTo(0, 0);
-    g.lineTo(Math.cos(a) * r * S.stamenLen, Math.sin(a) * r * S.stamenLen);
+  ctx.stroke();
+  for (const b of ch.blossoms) {
+    const p = settled ? 1 : b.pop;
+    if (p <= 0.001) continue;
+    const c = blossomImage(b, p, app);
+    const s = c.size * Math.max(p, B.popMin) * (1 + Math.max(0, p - 1));
+    ctx.drawImage(c.canvas, b.x - s / 2, b.y - s / 2, s, s);
   }
-  g.stroke();
-  for (let i = 0; i < S.stamens; i++) {
-    const a = (i * TAU) / S.stamens + S.stamenRot;
-    g.beginPath();
-    g.arc(Math.cos(a) * r * S.stamenLen, Math.sin(a) * r * S.stamenLen, r * S.dotR, 0, TAU);
-    g.fill();
-  }
-  g.restore();
 }
 
 // Branch growth and blossom pops from show time.
@@ -3737,7 +3787,7 @@ function updateCherry(app, dt) {
   if (Math.abs(s.x) < sp.rest && Math.abs(s.v) < sp.rest) { s.x = 0; s.v = 0; }
 }
 
-function settled(ch) {
+function settledOf(ch) {
   return ch.grow >= 1 && ch.blossoms.every((b) => Math.abs(b.pop - 1) < 1e-4);
 }
 
@@ -3745,17 +3795,17 @@ function drawCherry(ctx, app) {
   const ch = app.cherry;
   if (!ch || ch.grow <= 0) return;
   const { dpr, L } = app;
-  const B = SHAPE.branch;
+  const B = BRANCH;
   const rot = (Math.sin(TAU * B.swayHz * app.clock.T) * B.swayDeg * TUNE.swayAmp + ch.spring.x * B.shakeDeg) * DEG;
   const key = `${app.theme.name}|${L.W}x${L.H}|${dpr}`;
-  if (settled(ch)) {
+  if (settledOf(ch)) {
     if (ch.cacheKey !== key) {
       const bx = ch.box;
       const c = makeCanvas((bx.x1 - bx.x0) * dpr, (bx.y1 - bx.y0) * dpr);
       const g = c.getContext('2d');
       g.setTransform(dpr, 0, 0, dpr, -bx.x0 * dpr, -bx.y0 * dpr);
       drawBranch(g, app, ch);
-      for (const b of ch.blossoms) drawBlossom(g, b, 1, app.theme);
+      drawBlossoms(g, app, ch, true);
       ch.cache = c;
       ch.cacheKey = key;
     }
@@ -3769,7 +3819,7 @@ function drawCherry(ctx, app) {
   place(ctx, dpr, ch.ax, ch.ay, rot, 1, 1);
   ctx.translate(-ch.ax, -ch.ay);
   drawBranch(ctx, app, ch);
-  for (const b of ch.blossoms) if (b.pop > 0) drawBlossom(ctx, b, b.pop, app.theme);
+  drawBlossoms(ctx, app, ch, false);
   resetTransform(ctx, dpr);
 }
 
@@ -3788,7 +3838,7 @@ function blossomBoxes(app) {
   return ch.blossoms.filter((b) => b.pop > 0).map((b, i) => ({ kind: 'blossom', idx: i, x: b.x - b.r, y: b.y - b.r, w: b.r * 2, h: b.r * 2 }));
 }
 
-return { buildCherry, drawBlossom, cherryTimes, kickCherry, updateCherry, drawCherry, hitCherry, blossomBoxes };
+return { buildCherry, cherryTimes, kickCherry, updateCherry, drawCherry, hitCherry, blossomBoxes };
 })();
 __m["petals.js"] = (() => {
 // Falling petals. Every petal is a pure function of time from its spawn, so a
@@ -4784,100 +4834,269 @@ function drawPollen(ctx, app) {
 
 return { drawSeed, buildFireflies, drawFireflies, drawPollen };
 })();
-__m["butterflies.js"] = (() => {
-// Two butterflies drifting in after the exhale. Paths are smooth functions of
-// time; wings are one cached sprite per butterfly, mirrored and flapped.
-const { BUTTERFLY, BEATS, WAKE, PALETTE, MOTION } = __m["config.js"];
-const { TAU, makeRng, lerp, clamp, smooth, mix, darker, rgba } = __m["util.js"];
-const { makeCanvas, glow, drawGlow, resetTransform } = __m["sprites.js"];
+__m["config-wings.js"] = (() => {
+// Butterflies by day and luna moths at night. Wing outlines are [x, y]
+// multiples of the wing size from the body: bezier control, control, end.
+// Flight and perching times are seconds, distances flower units U.
 
-// One side's pair of wings: deep at the body, the color, a light flush, then a
-// dark border with pale spots, and fine veins. Drawn once per butterfly.
-function wingSprite(colors) {
-  const B = BUTTERFLY;
-  const W = B.wing;
-  const px = B.px;
-  const c = makeCanvas(px, px * 2);
+const WINGS = {
+  px: 96, spanU: 0.52,
+  flapHz: [4.5, 6], fold: 0.22, perchFlap: { hz: 0.35, min: 0.35, pow: 0.6 },
+  // a flight arcs over the field, never through a bloom; perches last a few seconds
+  speedU: [1.2, 1.7], minFly: 1.6, liftU: [0.9, 1.6], liftK: 0.35, clearU: 0.9,
+  perch: [3.2, 7.5], perchLift: 0.22, legs: 40, bodyTilt: [-0.35, 0.35],
+  flutter: [[2.3, 0.1], [1.1, 0.08]], enterY: 0.52, enterU: 2.2, poolGapU: 0.35, minHop: 1.2,
+  body: { w: 0.075, l: 0.46, head: 0.07, antenna: 0.34, antennaW: 1.1, club: 0.035, bend: 0.3 },
+  edge: 0.07, edgeAlpha: 0.85, veinAlpha: 0.22, veinW: 1.4, glowAlpha: 0.12, glowU: 1,
+  // day: forewing and hindwing, then marginal spots
+  butterfly: {
+    fore: [[0.25, -0.95], [0.95, -1.12], [1.02, -0.52], [0.72, 0.02]],
+    hind: [[0.62, 0.12], [0.98, 0.5], [0.72, 0.92], [0.18, 0.62]],
+    spots: [[0.82, -0.62], [0.72, -0.34], [0.66, 0.62], [0.48, 0.74]], spotR: 3.2, spotAlpha: 0.75,
+    rootDark: 0.35, flushAt: 0.7, edgeDark: 0.55, body: '#3A2436',
+  },
+  // night: luna moths, pale green with long tails, a maroon leading edge and eyespots
+  moth: {
+    colors: [['#CDEBC4', '#9FD3A6'], ['#C4E8D2', '#96CFB2']],
+    fore: [[0.3, -0.88], [0.88, -1.02], [0.98, -0.62], [0.66, 0.02]],
+    hind: [[0.66, 0.16], [0.82, 0.56], [0.62, 1.62], [0.14, 0.52]],
+    costa: '#7A4A68', costaW: 5, eye: '#E8D27A', eyeRing: '#6A4A5A', eyes: [[0.5, -0.36, 0.09], [0.4, 0.4, 0.08]],
+    body: '#EDE6DA', glow: '#DCEFD6',
+  },
+};
+
+return { WINGS };
+})();
+__m["butterflies.js"] = (() => {
+// Two butterflies by day, two luna moths by night. Each follows a planned
+// route that is a pure function of time: it enters from its side, lands on a
+// flower, slowly fans its wings, then arcs over the field to the next one,
+// never through a bloom. One keeps to the left of the field and one to the
+// right, so they never crowd each other. Wings are one sprite per creature,
+// mirrored and flapped.
+const { WINGS } = __m["config-wings.js"];
+const { BEATS, WAKE, PALETTE, SHAPE, SIZE } = __m["config.js"];
+const { TAU, makeRng, lerp, clamp, smooth, mix, darker, rgba, mod } = __m["util.js"];
+const { makeCanvas, glow, drawGlow, resetTransform } = __m["sprites.js"];
+const { headBox } = __m["species.js"];
+const { fantasyBox } = __m["fantasy.js"];
+
+const H_ROOT = 1.2;   // the wing root sits this many wing sizes from the sprite's top
+const H_ALL = 2.9;    // sprite height in wing sizes, room for the moth's tails
+
+function outline(g, px, [c1, c2, end, q]) {
+  const P = ([x, y]) => [px * x, px * (H_ROOT + y)];
+  const r = [0, px * H_ROOT];
+  g.moveTo(...r);
+  g.bezierCurveTo(...P(c1), ...P(c2), ...P(end));
+  g.quadraticCurveTo(...P(q), ...r);
+}
+
+function butterflySprite(colors) {
+  const W = WINGS, B = W.butterfly;
+  const px = W.px;
+  const c = makeCanvas(px * 1.1, px * H_ALL);
   const g = c.getContext('2d');
-  const shape = (pts, [sx, sy]) => {
-    const P = pts.map(([x, y]) => [px * sx * x, px + px * sy * y]);
-    g.moveTo(0, px);
-    g.bezierCurveTo(P[0][0], P[0][1], P[1][0], P[1][1], P[2][0], P[2][1]);
-    g.quadraticCurveTo(P[3][0], P[3][1], 0, px);
-    return P;
-  };
-  const grad = g.createRadialGradient(0, px, 0, 0, px, px * W.reach);
-  grad.addColorStop(0, darker(colors[1], W.root));
-  grad.addColorStop(W.colorAt, colors[1]);
-  grad.addColorStop(W.flushAt, mix(colors[0], PALETTE.fantasyEdge, B.edgeMix));
+  const root = [0, px * H_ROOT];
+  const grad = g.createRadialGradient(...root, 0, ...root, px * 1.05);
+  grad.addColorStop(0, darker(colors[1], B.rootDark));
+  grad.addColorStop(0.35, colors[1]);
+  grad.addColorStop(B.flushAt, mix(colors[0], PALETTE.fantasyEdge, 0.2));
   grad.addColorStop(1, colors[0]);
   g.fillStyle = grad;
   g.beginPath();
-  const up = shape(B.up, B.upper);
-  const low = shape(B.low, B.lower);
+  outline(g, px, B.fore);
+  outline(g, px, B.hind);
   g.fill();
+  // a darker margin just inside the edge, the wing's own color deepened, never black
   g.globalCompositeOperation = 'source-atop';
-  g.strokeStyle = rgba(B.body, W.borderAlpha);
-  g.lineWidth = W.borderW;
+  g.strokeStyle = rgba(darker(colors[1], B.edgeDark), W.edgeAlpha);
+  g.lineWidth = px * W.edge * 2;
   g.beginPath();
-  shape(B.up, B.upper);
-  shape(B.low, B.lower);
+  outline(g, px, B.fore);
+  outline(g, px, B.hind);
   g.stroke();
-  g.strokeStyle = rgba(darker(colors[1], W.root), W.veinAlpha);
+  g.strokeStyle = rgba(darker(colors[1], B.rootDark), W.veinAlpha);
   g.lineWidth = W.veinW;
   g.beginPath();
-  for (const [x, y] of [up[0], up[1], up[2], low[1], low[2]]) {
-    g.moveTo(0, px);
-    g.quadraticCurveTo(x * W.veinBend, px + (y - px) * W.veinBend * W.veinLift, x * W.veinReach, px + (y - px) * W.veinReach);
+  for (const [x, y] of [B.fore[1], B.fore[2], B.hind[1], B.hind[2]]) {
+    g.moveTo(...root);
+    g.quadraticCurveTo(px * x * 0.45, px * (H_ROOT + y * 0.3), px * x * 0.86, px * (H_ROOT + y * 0.86));
   }
   g.stroke();
-  g.fillStyle = rgba(PALETTE.fantasyEdge, W.spotAlpha);
+  g.fillStyle = rgba(PALETTE.fantasyEdge, B.spotAlpha);
   g.beginPath();
-  for (const [x, y] of [up[1], up[2], low[1]]) {
-    const sx = x * W.spotAt, sy = px + (y - px) * W.spotAt;
-    g.moveTo(sx + W.spotR, sy);
-    g.arc(sx, sy, W.spotR, 0, TAU);
-  }
+  for (const [x, y] of B.spots) { g.moveTo(px * x + B.spotR, px * (H_ROOT + y)); g.arc(px * x, px * (H_ROOT + y), B.spotR, 0, TAU); }
   g.fill();
   g.globalCompositeOperation = 'source-over';
   return c;
 }
 
+function mothSprite(colors) {
+  const W = WINGS, M = W.moth;
+  const px = W.px;
+  const c = makeCanvas(px * 1.1, px * H_ALL);
+  const g = c.getContext('2d');
+  const root = [0, px * H_ROOT];
+  const grad = g.createRadialGradient(...root, 0, ...root, px * 1.6);
+  grad.addColorStop(0, colors[1]);
+  grad.addColorStop(0.6, colors[0]);
+  grad.addColorStop(1, mix(colors[0], M.glow, 0.4));
+  g.fillStyle = grad;
+  g.beginPath();
+  outline(g, px, M.fore);
+  outline(g, px, M.hind);
+  g.fill();
+  g.globalCompositeOperation = 'source-atop';
+  g.strokeStyle = rgba(darker(colors[1], 0.25), W.veinAlpha);
+  g.lineWidth = W.veinW;
+  g.beginPath();
+  for (const [x, y] of [M.fore[1], M.fore[2], M.hind[1], M.hind[2]]) {
+    g.moveTo(...root);
+    g.quadraticCurveTo(px * x * 0.45, px * (H_ROOT + y * 0.3), px * x * 0.86, px * (H_ROOT + y * 0.86));
+  }
+  g.stroke();
+  // the maroon leading edge of the forewing
+  g.strokeStyle = M.costa;
+  g.lineWidth = M.costaW;
+  g.lineCap = 'round';
+  g.beginPath();
+  g.moveTo(...root);
+  const [c1, c2, end] = M.fore;
+  g.bezierCurveTo(px * c1[0], px * (H_ROOT + c1[1]), px * c2[0], px * (H_ROOT + c2[1]), px * end[0], px * (H_ROOT + end[1]));
+  g.stroke();
+  for (const [x, y, r] of M.eyes) {
+    g.fillStyle = M.eye;
+    g.strokeStyle = M.eyeRing;
+    g.lineWidth = 2;
+    g.beginPath();
+    g.ellipse(px * x, px * (H_ROOT + y), px * r, px * r * 1.25, 0.4, 0, TAU);
+    g.fill();
+    g.stroke();
+  }
+  g.globalCompositeOperation = 'source-over';
+  return c;
+}
+
+// ---- routes ----
+const restHead = (f) => [f.x + f.bend * f.h * SHAPE.stem.restLean, f.baseY - f.h];
+
+function perchPoint(app, f, live) {
+  const b = headBox(f, app.theme);
+  const [hx, hy] = live && f.hx !== undefined ? [f.hx, f.hy] : restHead(f);
+  return [hx + ((b.x0 + b.x1) / 2) * f.r, hy + (b.y0 + (b.y1 - b.y0) * WINGS.perchLift) * f.r];
+}
+
+function pools(app) {
+  const fl = app.flowers;
+  const L = app.L;
+  // nothing under the glass flower, so no flight has to climb through it
+  const gap = SIZE.fantasy.rU * L.U + WINGS.poolGapU * L.U;
+  const all = fl.roses.concat(fl.favs, fl.side.filter((f) => !f.hidden));
+  const left = all.filter((f) => restHead(f)[0] < L.cx - gap);
+  const right = all.filter((f) => restHead(f)[0] > L.cx + gap);
+  return [left.length ? left : all, right.length ? right : all];
+}
+
+function plan(app, rng, pool, side) {
+  const W = WINGS;
+  const L = app.L;
+  const U = L.U;
+  const legs = [];
+  let t = 0;
+  let at = [side < 0 ? -W.enterU * U : L.W + W.enterU * U, L.H * W.enterY];
+  let prev = null;
+  const pick = () => {
+    for (let k = 0; k < 8; k++) {
+      const f = rng.pick(pool);
+      if (f === prev && pool.length > 1) continue;
+      const p = perchPoint(app, f, false);
+      if (Math.hypot(p[0] - at[0], p[1] - at[1]) >= W.minHop * U || k === 7) return f;
+    }
+    return rng.pick(pool);
+  };
+  const fly = (to) => {
+    const p = perchPoint(app, to, false);
+    const d = Math.hypot(p[0] - at[0], p[1] - at[1]);
+    const dur = Math.max(W.minFly, d / (U * rng.range(W.speedU[0], W.speedU[1])));
+    legs.push({ fly: true, t0: t, dur, from: at, fromF: prev, to, lift: clamp(d * W.liftK, W.liftU[0] * U, W.liftU[1] * U), ph: rng.range(0, TAU) });
+    t += dur;
+    at = p;
+    prev = to;
+  };
+  const first = pick();
+  fly(first);
+  for (let k = 0; k < W.legs; k++) {
+    const dur = rng.range(W.perch[0], W.perch[1]);
+    legs.push({ fly: false, t0: t, dur, flower: prev, tilt: rng.range(W.bodyTilt[0], W.bodyTilt[1]), ph: rng.range(0, TAU) });
+    t += dur;
+    fly(k === W.legs - 1 ? first : pick());
+  }
+  return { legs, cycleFrom: legs[1].t0, total: t };
+}
+
 function buildButterflies(app) {
   const rng = makeRng(app.seed ^ 0xb077);
-  const B = BUTTERFLY;
-  const j = B.wander.jitter;
-  return PALETTE.butterflies.map((colors, i) => ({
-    i, colors, sprite: wingSprite(colors),
-    flap: rng.range(B.flapHz[0], B.flapHz[1]),
-    f: B.wanderHz[i].map((hz) => hz * rng.range(1 - j, 1 + j)),
-    p: [rng.range(0, TAU), rng.range(0, TAU), rng.range(0, TAU), rng.range(0, TAU)],
-    fromLeft: i === 0,
-  }));
+  const night = app.theme.stars >= 0.5;
+  const [left, right] = pools(app);
+  return [0, 1].map((i) => {
+    const colors = night ? WINGS.moth.colors[i] : PALETTE.butterflies[i];
+    const side = i === 0 ? -1 : 1;
+    return {
+      i, night, colors, sprite: night ? mothSprite(colors) : butterflySprite(colors),
+      flap: rng.range(WINGS.flapHz[0], WINGS.flapHz[1]), route: plan(app, rng, i === 0 ? left : right, side),
+    };
+  });
 }
 
-function wander(app, b, t) {
-  const L = app.L;
-  const W = BUTTERFLY.wander;
-  const [y0, y1] = BUTTERFLY.region;
-  const cx = L.fieldL + L.fieldW / 2;
-  const cy = (L.H * (y0 + y1)) / 2;
-  const ay = (L.H * (y1 - y0)) / 2;
-  const [f1, f2] = b.f;
-  const x = cx + L.fieldW * W.ax * (W.mixX[0] * Math.sin(TAU * f1 * t + b.p[0]) + W.mixX[1] * Math.sin(TAU * f2 * W.mulX * t + b.p[1]));
-  const y = cy + ay * (W.mixY[0] * Math.sin(TAU * f2 * t + b.p[2]) + W.mixY[1] * Math.sin(TAU * f1 * W.mulY * t + b.p[3]));
-  return [x, y];
+function legAt(route, tt) {
+  let t = tt;
+  if (t >= route.total) t = route.cycleFrom + mod(t - route.cycleFrom, route.total - route.cycleFrom);
+  const legs = route.legs;
+  let lo = 0, hi = legs.length - 1;
+  while (lo < hi) { const m = (lo + hi + 1) >> 1; if (legs[m].t0 <= t) lo = m; else hi = m - 1; }
+  return [legs[lo], t - legs[lo].t0];
 }
 
-function position(app, b, t, s, enter) {
-  const L = app.L;
-  const B = BUTTERFLY;
-  const [wx, wy] = wander(app, b, t);
-  const e = smooth((s - enter) / B.enterS);
-  const sx = b.fromLeft ? -L.U * 2 : L.W + L.U * 2;
-  const sy = L.H * B.region[0];
-  const bob = Math.sin(TAU * B.bob[0] * t + b.p[0]) * L.U * B.bob[1];
-  return [lerp(sx, wx, e), lerp(sy, wy, e) + bob];
+// Where a creature is at time tt since it entered, and whether it is perched.
+function pose(app, b, tt, T) {
+  const W = WINGS;
+  const U = app.L.U;
+  const [leg, dt] = legAt(b.route, tt);
+  if (!leg.fly) {
+    const [x, y] = perchPoint(app, leg.flower, true);
+    return { x, y, tilt: leg.tilt, perched: true, ph: leg.ph };
+  }
+  const p = smooth(dt / leg.dur);
+  const to = perchPoint(app, leg.to, false), toLive = perchPoint(app, leg.to, true);
+  const from = leg.from;
+  const fromLive = leg.fromF ? perchPoint(app, leg.fromF, true) : from;
+  // arc over the field, and over the glass flower if the way crosses it
+  let top = Math.min(from[1], to[1]) - leg.lift;
+  const fb = fantasyBox(app);
+  const pad = W.clearU * U;
+  if (fb && Math.max(from[0], to[0]) > fb.x - pad && Math.min(from[0], to[0]) < fb.x + fb.w + pad) top = Math.min(top, fb.y - pad);
+  const cx1 = lerp(from[0], to[0], 0.3), cx2 = lerp(from[0], to[0], 0.7);
+  const u = 1 - p;
+  let x = u * u * u * from[0] + 3 * u * u * p * cx1 + 3 * u * p * p * cx2 + p * p * p * to[0];
+  let y = u * u * u * from[1] + 3 * u * u * p * top + 3 * u * p * p * top + p * p * p * to[1];
+  x += (toLive[0] - to[0]) * p + (fromLive[0] - from[0]) * u;
+  y += (toLive[1] - to[1]) * p + (fromLive[1] - from[1]) * u;
+  const env = Math.sin(Math.PI * p);
+  for (const [hz, a] of W.flutter) { x += Math.sin(TAU * hz * T + leg.ph) * a * U * env; y += Math.cos(TAU * hz * T * 1.3 + leg.ph) * a * U * env; }
+  const vx = (to[0] - from[0]) / leg.dur;
+  return { x, y, tilt: clamp(vx / (U * 2), -1, 1) * 0.35, perched: false };
+}
+
+// Where each creature is right now, for the harness: null until it has entered.
+function butterflySpots(app) {
+  const times = app.show.mode === 'wake' ? WAKE.butterflies : BEATS.butterflies;
+  return (app.butterflies || []).map((b) => {
+    const tt = app.s - times[b.i];
+    if (tt < 0) return null;
+    const at = pose(app, b, tt, app.clock.T);
+    return { x: at.x, y: at.y, perched: at.perched };
+  });
 }
 
 function drawButterflies(ctx, app) {
@@ -4885,39 +5104,65 @@ function drawButterflies(ctx, app) {
   if (!list) return;
   const { dpr, L } = app;
   const T = app.clock.T;
-  const s = app.s;
   const times = app.show.mode === 'wake' ? WAKE.butterflies : BEATS.butterflies;
-  const B = BUTTERFLY;
-  const span = L.U * B.spanU;
-  const px = B.px;
-  const dt = MOTION.dtMax / 2;
+  const W = WINGS;
+  const span = L.U * W.spanU;
+  const px = W.px;
   for (const b of list) {
-    const enter = times[b.i];
-    if (s < enter) continue;
-    const [x, y] = position(app, b, T, s, enter);
-    const [x2] = position(app, b, T + dt, s + dt, enter);
-    const tilt = clamp((x2 - x) / (L.U * dt), -1, 1) * B.tilt;
-    const open = lerp(B.fold, 1, Math.abs(Math.sin(Math.PI * b.flap * T)));
-    // a faint soft light behind, blended normally so it never adds toward white
-    drawGlow(ctx, glow(b.colors[0]), x, y, L.U * B.glowU, B.glowAlpha * app.theme.fireflies);
-    ctx.globalAlpha = 1;
-    const cs = Math.cos(tilt), sn = Math.sin(tilt);
+    const tt = app.s - times[b.i];
+    if (tt < 0) continue;
+    const at = pose(app, b, tt, T);
+    let open;
+    if (at.perched) {
+      const k = (1 + Math.sin(TAU * W.perchFlap.hz * T + at.ph)) / 2;
+      open = lerp(W.perchFlap.min, 1, Math.pow(k, W.perchFlap.pow));
+    } else open = lerp(W.fold, 1, Math.abs(Math.sin(Math.PI * b.flap * T)));
+    if (b.night) {
+      // moths catch the moonlight: a faint pale light around them, blended normally
+      drawGlow(ctx, glow(W.moth.glow), at.x, at.y, L.U * W.glowU, W.glowAlpha * app.theme.fireflies);
+      ctx.globalAlpha = 1;
+    }
+    const cs = Math.cos(at.tilt), sn = Math.sin(at.tilt);
     const k = span / px;
     for (const side of [1, -1]) {
       const sx = side * open * k;
-      ctx.setTransform(dpr * cs * sx, dpr * sn * sx, -dpr * sn * k, dpr * cs * k, dpr * x, dpr * y);
-      ctx.drawImage(b.sprite, 0, -px, px, px * 2);
+      ctx.setTransform(dpr * cs * sx, dpr * sn * sx, -dpr * sn * k, dpr * cs * k, dpr * at.x, dpr * at.y);
+      ctx.drawImage(b.sprite, 0, -px * H_ROOT, b.sprite.width, b.sprite.height);
     }
-    ctx.setTransform(dpr * cs, dpr * sn, -dpr * sn, dpr * cs, dpr * x, dpr * y);
-    ctx.fillStyle = B.body;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, span * B.bodyW, span * B.bodyL, 0, 0, TAU);
-    ctx.fill();
+    drawBody(ctx, app, b, at, span, cs, sn);
     resetTransform(ctx, dpr);
   }
 }
 
-return { buildButterflies, drawButterflies };
+function drawBody(ctx, app, b, at, span, cs, sn) {
+  const { dpr } = app;
+  const Bd = WINGS.body;
+  const col = b.night ? WINGS.moth.body : WINGS.butterfly.body;
+  ctx.setTransform(dpr * cs, dpr * sn, -dpr * sn, dpr * cs, dpr * at.x, dpr * at.y);
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  ctx.ellipse(0, span * Bd.l * 0.35, span * Bd.w, span * Bd.l * 0.6, 0, 0, TAU);
+  ctx.moveTo(span * Bd.head, -span * Bd.l * 0.3);
+  ctx.arc(0, -span * Bd.l * 0.3, span * Bd.head, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = col;
+  ctx.lineWidth = WINGS.body.antennaW;
+  ctx.beginPath();
+  for (const s of [-1, 1]) {
+    ctx.moveTo(0, -span * Bd.l * 0.34);
+    ctx.quadraticCurveTo(s * span * Bd.antenna * Bd.bend, -span * (Bd.l * 0.34 + Bd.antenna * 0.7), s * span * Bd.antenna * 0.55, -span * (Bd.l * 0.34 + Bd.antenna));
+  }
+  ctx.stroke();
+  ctx.beginPath();
+  for (const s of [-1, 1]) {
+    const x = s * span * Bd.antenna * 0.55, y = -span * (Bd.l * 0.34 + Bd.antenna);
+    ctx.moveTo(x + span * Bd.club, y);
+    ctx.arc(x, y, span * Bd.club, 0, TAU);
+  }
+  ctx.fill();
+}
+
+return { buildButterflies, butterflySpots, drawButterflies };
 })();
 __m["hearts.js"] = (() => {
 // Hearts that float up from a tapped flower. Motion is a function of age.
@@ -6644,7 +6889,7 @@ const { buildCherry, cherryTimes, updateCherry, drawCherry, blossomBoxes } = __m
 const { buildPetals, drawPetals } = __m["petals.js"];
 const { createFantasy, placeFantasy, fantasyTimes, updateFantasy, drawFantasy, drawFantasyHalo, drawFantasyNight, fantasyBox } = __m["fantasy.js"];
 const { drawSeed, buildFireflies, drawFireflies, drawPollen } = __m["fx.js"];
-const { buildButterflies, drawButterflies } = __m["butterflies.js"];
+const { buildButterflies, drawButterflies, butterflySpots } = __m["butterflies.js"];
 const { drawHearts, heartCount } = __m["hearts.js"];
 const { makeHeart, layoutHeart, updateHeart, drawHeartSecret, heartPhase, startNova, heartBox, autoHeart, NOVA_LENGTH } = __m["heart.js"];
 const { makeInput, attachInput, updateInput, enterDim, lowPower } = __m["input.js"];
@@ -6766,10 +7011,10 @@ addLayer('mid', drawFantasy);
 addLayer('mid', drawRoseLayer);
 addLayer('mid', drawFrontLayer);
 addLayer('mid', drawPetals);
+addLayer('front', drawButterflies);
 addLayer('front', drawFront);
 addLayer('front', drawHint);
 addLayer('front', drawNewSparkle);
-addLayer('front', drawButterflies);
 addLayer('front', drawHearts);
 addLayer('front', drawHeartSecret);
 addLayer('top', drawFantasyNight);
@@ -6841,6 +7086,7 @@ installTestHooks(app, {
   get autoHeartDone() { return app.autoHeartDone; },
   get soundWanted() { return app.soundWanted; },
   get hint() { return hintPose(app); },
+  get butterflies() { return butterflySpots(app); },
   get tune() { return { ...TUNE }; },
   replay: () => replay(),
   novaLength: NOVA_LENGTH,
