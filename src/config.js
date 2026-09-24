@@ -245,8 +245,8 @@ export const UI = {
 
 export const SIZE = {
   rose: { rU: 0.7, stemW: 0.07 },
-  // the heart outline is 5.2U wide and must clear the petals, which caps the head at 1.3U
-  fantasy: { rU: 1.3, stemW: 0.11, haloU: 4.2, coreU: 0.3 },
+  // the heart outline is 5.8U wide and must clear the petals, which caps the head near 1.4U
+  fantasy: { rU: 1.4, stemW: 0.11, haloU: 4.2, coreU: 0.3 },
   wild: { rU: [0.25, 0.36], stemW: 0.04 },
   blossomU: [0.17, 0.25], budU: 0.08,
   leafU: [0.45, 0.75], heartU: [0.18, 0.28],
@@ -313,7 +313,7 @@ export const FANTASY = {
     { n: 7, len: 0.8, w: 0.46, off: 0.67, shape: [1, 0.7, 0.9, 0.24] },
     { n: 5, len: 0.5, w: 0.5, off: 0.1, shape: [0.92, 0.72, 0.86, 0.3] },
   ],
-  squash: 0.9, budSpread: 0.13, budLen: 0.42, budSwell: 0.22, ringDur: 1.9,
+  squash: 0.9, budSpread: 0.13, budLen: 0.5, budSwell: 0.32, ringDur: 1.9,
   sprite: [72, 180], alpha: 1, cycleS: 14, petalPhase: 0.55, ringPhase: 0.33,
   deep: 0.28, midAt: 0.45, edgeMix: 0.42,
   glass: {
@@ -324,7 +324,7 @@ export const FANTASY = {
   coreStops: [[0, 1], [0.5, 0.95], [1, 0]], corePx: 64, coreGlowU: 1, coreGlowAlpha: 0.35, coreFlareSize: 0.5,
   flicker: [[1.7, 0.05], [3.1, 0.03]],
   stemGlowMix: 0.35, stemGlowAlpha: 0.32, stemGlowW: 0.3,
-  motes: 7, moteRU: [1.5, 1.95], moteHz: [0.08, 0.16], moteSizeU: [0.07, 0.12], moteAlpha: 0.75, moteFade: 1,
+  motes: 7, moteRU: [1.6, 2.05], moteHz: [0.08, 0.16], moteSizeU: [0.07, 0.12], moteAlpha: 0.75, moteFade: 1,
   moteColor: '#FFE08A', moteTwinkle: 2, moteGrow: 0.5, moteDim: 0.5, breathe: [0.07, 0.02],
   stillness: 0.3,
 };

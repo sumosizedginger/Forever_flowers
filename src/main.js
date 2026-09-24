@@ -216,6 +216,8 @@ installTestHooks(app, {
   novaLength: NOVA_LENGTH,
   triggerHeart: (at) => startNova(app, at || 0),
   forceDim: () => enterDim(app),
+  // frozen frames: put the field to sleep at once
+  setDim: (v) => { app.input.dimFrom = v; app.input.dimTo = v; app.state = v > 0 ? 'DIM' : 'LIVE'; },
 });
 attachInput(app);
 requestAnimationFrame(frame);

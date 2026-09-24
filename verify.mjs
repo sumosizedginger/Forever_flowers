@@ -102,6 +102,8 @@ await capture('1280x800 finished', DESK, '?full&seed=1&test&tod=night&t=40');
 for (const tod of ['night', 'dawn', 'day', 'eve']) await capture(tod, PHONE, `?full&seed=1&test&tod=${tod}&t=40`);
 await capture('golden rose', PHONE, '?full&seed=1&test&tod=night&gold&t=40');
 await capture('heart mid hold', PHONE, '?full&seed=1&test&tod=night&t=40', '__ff.triggerHeart(3.65)');
+await capture('day 60 garden', PHONE, '?full&seed=1&test&tod=night&t=40&day=60');
+await capture('asleep', PHONE, '?full&seed=1&test&tod=night&t=40', '__ff.setDim(1)');
 
 const worst = frames.reduce((a, f) => (f.light.max > a.light.max ? f : a), frames[0]);
 const overTotal = frames.reduce((a, f) => a + f.light.over, 0);
@@ -130,8 +132,8 @@ check('palette', 'no pixel above 95% lightness', overTotal === 0, { maxL: worst.
 }
 
 // ---------- performance ----------
-async function perf(vp, label) {
-  const { page, context } = await open(vp, '?preview&seed=1&test');
+async function perf(vp, label, query = '?preview&seed=1&test') {
+  const { page, context } = await open(vp, query);
   const cdp = await context.newCDPSession(page);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   await sleep(1500);
@@ -147,6 +149,7 @@ async function perf(vp, label) {
 }
 const perfPhone = await perf(PHONE, '390x844@2x 4x throttle');
 const perfDesk = await perf(DESK, '1280x800 4x throttle');
+const perfGarden = await perf(PHONE, '390x844@2x 4x throttle, 120 day garden', '?preview&seed=1&test&day=120');
 
 // ---------- interactions ----------
 async function tap(page, x, y, ms = 60) {
@@ -185,11 +188,11 @@ async function live(vp = PHONE) {
 
   await page.mouse.move(gx + 40, gy);
   await page.mouse.down();
-  await sleep(520);
+  await sleep(650);
   await page.mouse.up();
   await sleep(80);
   const p3 = await ffv(page, () => window.__ff.planted);
-  check('interaction', 'a slow press (>350ms) is not a tap', p3 === p2, { before: p2, after: p3 });
+  check('interaction', 'a slow press (>500ms) is not a tap', p3 === p2, { before: p2, after: p3 });
 
   const fan = await ffv(page, () => window.__ff.fantasy);
   await page.mouse.move(fan.x, fan.y);
@@ -215,6 +218,15 @@ async function live(vp = PHONE) {
   await sleep(100);
   const early = await ffv(page, () => ({ state: window.__ff.state, hearts: window.__ff.hearts, phase: window.__ff.heartPhase }));
   check('interaction', 'an early release counts as a tap', early.hearts > h0 && early.state === 'LIVE' && early.phase === 'idle', { before: h0, after: early });
+  await sleep(2700);
+  const h1 = await ffv(page, () => window.__ff.hearts);
+  await page.mouse.move(fan.x, fan.y);
+  await page.mouse.down();
+  await sleep(450);
+  await page.mouse.up();
+  await sleep(100);
+  const mid = await ffv(page, () => ({ state: window.__ff.state, hearts: window.__ff.hearts, phase: window.__ff.heartPhase }));
+  check('interaction', 'letting go of the fantasy flower at 450ms, mid charge, is a tap', mid.hearts > h1 && mid.state === 'LIVE' && mid.phase === 'idle', { before: h1, after: mid });
 
   await ffv(page, () => window.__ff.forceDim());
   await sleep(100);
@@ -250,6 +262,11 @@ async function live(vp = PHONE) {
   await sleep(1400);
   const b = await ffv(page, () => window.__ff.buttons);
   check('living', 'buttons appear only after the intro', b === true, { buttons: b });
+  await page.waitForFunction(() => window.__ff.showTime > 20.4, null, { timeout: 10000 });
+  const auto = await ffv(page, () => ({ state: window.__ff.state, phase: window.__ff.heartPhase, s: +window.__ff.showTime.toFixed(2) }));
+  await page.waitForFunction(() => window.__ff.state === 'LIVE', null, { timeout: 12000 });
+  const after = await ffv(page, () => ({ state: window.__ff.state, found: window.__ff.heartFound }));
+  check('living', 'the first full show ends with the heart playing by itself, then LIVE', auto.state === 'NOVA' && after.state === 'LIVE' && after.found === false, { auto, after });
   await context.close();
 }
 {
@@ -268,11 +285,20 @@ async function live(vp = PHONE) {
   await sleep(200);
   const snd = await ffv(b.page, () => ({ on: window.__ff.sound, pressed: document.getElementById('snd').getAttribute('aria-pressed') }));
   check('living', 'the sound button turns sound on', snd.on === true && snd.pressed === 'true', snd);
+  await sleep(2200);
+  const music = await ffv(b.page, () => window.__ff.music);
+  check('music', 'with sound on the lullaby schedules notes on a running audio context', music.notes > 0 && music.state === 'running', music);
   await tap(b.page, PHONE.width * 0.3, PHONE.height * 0.84);
+  const planted = await ffv(b.page, () => window.__ff.planted);
   await b.page.click('#rep');
   await sleep(200);
   const rep = await ffv(b.page, () => ({ state: window.__ff.state, planted: window.__ff.planted, mode: window.__ff.mode, t: window.__ff.showTime }));
-  check('living', 'replay returns to INTRO and clears planted flowers', rep.state === 'INTRO' && rep.planted === 0 && rep.t < 1, rep);
+  check('living', 'replay returns to INTRO and keeps her planted flowers', rep.state === 'INTRO' && planted > 0 && rep.planted === planted && rep.t < 1, { planted, rep });
+  await b.page.reload();
+  await b.page.waitForFunction(() => window.__ff && window.__ff.frames().count > 4);
+  const kept = await ffv(b.page, () => ({ planted: window.__ff.planted, wake: window.__ff.wakeLock }));
+  check('living', 'planted flowers are still there after a reload', kept.planted === planted, { planted, kept });
+  check('living', 'the wake lock is requested without errors', ['held', 'denied', 'unsupported', 'released'].includes(kept.wake), { wakeLock: kept.wake });
   const tune = await b.page.evaluate(() => !!document.getElementById('tune'));
   check('living', 'no tuning panel without ?tune', !tune, { panel: tune });
   await context.close();
@@ -284,6 +310,46 @@ async function live(vp = PHONE) {
   const m = await ffv(c.page, () => window.__ff.mode);
   check('living', 'works with storage blocked', m === 'full', { mode: m });
   await blocked.close();
+}
+{
+  // the garden: one flower per day, eight in the middle then the far meadow, capped at 120
+  const g = {};
+  for (const d of [0, 5, 60, 500]) {
+    const { page, context } = await open(PHONE, '?preview&seed=1&test&day=' + d);
+    g[d] = await ffv(page, () => window.__ff.garden);
+    await context.close();
+  }
+  const ok = g[0].days === 0 && g[5].days === 5 && g[5].mid === 5 && g[60].mid === 8 && g[60].far === 52 && g[500].days === 120;
+  check('garden', 'one new flower per day: first eight mid field, then the far meadow, capped at 120', ok, { day0: g[0].days, day5: g[5], day60: g[60], day500: g[500].days });
+}
+{
+  // asleep: the field folds and dims, the fantasy flower stays lit, frames drop to half rate
+  const { page, context } = await open(PHONE, '?preview&seed=1&test&tod=night');
+  await sleep(600);
+  const lum = () => page.evaluate(() => {
+    const c = document.getElementById('c');
+    const g = c.getContext('2d');
+    const box = (x, y, r) => {
+      const d = g.getImageData((x - r) * 2, (y - r) * 2, r * 4, r * 4).data;
+      let s = 0;
+      for (let i = 0; i < d.length; i += 4) s += (Math.max(d[i], d[i + 1], d[i + 2]) + Math.min(d[i], d[i + 1], d[i + 2])) / 510;
+      return s / (d.length / 4);
+    };
+    const f = window.__ff.fantasy;
+    const r = window.__ff.heads.find((h) => h.kind === 'rose');
+    return { fantasy: box(f.x, f.y, f.r * 0.4), rose: box(r.x + r.w / 2, r.y + r.h / 2, r.w * 0.3) };
+  });
+  const awake = await lum();
+  await ffv(page, () => window.__ff.forceDim());
+  await sleep(6800);
+  await ffv(page, () => window.__ff.resetFrames());
+  await sleep(1500);
+  const slept = await lum();
+  const fr = await ffv(page, () => ({ frames: window.__ff.frames(), dim: window.__ff.dim, low: window.__ff.lowPower }));
+  const keep = slept.fantasy / awake.fantasy, fold = slept.rose / awake.rose;
+  check('sleep', 'asleep, the field dims and the fantasy flower stays lit as a nightlight', fr.dim === 1 && keep > 0.85 && fold < 0.9, { fantasyKept: +keep.toFixed(2), roseKept: +fold.toFixed(2) });
+  check('sleep', 'asleep, frames drop to half rate', fr.low === true && fr.frames.median > 25, { median: +fr.frames.median.toFixed(1), low: fr.low });
+  await context.close();
 }
 
 // ---------- tuning panel ----------
@@ -310,7 +376,7 @@ async function live(vp = PHONE) {
 async function clipping(vp, label) {
   const bad = [];
   for (const t of [18, 24, 40]) {
-    const { page, context } = await open(vp, `?full&seed=1&test&tod=night&t=${t}`);
+    const { page, context } = await open(vp, `?full&seed=1&test&tod=night&t=${t}&day=120`);
     const d = await page.evaluate(() => {
       const r = document.getElementById('snd').getBoundingClientRect();
       const r2 = document.getElementById('rep').getBoundingClientRect();
@@ -351,6 +417,6 @@ check('console', 'zero console errors, page errors or external requests across e
 await browser.close();
 server.close();
 const failed = results.filter((r) => !r.ok);
-writeFileSync(join(OUT, 'report.json'), JSON.stringify({ when: new Date().toISOString(), perf: { phone: perfPhone, desktop: perfDesk }, results, errors }, null, 2));
+writeFileSync(join(OUT, 'report.json'), JSON.stringify({ when: new Date().toISOString(), perf: { phone: perfPhone, desktop: perfDesk, garden: perfGarden }, results, errors }, null, 2));
 console.log(`\n${results.length - failed.length}/${results.length} checks passed${failed.length ? ', FAILED: ' + failed.map((f) => f.name).join('; ') : ''}`);
 process.exit(failed.length ? 1 : 0);

@@ -79,8 +79,7 @@ export function buildFireflies(app) {
 function fireflyVis(app) {
   const s = app.s;
   const up = app.show.mode === 'wake' ? win(s, WAKE.fireflies[0], WAKE.fireflies[1]) : win(s, BEATS.fireflies[0], BEATS.fireflies[1]);
-  const boost = 1 + HEART.fireflyBoost * ((app.heart && app.heart.react) || 0);
-  return up * lerp(1, INPUT.dimFireflies, app.dimLevel) * boost;
+  return up * lerp(1, INPUT.dimFireflies, app.dimLevel);
 }
 
 export function drawFireflies(ctx, app) {
@@ -90,12 +89,14 @@ export function drawFireflies(ctx, app) {
   const T = app.clock.T;
   const spr = glow(PALETTE.firefly);
   const F = FIREFLY;
+  // while the heart is out their soft halos swell; the bright cores stay as they are
+  const boost = 1 + HEART.fireflyBoost * ((app.heart && app.heart.react) || 0);
   ctx.globalCompositeOperation = app.theme.glowBlend;
   for (const f of ff.list) {
     const x = f.hx + f.R * Math.sin(f.wx * T + f.px);
     const y = f.hy + f.R * F.ySquash * Math.sin(f.wy * T + f.py);
     const pulse = Math.pow((1 + Math.sin(TAU * f.hz * T + f.ph)) / 2, F.pulsePow);
-    drawGlow(ctx, spr, x, y, f.size * F.haloMul, Math.min(MOTION.glowMax, F.haloAlpha * pulse * vis));
+    drawGlow(ctx, spr, x, y, f.size * F.haloMul * boost, Math.min(MOTION.glowMax, F.haloAlpha * pulse * vis * boost));
     drawGlow(ctx, spr, x, y, f.size * F.coreMul, F.coreAlpha * pulse * vis);
   }
   ctx.globalCompositeOperation = 'source-over';
