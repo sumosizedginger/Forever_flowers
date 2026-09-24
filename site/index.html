@@ -255,12 +255,12 @@ const MOTION = {
     breezeHz: 0.05, breezeDepth: 0.4, headFollow: 0.6,
   },
   lean: { max: 0.07, response: 0.35, decay: 2, reachU: 5, fullU: 1.2 },
-  spring: { k: 140, c: 7, scale: 0.14, tiltDeg: 12, peak: 0.057, rest: 0.0005 },
+  spring: { k: 140, c: 7, scale: 0.14, tiltDeg: 12, peak: 0.057, rest: 0.0005, step: 0.008 },
   variance: { size: 0.08, bloomDur: 0.15, tiltDeg: 6, roseLayers: [5, 6] },
   petals: {
     fallU: [0.3, 0.5], driftHz: [0.3, 0.5], driftU: [0.25, 0.7], flip: [2, 5],
     max: 90, landFade: 6, ambient: 44, sizeU: [0.1, 0.15], landU: [0, 0.07],
-    windU: 0.06, spinWobble: 0.6,
+    windU: 0.06, spinWobble: 0.6, hash: [2654435761, 40503],
   },
   fireflies: { count: [14, 22], hz: [0.25, 0.5], driftU: [1, 2], wanderHz: [0.03, 0.08], sizeU: [0.18, 0.3] },
   pollen: { count: 26, driftU: [0.6, 1.6], riseU: 0.05, sizeU: [0.05, 0.1], alpha: 0.35 },
@@ -273,7 +273,7 @@ const INPUT = {
   dimIgnoreS: 0.6, plantCap: 20, plantFade: 1.2, hearts: [5, 9], shake: [6, 10],
   idleS: 60, dimS: 6, wakeS: 1.2, dimOpen: 0.5, dimDark: 0.38, dimFireflies: 0.4,
   autoShooting: [18, 34], hitPad: 1.15, blossomHit: 1.8, branchHitU: 0.35,
-  plantMinU: 0.7, plantMaxU: 5.5,
+  plantMinU: 0.7, plantMaxU: 5.5, plantPopAt: 0.8, bloomedAt: 0.9,
 };
 
 const HEART = {
@@ -285,7 +285,10 @@ const HEART = {
   curveU: 1.6, moteRU: 0.16, moteAlpha: 0.9,
 };
 
-const GOLD = { chance: 1 / 8, guaranteeBy: 4, glints: 6, glintHz: 0.55, spinHz: 0.03, glowAlpha: 0.3 };
+const GOLD = {
+  chance: 1 / 8, guaranteeBy: 4, glints: 6, glintHz: 0.55, spinHz: 0.03, glowAlpha: 0.3, glowU: 1.5,
+  glintR: [0.3, 0.82], glintSize: 0.24, glintPow: 4, glintMin: 0.6, glintCut: 0.02, deep: 0.37,
+};
 
 const SHOOTING = {
   dur: 1.1, lengthU: 2.6, travelU: 4.2, alpha: 0.75, dayAlpha: 0.35, angle: [0.35, 0.75],
@@ -306,8 +309,8 @@ const LAYOUT = {
     { color: 'lavender', fx: 0.95, hy: 0.505 },
   ],
   roseOrder: [0, 4, 1, 3, 2],   // outside in, alternating left and right
-  wildCount: [10, 14], wildY: [0.66, 0.8], wildAvoidU: 0.5,
-  branch: { anchorY: 0.07, maxY: 0.25, reachW: 0.45, reachU: 6 },
+  wildCount: [10, 14], wildY: [0.66, 0.8], wildJitter: 0.3,
+  branch: { anchorY: 0.075, tipY: 0.165, maxY: 0.25, reachW: 0.45, reachU: 6, anchorU: 0.4, c1: [0.35, 0.05], c2: [0.3, -0.03] },
   edgeMarginPx: 6, swayMargin: 0.05,
 };
 
@@ -350,11 +353,64 @@ const AUDIO = {
   ],
 };
 
+// Drawing proportions. Rose and wildflower sizes are fractions of head radius.
+const SHAPE = {
+  stem: {
+    restLean: 0.06, c1Bend: 0.09, c1Follow: 0.15, c1Y: 0.34, c2Rest: 0.55, c2Follow: 0.58, c2Y: 0.7,
+    arcDrop: 0.9, headFollow: 0.6, budScale: 0.55, lineRatio: 1,
+  },
+  leaf: {
+    rose: { count: [2, 3], at: [0.2, 0.62], lenU: [0.5, 0.72] },
+    wild: { count: [0, 1], at: [0.25, 0.5], lenU: [0.24, 0.36] },
+    fantasy: { count: [3, 3], at: [0.16, 0.52], lenU: [0.8, 1.05] },
+    unfurlSpan: 0.28, fold: 0.12, open: [0.7, 1.05],
+    sprite: [48, 128], ctrl: [0.92, 0.78, 0.83, 0.23], rib: 0.85, ribAlpha: 0.35, ribW: 2.5, ribDark: 0.35,
+  },
+  rose: {
+    layerR: [1, 0.86, 0.72, 0.58, 0.45, 0.32], petals: [6, 5, 5, 5, 4, 4], twist: 0.62, lag: 0.12,
+    budR: 0.34, budShrink: 0.06, budStretch: 1.5, squash: 0.86, spread: 1.28,
+    ctrl: [0.2, 1, 0.72, 1.1, 0.96, 0.45, 1.06],
+    stops: [0, 0.42, 0.78, 1], deep: 0.62, base: 0.4, edge: 0.34, edgeTo: '#FFF1E4',
+    lineDark: 0.55, lineAlpha: 0.32, lineW: 0.025,
+    spiralR: 0.24, spiralTurns: 2.4, spiralW: 0.05, spiralSteps: 36, coreR: 0.07,
+    sepals: [-0.9, 0, 0.9], sepalLen: 0.8, sepalW: 0.26, sepalFade: 1.6, sepalDrop: 0.3,
+    goldStops: [0, 0.34, 0.56, 0.72, 0.86, 1],
+  },
+  // Wildflower types by palette index: petals, length, width, roundness of tip.
+  wild: [
+    { petals: 8, len: 1, w: 0.2, round: 0.6, center: 0.26, c: 0 },
+    { petals: 5, len: 0.95, w: 0.52, round: 1, center: 0.24, c: 0 },
+    { petals: 5, len: 0.92, w: 0.5, round: 0.9, center: 0.3, c: 1 },
+    { petals: 11, len: 1, w: 0.15, round: 0.5, center: 0.28, c: 0 },
+    { petals: 6, len: 1, w: 0.36, round: 0.2, center: 0.24, c: 1 },
+  ],
+  wildShade: { base: 0.3, edge: 0.18, dots: 5, dotR: 0.05, dotAt: 0.55, spin: 0.35 },
+  wildPetal: [0.3, 0.85, 0.35, 0.5],
+  blossom: {
+    petals: 5, notch: 0.2, w: 0.66, stamens: 7, stamenLen: 0.62, dotR: 0.075, stamenRot: 0.22,
+    lineW: 0.05, budLen: 1.5, budW: 0.8, budMix: 0.22, midAt: 0.44, midMix: 0.45,
+    ctrl: [0.3, 0.92, 1.15, 0.3],
+  },
+  branch: {
+    widthU: [0.2, 0.035], steps: 36, sag: 0.1, rise: 0.05,
+    twigs: [[0.3, -0.55, 0.36], [0.5, 0.45, 0.3], [0.68, -0.4, 0.28], [0.82, 0.5, 0.22]],
+    twigSteps: 12, twigWidth: 0.55, rimAlpha: 0.22, rimW: 0.35, rimMix: 0.3, rimAt: 0.45,
+    swayDeg: 0.6, swayHz: 0.13, shakeDeg: 2.2, blossomSide: 0.35, pad: 1.2,
+    mainShare: 0.5, tMin: [0.28, 0.25], spacing: 1.1,
+  },
+  petal: {
+    sprite: [30, 38], notch: 0.16, flipMin: 0.18, aspect: 1.27, fadeIn: 0.4, gap: [0.5, 3], srcSpread: 0.5,
+    ctrl: [0.95, 0.72, 0.9, 0.12], rim: 0.3, base: 0.28,
+    lift: { dur: 1.7, dxU: [0.8, 2.2], dyU: [0.9, 1.9], swirlU: [0.25, 0.6], w: [4, 7] },
+    burst: { vU: [0.6, 1.6], tau: 0.35, up: 0.4 },
+  },
+};
+
 const STORAGE = { visits: 'ff.visits', gold: 'ff.goldSeen', seed: 'ff.seed' };
 
 const PERF = { samples: 1200 };
 
-return { TUNE, TUNE_RANGES, PALETTE, TOD, SPRITE, WORLD, BEATS, WAKE, PREVIEW, MOTION, INPUT, HEART, GOLD, SHOOTING, LAYOUT, UI, SIZE, COUNTS, AUDIO, STORAGE, PERF };
+return { TUNE, TUNE_RANGES, PALETTE, TOD, SPRITE, WORLD, BEATS, WAKE, PREVIEW, MOTION, INPUT, HEART, GOLD, SHOOTING, LAYOUT, UI, SIZE, COUNTS, AUDIO, SHAPE, STORAGE, PERF };
 })();
 __m["params.js"] = (() => {
 // URL test hooks. Without a param nothing she sees changes.
@@ -1083,6 +1139,1094 @@ function drawGrass(ctx, app) {
 
 return { buildGrass, drawGrass };
 })();
+__m["stem.js"] = (() => {
+// Stems are cubic curves that grow from the base and bend with sway, lean
+// and gust. Leaves are one cached sprite drawn with a transform as they unfurl.
+const { SHAPE, MOTION, TUNE } = __m["config.js"];
+const { rgba, darker, clamp01, lerp, easeOutBack } = __m["util.js"];
+const { makeCanvas, place } = __m["sprites.js"];
+
+// Compute the stem for displacement D (px at the head) and growth g.
+// Writes f.full (the whole curve) and f.stem (the grown part), and the head pose.
+function shapeStem(f, D, g) {
+  const S = SHAPE.stem;
+  const h = f.h, x0 = f.x, y0 = f.baseY;
+  const rest = f.bend * h * S.restLean;
+  const p = f.full || (f.full = new Float32Array(8));
+  p[0] = x0; p[1] = y0;
+  p[2] = x0 + f.bend * h * S.c1Bend + D * S.c1Follow; p[3] = y0 - h * S.c1Y;
+  p[4] = x0 + rest * S.c2Rest + D * S.c2Follow; p[5] = y0 - h * S.c2Y;
+  p[6] = x0 + rest + D; p[7] = y0 - h + ((D * D) / (2 * h)) * S.arcDrop;
+  const q = f.stem || (f.stem = new Float32Array(8));
+  const u = 1 - g;
+  const ax = p[0] + (p[2] - p[0]) * g, ay = p[1] + (p[3] - p[1]) * g;
+  const bx = p[2] + (p[4] - p[2]) * g, by = p[3] + (p[5] - p[3]) * g;
+  const cx = p[4] + (p[6] - p[4]) * g, cy = p[5] + (p[7] - p[5]) * g;
+  const dx = ax + (bx - ax) * g, dy = ay + (by - ay) * g;
+  const ex = bx + (cx - bx) * g, ey = by + (cy - by) * g;
+  q[0] = p[0]; q[1] = p[1]; q[2] = ax; q[3] = ay; q[4] = dx; q[5] = dy;
+  q[6] = dx + (ex - dx) * g; q[7] = dy + (ey - dy) * g;
+  // tangent at g on the full curve
+  const tx = 3 * (u * u * (p[2] - p[0]) + 2 * u * g * (p[4] - p[2]) + g * g * (p[6] - p[4]));
+  const ty = 3 * (u * u * (p[3] - p[1]) + 2 * u * g * (p[5] - p[3]) + g * g * (p[7] - p[5]));
+  f.hx = q[6];
+  f.hy = q[7];
+  f.stemAng = Math.atan2(tx, -ty);
+}
+
+function pointAt(p, t) {
+  const u = 1 - t;
+  const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
+  const tx = 3 * (u * u * (p[2] - p[0]) + 2 * u * t * (p[4] - p[2]) + t * t * (p[6] - p[4]));
+  const ty = 3 * (u * u * (p[3] - p[1]) + 2 * u * t * (p[5] - p[3]) + t * t * (p[7] - p[5]));
+  return [a * p[0] + b * p[2] + c * p[4] + d * p[6], a * p[1] + b * p[3] + c * p[5] + d * p[7], Math.atan2(tx, -ty)];
+}
+
+// All stems of one width and color in a single stroke.
+function strokeStems(ctx, list, width, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  let any = false;
+  for (const f of list) {
+    if (f.grow <= 0 || f.gone) continue;
+    const q = f.stem;
+    ctx.moveTo(q[0], q[1]);
+    ctx.bezierCurveTo(q[2], q[3], q[4], q[5], q[6], q[7]);
+    any = true;
+  }
+  if (any) ctx.stroke();
+}
+
+function makeLeaves(rng, spec, U) {
+  const n = rng.int(spec.count[0], spec.count[1]);
+  const leaves = [];
+  let side = rng.sign();
+  for (let i = 0; i < n; i++) {
+    const at = lerp(spec.at[0], spec.at[1], n === 1 ? rng.next() : i / (n - 1));
+    leaves.push({ at, side, len: rng.range(spec.lenU[0], spec.lenU[1]), open: rng.range(SHAPE.leaf.open[0], SHAPE.leaf.open[1]) });
+    side = -side;
+  }
+  return leaves;
+}
+
+function buildLeafSprite(theme) {
+  const L = SHAPE.leaf;
+  const [w, h] = L.sprite;
+  const c = makeCanvas(w, h);
+  const g = c.getContext('2d');
+  const [a, b, cc, d] = L.ctrl;
+  const m = w / 2;
+  const grad = g.createLinearGradient(0, h, 0, 0);
+  grad.addColorStop(0, theme.leaf[0]);
+  grad.addColorStop(1, theme.leaf[1]);
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(m, h);
+  g.bezierCurveTo(m + m * a, h * b, m + m * cc, h * d, m, 0);
+  g.bezierCurveTo(m - m * cc, h * d, m - m * a, h * b, m, h);
+  g.fill();
+  g.strokeStyle = rgba(darker(theme.leaf[0], L.ribDark), L.ribAlpha);
+  g.lineWidth = L.ribW;
+  g.beginPath();
+  g.moveTo(m, h);
+  g.lineTo(m, h * (1 - L.rib));
+  g.stroke();
+  return c;
+}
+
+// Leaves along the full stem, unfurling as growth passes their attach point.
+function drawLeaves(ctx, app, list) {
+  const sprite = app.leafSprite;
+  const { dpr, L } = app;
+  const [sw, sh] = SHAPE.leaf.sprite;
+  const ratio = sw / sh;
+  for (const f of list) {
+    if (f.grow <= 0 || f.gone) continue;
+    for (const lf of f.leaves) {
+      const u = clamp01((f.grow - lf.at) / SHAPE.leaf.unfurlSpan);
+      if (u <= 0) continue;
+      const e = easeOutBack(u, MOTION.popOvershoot * TUNE.overshoot);
+      const [x, y, ang] = pointAt(f.full, lf.at);
+      const len = lf.len * L.U * f.size * e * (f.fade === undefined ? 1 : f.fade);
+      const rot = ang + lf.side * lerp(SHAPE.leaf.fold, lf.open, clamp01(e));
+      place(ctx, dpr, x, y, rot, 1, 1);
+      ctx.drawImage(sprite, -len * ratio / 2, -len, len * ratio, len);
+    }
+  }
+}
+
+return { shapeStem, pointAt, strokeStems, makeLeaves, buildLeafSprite, drawLeaves };
+})();
+__m["rose.js"] = (() => {
+// Roses: layered petals around a deep spiral, bases darker and edges lighter.
+// A closed bud unfolds layer by layer, outer layers first. Once a bloom holds
+// still the head is served from a cached sprite.
+const { SHAPE, PALETTE, GOLD, TUNE } = __m["config.js"];
+const { TAU, mix, darker, rgba, clamp01, lerp, smooth } = __m["util.js"];
+
+function roseColors(theme, name, gold) {
+  const R = SHAPE.rose;
+  if (gold) {
+    const G = PALETTE.gold;
+    return { deep: darker(G.base, GOLD.deep), base: G.base, mid: G.mid, edge: G.edge, line: darker(G.base, R.lineDark), gold: true };
+  }
+  const c = theme.roses[name];
+  return {
+    deep: darker(c, R.deep), base: darker(c, R.base), mid: c, edge: mix(c, R.edgeTo, R.edge),
+    line: darker(c, R.lineDark), gold: false,
+  };
+}
+
+function petalPath(g, len, half, rot) {
+  const [a0, a1, b0, b1, c0, c1, tip] = SHAPE.rose.ctrl;
+  const cs = Math.cos(rot), sn = Math.sin(rot);
+  const X = (u, v) => u * cs - v * sn;
+  const Y = (u, v) => u * sn + v * cs;
+  g.moveTo(0, 0);
+  g.bezierCurveTo(X(len * a0, -half * a1), Y(len * a0, -half * a1), X(len * b0, -half * b1), Y(len * b0, -half * b1), X(len * c0, -half * c1), Y(len * c0, -half * c1));
+  g.quadraticCurveTo(X(len * tip, 0), Y(len * tip, 0), X(len * c0, half * c1), Y(len * c0, half * c1));
+  g.bezierCurveTo(X(len * b0, half * b1), Y(len * b0, half * b1), X(len * a0, half * a1), Y(len * a0, half * a1), 0, 0);
+}
+
+function layerGradient(g, rad, col) {
+  const R = SHAPE.rose;
+  const grad = g.createRadialGradient(0, 0, 0, 0, 0, rad);
+  if (col.gold) {
+    const seq = [col.deep, col.base, col.mid, col.edge, col.mid, col.edge];
+    R.goldStops.forEach((at, i) => grad.addColorStop(at, seq[i]));
+  } else {
+    const seq = [col.deep, col.base, col.mid, col.edge];
+    R.stops.forEach((at, i) => grad.addColorStop(at, seq[i]));
+  }
+  return grad;
+}
+
+function sepals(g, r, open, theme) {
+  const R = SHAPE.rose;
+  const a = 1 - smooth(open * R.sepalFade);
+  if (a <= 0.01) return;
+  g.globalAlpha = a;
+  g.fillStyle = theme.leaf[1];
+  for (const ang of R.sepals) {
+    const len = r * R.sepalLen, half = r * R.sepalW;
+    const rot = Math.PI / 2 + ang;
+    g.save();
+    g.translate(0, r * R.sepalDrop);
+    g.rotate(rot + Math.PI);
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.quadraticCurveTo(len / 2, -half, len, 0);
+    g.quadraticCurveTo(len / 2, half, 0, 0);
+    g.fill();
+    g.restore();
+  }
+  g.globalAlpha = 1;
+}
+
+// Draw a rose head centered at the origin, radius r, opening 0 (bud) to 1 (and a little past).
+function drawRose(g, f, r, open, col, theme) {
+  const R = SHAPE.rose;
+  const layers = f.layers;
+  const K = layers - 1;
+  const o = Math.max(0, open);
+  const over = o > 1 ? o - 1 : 0;
+  const sy = lerp(R.budStretch, R.squash, smooth(Math.min(o, 1)));
+  sepals(g, r, o, theme);
+  g.save();
+  g.scale(1, sy);
+  for (let k = 0; k < layers; k++) {
+    const p = Math.min(1, clamp01(Math.min(o, 1) * (1 + K * R.lag) - k * R.lag)) + over;
+    const bud = R.budR * (1 - k * R.budShrink);
+    const rad = r * lerp(bud, R.layerR[k], smooth(Math.min(p, 1))) * (1 + over);
+    const n = R.petals[k];
+    const half = rad * Math.sin(Math.PI / n) * R.spread;
+    const rot0 = f.petalRot + k * R.twist;
+    g.fillStyle = layerGradient(g, rad, col);
+    g.strokeStyle = rgba(col.line, R.lineAlpha);
+    g.lineWidth = r * R.lineW;
+    for (let j = 0; j < n; j++) {
+      g.beginPath();
+      petalPath(g, rad, half, rot0 + (j * TAU) / n);
+      g.fill();
+      g.stroke();
+    }
+  }
+  // the spiral center
+  const sr = r * R.spiralR * lerp(R.budR, 1, smooth(Math.min(o, 1)));
+  g.strokeStyle = col.deep;
+  g.lineWidth = r * R.spiralW;
+  g.lineCap = 'round';
+  g.beginPath();
+  for (let i = 0; i <= R.spiralSteps; i++) {
+    const t = i / R.spiralSteps;
+    const ang = f.petalRot + t * R.spiralTurns * TAU;
+    const rr = sr * t;
+    if (i === 0) g.moveTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+    else g.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+  }
+  g.stroke();
+  g.fillStyle = col.deep;
+  g.beginPath();
+  g.arc(0, 0, r * R.coreR, 0, TAU);
+  g.fill();
+  g.restore();
+}
+
+function roseKey(f, open, theme) {
+  return `${open.toFixed(3)}|${theme.name}|${f.gold ? 1 : 0}|${f.r.toFixed(2)}|${TUNE.overshoot}`;
+}
+
+// Gold glints: small twinkling stars slowly rotating over the cached head.
+function drawGlints(ctx, app, f, sprite) {
+  const T = app.clock.T;
+  const spin = T * GOLD.spinHz * TAU;
+  for (const gl of f.glints) {
+    const tw = Math.pow(0.5 + 0.5 * Math.sin(TAU * GOLD.glintHz * T + gl.ph), GOLD.glintPow);
+    if (tw < GOLD.glintCut) continue;
+    const ang = spin + gl.ang;
+    const x = f.hx + Math.cos(ang) * gl.rr * f.r;
+    const y = f.hy + Math.sin(ang) * gl.rr * f.r * SHAPE.rose.squash;
+    const s = f.r * GOLD.glintSize * lerp(GOLD.glintMin, 1, tw);
+    ctx.globalAlpha = tw * clamp01(f.openEff);
+    ctx.drawImage(sprite, x - s, y - s, s * 2, s * 2);
+  }
+}
+
+return { roseColors, drawRose, roseKey, drawGlints };
+})();
+__m["wild.js"] = (() => {
+// Small wildflowers, low in the field, facing her. Each palette color has its
+// own petal shape. Popped heads are served from a cached sprite.
+const { SHAPE, TUNE } = __m["config.js"];
+const { TAU, mix, darker, clamp01, lerp } = __m["util.js"];
+
+function petal(g, len, half, round, rot) {
+  const [a, b, c, d] = SHAPE.wildPetal;
+  const cs = Math.cos(rot), sn = Math.sin(rot);
+  const X = (u, v) => u * cs - v * sn;
+  const Y = (u, v) => u * sn + v * cs;
+  const tip = half * lerp(c, c + d, round);
+  g.moveTo(0, 0);
+  g.bezierCurveTo(X(len * a, -half), Y(len * a, -half), X(len * b, -tip), Y(len * b, -tip), X(len, 0), Y(len, 0));
+  g.bezierCurveTo(X(len * b, tip), Y(len * b, tip), X(len * a, half), Y(len * a, half), 0, 0);
+}
+
+// open is the pop progress, 0 to 1 with a little overshoot.
+function drawWild(g, f, r, open, theme) {
+  const spec = SHAPE.wild[f.type];
+  const sh = SHAPE.wildShade;
+  const o = Math.max(0, open);
+  if (o <= 0.001) return;
+  const color = theme.wild[f.type];
+  const center = theme.wildCenter[spec.c];
+  const rad = r * o;
+  const len = rad * spec.len;
+  const half = rad * spec.w;
+  const rot0 = f.petalRot - sh.spin * (1 - clamp01(o));
+  const grad = g.createRadialGradient(0, 0, 0, 0, 0, len);
+  grad.addColorStop(0, darker(color, sh.base));
+  grad.addColorStop(spec.center, color);
+  grad.addColorStop(1, mix(color, SHAPE.rose.edgeTo, sh.edge));
+  g.fillStyle = grad;
+  g.beginPath();
+  for (let i = 0; i < spec.petals; i++) petal(g, len, half, spec.round, rot0 + (i * TAU) / spec.petals);
+  g.fill();
+  g.fillStyle = center;
+  g.beginPath();
+  g.arc(0, 0, rad * spec.center, 0, TAU);
+  g.fill();
+  g.fillStyle = darker(center, sh.base);
+  const dr = rad * sh.dotR;
+  for (let i = 0; i < sh.dots; i++) {
+    const a = f.petalRot + (i * TAU) / sh.dots;
+    g.beginPath();
+    g.arc(Math.cos(a) * rad * spec.center * sh.dotAt, Math.sin(a) * rad * spec.center * sh.dotAt, dr, 0, TAU);
+    g.fill();
+  }
+}
+
+function wildKey(f, open, theme) {
+  return `${open.toFixed(3)}|${theme.name}|${f.r.toFixed(2)}|${TUNE.overshoot}`;
+}
+
+return { drawWild, wildKey };
+})();
+__m["flowers.js"] = (() => {
+// Roses, wildflowers and planted flowers: per flower variance, placement,
+// sway, lean, tap springs, and the stem, leaf and head draw passes.
+const { LAYOUT, SIZE, MOTION, TUNE, SHAPE, GOLD, INPUT, PALETTE, BEATS } = __m["config.js"];
+const { makeRng, TAU, lerp, clamp, clamp01, easeInOutSine, easeOutBack, win } = __m["util.js"];
+const { makeHeadCache, cachedImage, dropCache, place, resetTransform, glow, drawGlow, starSprite } = __m["sprites.js"];
+const { clampHeadX } = __m["layout.js"];
+const { breeze, gust } = __m["wind.js"];
+const { shapeStem, makeLeaves, strokeStems, drawLeaves } = __m["stem.js"];
+const { drawRose, roseColors, roseKey, drawGlints } = __m["rose.js"];
+const { drawWild, wildKey } = __m["wild.js"];
+
+const DEG = Math.PI / 180;
+
+function vary(rng, f) {
+  const v = MOTION.variance;
+  const s = MOTION.sway;
+  f.size = 1 + rng.range(-v.size, v.size);
+  f.bloomMul = 1 + rng.range(-v.bloomDur, v.bloomDur);
+  f.tilt = rng.range(-v.tiltDeg, v.tiltDeg) * DEG;
+  f.petalRot = rng.range(0, TAU);
+  f.swayHz = rng.range(s.hz[0], s.hz[1]);
+  f.swayAmp = rng.range(s.amp[0], s.amp[1]);
+  f.phaseRand = rng.range(0, s.phaseRand);
+  f.bend = rng.range(-1, 1);
+  f.spring = { x: 0, v: 0, dir: 1 };
+  f.leanPx = 0;
+  f.grow = 0; f.open = 0; f.openEff = 0; f.scale = 1; f.ang = 0;
+  f.cache = makeHeadCache();
+}
+
+function makeWild(rng, type, fx, hy) {
+  const f = { kind: 'wild', type, fx, hy };
+  vary(rng, f);
+  f.rMul = rng.next();
+  f.leaves = makeLeaves(rng, SHAPE.leaf.wild);
+  return f;
+}
+
+function createFlowers(app) {
+  const rng = makeRng(app.seed ^ 0xf10e);
+  const roses = LAYOUT.roses.map((spec, i) => {
+    const f = { kind: 'rose', idx: i, colorName: spec.color, fx: spec.fx, hy: spec.hy };
+    vary(rng, f);
+    f.layers = rng.pick(MOTION.variance.roseLayers);
+    f.order = LAYOUT.roseOrder.indexOf(i);
+    f.leaves = makeLeaves(rng, SHAPE.leaf.rose);
+    f.glints = Array.from({ length: GOLD.glints }, (_, k) => ({
+      ang: (k * TAU) / GOLD.glints + rng.range(0, TAU / GOLD.glints),
+      rr: rng.range(GOLD.glintR[0], GOLD.glintR[1]), ph: rng.range(0, TAU),
+    }));
+    return f;
+  });
+  const n = rng.int(LAYOUT.wildCount[0], LAYOUT.wildCount[1]);
+  const types = PALETTE.wild.map((_, i) => i);
+  const wilds = [];
+  let prev = -1;
+  for (let i = 0; i < n; i++) {
+    let type = rng.pick(types);
+    if (type === prev) type = (type + 1) % types.length;
+    prev = type;
+    const fx = (i + 0.5 + rng.range(-LAYOUT.wildJitter, LAYOUT.wildJitter)) / n;
+    const f = makeWild(rng, type, fx, rng.range(LAYOUT.wildY[0], LAYOUT.wildY[1]));
+    f.idx = i;
+    wilds.push(f);
+  }
+  wilds.slice().sort((a, b) => Math.abs(a.fx - 0.5) - Math.abs(b.fx - 0.5)).forEach((f, j) => { f.order = j; });
+  return { roses, wilds, planted: [], rng };
+}
+
+function placeOne(L, f, headX, headY) {
+  f.baseY = L.groundY;
+  f.h = Math.max(f.baseY - headY, L.U * INPUT.plantMinU);
+  const hx = clampHeadX(L, headX, f.r * SHAPE.rose.ctrl[6], f.h * LAYOUT.swayMargin);
+  f.x = hx - f.bend * f.h * SHAPE.stem.restLean;
+  f.phase = f.x * MOTION.sway.phasePerPx + f.phaseRand;
+  dropCache(f.cache);
+}
+
+function placeFlowers(app) {
+  const { L } = app;
+  const U = L.U;
+  const fl = app.flowers;
+  for (const f of fl.roses) {
+    f.r = SIZE.rose.rU * U * f.size;
+    f.gold = f.colorName === 'crimson' && app.gold;
+    placeOne(L, f, L.fieldL + f.fx * L.fieldW, L.H * f.hy);
+  }
+  for (const f of fl.wilds) {
+    f.r = lerp(SIZE.wild.rU[0], SIZE.wild.rU[1], f.rMul) * U * f.size;
+    placeOne(L, f, L.wildL + f.fx * L.wildW, L.H * f.hy);
+  }
+  for (const f of fl.planted) {
+    f.r = lerp(SIZE.wild.rU[0], SIZE.wild.rU[1], f.rMul) * U * f.size;
+    const headY = clamp(f.py * L.H, L.groundY - U * INPUT.plantMaxU, L.groundY - U * INPUT.plantMinU);
+    placeOne(L, f, f.px * L.W, headY);
+  }
+}
+
+function allFlowers(app) {
+  const fl = app.flowers;
+  return fl.roses.concat(fl.wilds, fl.planted);
+}
+
+function stemBases(app) {
+  return allFlowers(app).map((f) => f.x);
+}
+
+// Tap response: a normalized spring kick, peaking near 1.
+function kick(f, dir) {
+  f.spring.v = 1 / MOTION.spring.peak;
+  f.spring.dir = dir;
+}
+
+function springStep(s, dt) {
+  if (s.x === 0 && s.v === 0) return;
+  const sp = MOTION.spring;
+  const n = Math.max(1, Math.ceil(dt / sp.step));
+  const h = dt / n;
+  for (let i = 0; i < n; i++) {
+    const a = -sp.k * s.x - sp.c * s.v;
+    s.v += a * h;
+    s.x += s.v * h;
+  }
+  if (Math.abs(s.x) < sp.rest && Math.abs(s.v) < sp.rest) { s.x = 0; s.v = 0; }
+}
+
+// Plant a wildflower whose head grows to about where she tapped.
+function plant(app, x, y) {
+  const fl = app.flowers;
+  const rng = app.live;
+  const alive = fl.planted.filter((f) => !f.fading);
+  if (alive.length >= INPUT.plantCap) alive[0].fading = app.clock.T;
+  const f = makeWild(rng, rng.int(0, PALETTE.wild.length - 1), 0, 0);
+  f.kind = 'planted';
+  f.px = x / app.L.W;
+  f.py = y / app.L.H;
+  f.t0 = app.clock.T;
+  fl.planted.push(f);
+  placeFlowers(app);
+  return f;
+}
+
+function plantedCount(app) {
+  return app.flowers.planted.filter((f) => !f.fading && !f.gone).length;
+}
+
+function updateFlowers(app, dt) {
+  const T = app.clock.T;
+  const mul = TUNE.swayAmp * app.breath;
+  const sp = MOTION.spring;
+  const fl = app.flowers;
+  const pop = (x) => easeOutBack(x, MOTION.popOvershoot * TUNE.overshoot);
+  for (let i = fl.planted.length - 1; i >= 0; i--) {
+    const f = fl.planted[i];
+    const age = T - f.t0;
+    f.grow = easeInOutSine(win(age, 0, BEATS.wildStems.dur));
+    f.open = pop(win(age, BEATS.wildStems.dur * INPUT.plantPopAt, BEATS.wildPop.dur * f.bloomMul));
+    f.fade = f.fading ? 1 - clamp01((T - f.fading) / INPUT.plantFade) : 1;
+    f.openEff = f.open * f.fade * (app.openDim === undefined ? 1 : app.openDim);
+    if (f.fading && f.fade <= 0) fl.planted.splice(i, 1);
+  }
+  for (const f of allFlowers(app)) {
+    const sway = f.h * f.swayAmp * mul * breeze(f.x, T) * Math.sin(TAU * f.swayHz * TUNE.swaySpeed * T + f.phase);
+    const bow = f.h * TUNE.exhale * gust(app, f.x);
+    springStep(f.spring, dt);
+    shapeStem(f, sway + bow + f.leanPx, f.grow);
+    const sx = f.spring.x;
+    f.ang = f.stemAng * SHAPE.stem.headFollow + f.tilt + sx * sp.tiltDeg * DEG * f.spring.dir;
+    f.scale = (1 + sx * sp.scale) * lerp(SHAPE.stem.budScale, 1, f.grow);
+  }
+}
+
+// ---- draw passes ----
+function drawRoseLayer(ctx, app) {
+  const { dpr, L, theme } = app;
+  const roses = app.flowers.roses;
+  strokeStems(ctx, roses, SIZE.rose.stemW * L.U, theme.stem);
+  drawLeaves(ctx, app, roses);
+  for (const f of roses) {
+    if (f.grow <= 0) continue;
+    const open = f.openEff;
+    if (f.gold && open > 0) {
+      ctx.globalCompositeOperation = 'lighter';
+      drawGlow(ctx, glow(PALETTE.gold.mid), f.hx, f.hy, f.r * GOLD.glowU, Math.min(MOTION.glowMax, GOLD.glowAlpha * TUNE.glow * clamp01(open)));
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    const col = roseColors(theme, f.colorName, f.gold);
+    const draw = (g) => drawRose(g, f, f.r, open, col, theme);
+    const c = cachedImage(f.cache, roseKey(f, open, theme), f.r, dpr, draw);
+    place(ctx, dpr, f.hx, f.hy, f.ang, f.scale, f.scale);
+    ctx.globalAlpha = 1;
+    if (c) ctx.drawImage(c.canvas, -c.r, -c.r, c.r * 2, c.r * 2);
+    else draw(ctx);
+    resetTransform(ctx, dpr);
+    if (f.gold && open > 0) {
+      ctx.globalCompositeOperation = 'lighter';
+      drawGlints(ctx, app, f, starSprite(PALETTE.gold.glint));
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+function drawWildLayer(ctx, app) {
+  const { dpr, L, theme } = app;
+  const list = app.flowers.wilds.concat(app.flowers.planted);
+  strokeStems(ctx, list, SIZE.wild.stemW * L.U, theme.stem);
+  drawLeaves(ctx, app, list);
+  for (const f of list) {
+    if (f.grow <= 0 || f.openEff <= 0.001) continue;
+    const open = f.openEff;
+    const draw = (g) => drawWild(g, f, f.r, open, theme);
+    const c = cachedImage(f.cache, wildKey(f, open, theme), f.r, dpr, draw);
+    place(ctx, dpr, f.hx, f.hy, f.ang, f.scale, f.scale);
+    ctx.globalAlpha = f.fade === undefined ? 1 : f.fade;
+    if (c) ctx.drawImage(c.canvas, -c.r, -c.r, c.r * 2, c.r * 2);
+    else draw(ctx);
+    resetTransform(ctx, dpr);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// Head extents at full bloom, for hit tests and the clipping check.
+function headRadius(f) {
+  const ext = f.kind === 'rose' ? SHAPE.rose.ctrl[6] : SHAPE.wild[f.type].len;
+  return f.r * ext * Math.max(1, f.scale);
+}
+
+function headBoxes(app) {
+  return allFlowers(app).filter((f) => f.grow > 0 && !f.fading).map((f) => {
+    const r = headRadius(f);
+    return { kind: f.kind, idx: f.idx, x: f.hx - r, y: f.hy - r, w: r * 2, h: r * 2 };
+  });
+}
+
+// The nearest bloomed head under (x, y), or null.
+function hitFlower(app, x, y) {
+  let best = null, bestD = Infinity;
+  for (const f of allFlowers(app)) {
+    if (f.fading || f.open < INPUT.bloomedAt || f.grow < 1) continue;
+    const d = Math.hypot(x - f.hx, y - f.hy);
+    if (d < headRadius(f) * INPUT.hitPad && d < bestD) { best = f; bestD = d; }
+  }
+  return best;
+}
+
+return { createFlowers, placeFlowers, allFlowers, stemBases, kick, plant, plantedCount, updateFlowers, drawRoseLayer, drawWildLayer, headRadius, headBoxes, hitFlower };
+})();
+__m["cherry.js"] = (() => {
+// The cherry branch reaching in from the top left, its sakura, and the shake
+// on tap. Once grown and in full bloom the whole branch becomes one sprite.
+const { LAYOUT, SHAPE, SIZE, COUNTS, BEATS, WAKE, MOTION, TUNE, INPUT } = __m["config.js"];
+const { TAU, makeRng, lerp, clamp, clamp01, win, easeInOutSine, easeOutBack, rgba, mix, darker } = __m["util.js"];
+const { makeCanvas, place, resetTransform } = __m["sprites.js"];
+
+const DEG = Math.PI / 180;
+
+function cubicAt(p, t) {
+  const u = 1 - t;
+  const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
+  return [a * p[0] + b * p[2] + c * p[4] + d * p[6], a * p[1] + b * p[3] + c * p[5] + d * p[7]];
+}
+
+function sample(p, n, w0, w1) {
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const [x, y] = cubicAt(p, t);
+    pts.push({ x, y, w: lerp(w0, w1, t), t });
+  }
+  for (let i = 0; i <= n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n, i + 1)];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    pts[i].nx = -(b.y - a.y) / len;
+    pts[i].ny = (b.x - a.x) / len;
+  }
+  return pts;
+}
+
+function buildCherry(app) {
+  const { L } = app;
+  const { U, H } = L;
+  const B = SHAPE.branch;
+  const LB = LAYOUT.branch;
+  const rng = makeRng(app.seed ^ 0xc4e7);
+  const reach = Math.min(L.W * LB.reachW, U * LB.reachU);
+  const ax = L.safe.l - U * LB.anchorU, ay = H * LB.anchorY;
+  const tx = L.safe.l + reach, ty = H * LB.tipY;
+  const main = [ax, ay, ax + reach * LB.c1[0], ay + H * LB.c1[1], tx - reach * LB.c2[0], ty + H * LB.c2[1], tx, ty];
+  const w0 = U * B.widthU[0], w1 = U * B.widthU[1];
+  const limbs = [{ at: 0, pts: sample(main, B.steps, w0, w1), span: 1 }];
+  for (const [at, ang, lenF] of B.twigs) {
+    const [bx, by] = cubicAt(main, at);
+    const base = limbs[0].pts[Math.round(at * B.steps)];
+    const dirA = Math.atan2(base.ny, base.nx) - Math.PI / 2 + ang;
+    const len = reach * lenF;
+    const ex = bx + Math.cos(dirA) * len, ey = by + Math.sin(dirA) * len;
+    const bend = rng.range(-1, 1) * len * B.sag;
+    const twig = [bx, by, bx + (ex - bx) / 3 + bend, by + (ey - by) / 3 - len * B.rise, bx + ((ex - bx) * 2) / 3 + bend, by + ((ey - by) * 2) / 3, ex, ey];
+    limbs.push({ at, pts: sample(twig, B.twigSteps, base.w * B.twigWidth, w1), span: lenF });
+  }
+  // blossoms along the limbs, kept on screen and in the top band
+  const n = rng.int(COUNTS.blossoms[0], COUNTS.blossoms[1]);
+  const blossoms = [];
+  const maxY = H * LB.maxY;
+  for (let i = 0; i < n * 3 && blossoms.length < n; i++) {
+    const li = rng.next() < B.mainShare ? 0 : rng.int(1, limbs.length - 1);
+    const limb = limbs[li];
+    const t = rng.range(B.tMin[li === 0 ? 0 : 1], 1);
+    const p = limb.pts[Math.round(t * (limb.pts.length - 1))];
+    const r = U * rng.range(SIZE.blossomU[0], SIZE.blossomU[1]);
+    const off = rng.range(-1, 1) * U * B.blossomSide;
+    const x = p.x + p.nx * off, y = p.y + p.ny * off;
+    if (x - r < L.minX || y - r < L.minY || y + r > maxY) continue;
+    if (blossoms.some((b) => Math.hypot(b.x - x, b.y - y) < (b.r + r) * B.spacing)) continue;
+    blossoms.push({
+      x, y, r, rot: rng.range(0, TAU), bud: rng.next() < COUNTS.budShare,
+      path: li === 0 ? t : limb.at + t * limb.span, pop: 0,
+    });
+  }
+  blossoms.sort((a, b) => a.path - b.path);
+  blossoms.forEach((b, i) => { b.order = i; });
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const grow = (x, y, r) => { x0 = Math.min(x0, x - r); y0 = Math.min(y0, y - r); x1 = Math.max(x1, x + r); y1 = Math.max(y1, y + r); };
+  for (const l of limbs) for (const p of l.pts) grow(p.x, p.y, p.w);
+  for (const b of blossoms) grow(b.x, b.y, b.r * B.pad);
+  return {
+    ax, ay, limbs, blossoms, grow: 0,
+    box: { x0, y0, x1, y1 },
+    spring: { x: 0, v: 0 }, cache: null, cacheKey: null,
+  };
+}
+
+function limbPath(ctx, pts, upto) {
+  const m = Math.max(1, Math.floor(upto * (pts.length - 1)));
+  ctx.moveTo(pts[0].x + pts[0].nx * pts[0].w / 2, pts[0].y + pts[0].ny * pts[0].w / 2);
+  for (let i = 1; i <= m; i++) ctx.lineTo(pts[i].x + pts[i].nx * pts[i].w / 2, pts[i].y + pts[i].ny * pts[i].w / 2);
+  const e = pts[m];
+  ctx.arc(e.x, e.y, e.w / 2, Math.atan2(e.ny, e.nx), Math.atan2(e.ny, e.nx) + Math.PI);
+  for (let i = m; i >= 0; i--) ctx.lineTo(pts[i].x - pts[i].nx * pts[i].w / 2, pts[i].y - pts[i].ny * pts[i].w / 2);
+  ctx.closePath();
+}
+
+function drawBranch(ctx, app, ch) {
+  const th = app.theme;
+  const B = SHAPE.branch;
+  ctx.fillStyle = th.branch;
+  ctx.beginPath();
+  for (const l of ch.limbs) {
+    const g = l.at === 0 ? ch.grow : clamp01((ch.grow - l.at) / (1 - l.at));
+    if (g > 0) limbPath(ctx, l.pts, g);
+  }
+  ctx.fill();
+  ctx.strokeStyle = rgba(mix(th.branch, th.sakuraEdge, B.rimMix), B.rimAlpha);
+  ctx.lineWidth = app.L.U * B.widthU[1] * B.rimW;
+  ctx.beginPath();
+  for (const l of ch.limbs) {
+    const g = l.at === 0 ? ch.grow : clamp01((ch.grow - l.at) / (1 - l.at));
+    const m = Math.floor(g * (l.pts.length - 1));
+    for (let i = 0; i <= m; i++) {
+      const p = l.pts[i];
+      const x = p.x - p.nx * p.w * B.rimAt, y = p.y - p.ny * p.w * B.rimAt;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+}
+
+function blossomPetal(g, r, w, rot) {
+  const n = SHAPE.blossom.notch;
+  const [a, b, c, d] = SHAPE.blossom.ctrl;
+  const cs = Math.cos(rot), sn = Math.sin(rot);
+  const X = (u, v) => u * cs - v * sn;
+  const Y = (u, v) => u * sn + v * cs;
+  g.moveTo(0, 0);
+  g.bezierCurveTo(X(r * a, -w), Y(r * a, -w), X(r * b, -w * c), Y(r * b, -w * c), X(r, -w * d), Y(r, -w * d));
+  g.lineTo(X(r * (1 - n), 0), Y(r * (1 - n), 0));
+  g.lineTo(X(r, w * d), Y(r, w * d));
+  g.bezierCurveTo(X(r * b, w * c), Y(r * b, w * c), X(r * a, w), Y(r * a, w), 0, 0);
+}
+
+function drawBlossom(g, b, p, th) {
+  const S = SHAPE.blossom;
+  const s = Math.max(0, p);
+  if (s <= 0.001) return;
+  const r = b.r * s;
+  g.save();
+  g.translate(b.x, b.y);
+  g.rotate(b.rot);
+  if (b.bud) {
+    g.fillStyle = mix(th.sakuraCenter, th.sakuraEdge, S.budMix);
+    g.beginPath();
+    g.ellipse(0, 0, r * S.budW / 2, r * S.budLen / 2, 0, 0, TAU);
+    g.fill();
+    g.restore();
+    return;
+  }
+  const grad = g.createRadialGradient(0, 0, 0, 0, 0, r);
+  grad.addColorStop(0, th.sakuraCenter);
+  grad.addColorStop(S.midAt, mix(th.sakuraCenter, th.sakuraEdge, S.midMix));
+  grad.addColorStop(1, th.sakuraEdge);
+  g.fillStyle = grad;
+  g.beginPath();
+  for (let i = 0; i < S.petals; i++) blossomPetal(g, r, (r * S.w) / 2, (i * TAU) / S.petals);
+  g.fill();
+  g.strokeStyle = th.stamen;
+  g.fillStyle = th.stamen;
+  g.lineWidth = r * S.lineW;
+  g.beginPath();
+  for (let i = 0; i < S.stamens; i++) {
+    const a = (i * TAU) / S.stamens + S.stamenRot;
+    g.moveTo(0, 0);
+    g.lineTo(Math.cos(a) * r * S.stamenLen, Math.sin(a) * r * S.stamenLen);
+  }
+  g.stroke();
+  for (let i = 0; i < S.stamens; i++) {
+    const a = (i * TAU) / S.stamens + S.stamenRot;
+    g.beginPath();
+    g.arc(Math.cos(a) * r * S.stamenLen, Math.sin(a) * r * S.stamenLen, r * S.dotR, 0, TAU);
+    g.fill();
+  }
+  g.restore();
+}
+
+// Branch growth and blossom pops from show time.
+function cherryTimes(app) {
+  const ch = app.cherry;
+  const s = app.s;
+  const pop = (x) => easeOutBack(x, MOTION.popOvershoot * TUNE.overshoot);
+  if (app.show.mode === 'wake') {
+    ch.grow = 1;
+    const n = ch.blossoms.length;
+    for (const b of ch.blossoms) {
+      const start = n > 1 ? (b.order / (n - 1)) * (WAKE.span - WAKE.dur) : 0;
+      b.pop = lerp(WAKE.startOpen, 1, pop(win(s, start, WAKE.dur)));
+    }
+    return;
+  }
+  ch.grow = easeInOutSine(win(s, BEATS.branch[0], BEATS.branch[1]));
+  const bl = BEATS.blossoms;
+  for (const b of ch.blossoms) b.pop = pop(win(s, bl.start + b.order * bl.stagger, bl.dur));
+}
+
+function kickCherry(app) {
+  app.cherry.spring.v = 1 / MOTION.spring.peak;
+}
+
+function updateCherry(app, dt) {
+  const s = app.cherry.spring;
+  const sp = MOTION.spring;
+  if (s.x === 0 && s.v === 0) return;
+  const n = Math.max(1, Math.ceil(dt / sp.step));
+  const h = dt / n;
+  for (let i = 0; i < n; i++) { s.v += (-sp.k * s.x - sp.c * s.v) * h; s.x += s.v * h; }
+  if (Math.abs(s.x) < sp.rest && Math.abs(s.v) < sp.rest) { s.x = 0; s.v = 0; }
+}
+
+function settled(ch) {
+  return ch.grow >= 1 && ch.blossoms.every((b) => Math.abs(b.pop - 1) < 1e-4);
+}
+
+function drawCherry(ctx, app) {
+  const ch = app.cherry;
+  if (!ch || ch.grow <= 0) return;
+  const { dpr, L } = app;
+  const B = SHAPE.branch;
+  const rot = (Math.sin(TAU * B.swayHz * app.clock.T) * B.swayDeg * TUNE.swayAmp + ch.spring.x * B.shakeDeg) * DEG;
+  const key = `${app.theme.name}|${L.W}x${L.H}|${dpr}`;
+  if (settled(ch)) {
+    if (ch.cacheKey !== key) {
+      const bx = ch.box;
+      const c = makeCanvas((bx.x1 - bx.x0) * dpr, (bx.y1 - bx.y0) * dpr);
+      const g = c.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, -bx.x0 * dpr, -bx.y0 * dpr);
+      drawBranch(g, app, ch);
+      for (const b of ch.blossoms) drawBlossom(g, b, 1, app.theme);
+      ch.cache = c;
+      ch.cacheKey = key;
+    }
+    place(ctx, dpr, ch.ax, ch.ay, rot, 1, 1);
+    const bx = ch.box;
+    ctx.drawImage(ch.cache, bx.x0 - ch.ax, bx.y0 - ch.ay, bx.x1 - bx.x0, bx.y1 - bx.y0);
+    resetTransform(ctx, dpr);
+    return;
+  }
+  ch.cacheKey = null;
+  place(ctx, dpr, ch.ax, ch.ay, rot, 1, 1);
+  ctx.translate(-ch.ax, -ch.ay);
+  drawBranch(ctx, app, ch);
+  for (const b of ch.blossoms) if (b.pop > 0) drawBlossom(ctx, b, b.pop, app.theme);
+  resetTransform(ctx, dpr);
+}
+
+function hitCherry(app, x, y) {
+  const ch = app.cherry;
+  if (!ch || ch.grow < 1) return false;
+  for (const b of ch.blossoms) if (b.pop > 0.5 && Math.hypot(x - b.x, y - b.y) < b.r * INPUT.blossomHit) return true;
+  const lim = app.L.U * INPUT.branchHitU;
+  for (const l of ch.limbs) for (const p of l.pts) if (Math.hypot(x - p.x, y - p.y) < lim + p.w / 2) return true;
+  return false;
+}
+
+function blossomBoxes(app) {
+  const ch = app.cherry;
+  if (!ch) return [];
+  return ch.blossoms.filter((b) => b.pop > 0).map((b, i) => ({ kind: 'blossom', idx: i, x: b.x - b.r, y: b.y - b.r, w: b.r * 2, h: b.r * 2 }));
+}
+
+return { buildCherry, drawBlossom, cherryTimes, kickCherry, updateCherry, drawCherry, hitCherry, blossomBoxes };
+})();
+__m["petals.js"] = (() => {
+// Falling petals. Every petal is a pure function of time from its spawn, so a
+// frozen frame shows exactly where each one is. Three sources: the ambient
+// sakura stream, the petals the exhale lifts, and petals shaken loose by a tap.
+const { MOTION, BEATS, WAKE, TUNE, SHAPE, PALETTE, INPUT } = __m["config.js"];
+const { TAU, makeRng, lerp, clamp01, easeOutCubic, darker, mix } = __m["util.js"];
+const { makeCanvas, place, resetTransform } = __m["sprites.js"];
+
+const sprites = new Map();
+
+function petalSprite(color, notched) {
+  const key = color + (notched ? 'n' : 'r');
+  if (sprites.has(key)) return sprites.get(key);
+  const S = SHAPE.petal;
+  const [w, h] = S.sprite;
+  const c = makeCanvas(w, h);
+  const g = c.getContext('2d');
+  const m = w / 2;
+  const [a, b, cc, d] = S.ctrl;
+  const grad = g.createLinearGradient(0, h, 0, 0);
+  grad.addColorStop(0, darker(color, S.base));
+  grad.addColorStop(1, mix(color, SHAPE.rose.edgeTo, S.rim));
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(m, h);
+  g.bezierCurveTo(m + m * a, h * b, m + m * cc, h * d, notched ? m * (1 + S.notch) : m, 0);
+  if (notched) g.lineTo(m, h * S.notch);
+  g.bezierCurveTo(m - m * cc, h * d, m - m * a, h * b, m, h);
+  g.fill();
+  sprites.set(key, c);
+  return c;
+}
+
+function fallSpec(rng) {
+  const P = MOTION.petals;
+  return {
+    v: rng.range(P.fallU[0], P.fallU[1]), hz: rng.range(P.driftHz[0], P.driftHz[1]),
+    amp: rng.range(P.driftU[0], P.driftU[1]), flip: rng.range(P.flip[0], P.flip[1]) * rng.sign(),
+    ph: rng.range(0, TAU), rot: rng.range(0, TAU), size: rng.range(P.sizeU[0], P.sizeU[1]),
+    land: rng.range(P.landU[0], P.landU[1]), gap: rng.range(SHAPE.petal.gap[0], SHAPE.petal.gap[1]),
+  };
+}
+
+function buildPetals(app) {
+  const rng = makeRng(app.seed ^ 0x9e7a);
+  const P = MOTION.petals;
+  const ambient = [];
+  for (let i = 0; i < P.ambient; i++) ambient.push({ i, ...fallSpec(rng) });
+  const e = BEATS.exhale;
+  const fl = app.flowers;
+  const sources = fl.roses.concat(fl.wilds);
+  const n = rng.int(e.petalsMin, e.petalsMax);
+  const exhale = [];
+  const L = app.L;
+  const sigma = e.widthU * L.U;
+  const lift = SHAPE.petal.lift;
+  for (let k = 0; k < n; k++) {
+    const f = k < sources.length ? sources[k] : rng.pick(sources);
+    const hx = f.x + f.bend * f.h * SHAPE.stem.restLean, hy = f.baseY - f.h;
+    const pass = (hx + sigma * 2) / (L.W + sigma * 4);
+    const color = f.kind === 'rose' ? (f.gold ? PALETTE.gold.mid : app.theme.roses[f.colorName]) : app.theme.wild[f.type];
+    exhale.push({
+      t0: e.start + e.dur * pass, x0: hx + rng.range(-1, 1) * f.r * SHAPE.petal.srcSpread, y0: hy,
+      sprite: petalSprite(color, false), ...fallSpec(rng),
+      lift: {
+        dur: lift.dur, dx: L.U * rng.range(lift.dxU[0], lift.dxU[1]), dy: L.U * rng.range(lift.dyU[0], lift.dyU[1]),
+        swirl: L.U * rng.range(lift.swirlU[0], lift.swirlU[1]), w: rng.range(lift.w[0], lift.w[1]),
+      },
+    });
+  }
+  const sakura = [petalSprite(app.theme.sakuraEdge, true), petalSprite(mix(app.theme.sakuraEdge, app.theme.sakuraCenter, SHAPE.blossom.midMix), true)];
+  return { ambient, exhale, sakura };
+}
+
+// Petals shaken loose from the branch by a tap.
+function shakePetals(app) {
+  const ch = app.cherry;
+  const open = ch.blossoms.filter((b) => !b.bud);
+  if (!open.length) return;
+  const r = app.live;
+  const n = r.int(INPUT.shake[0], INPUT.shake[1]);
+  const B = SHAPE.petal.burst;
+  const U = app.L.U;
+  for (let k = 0; k < n; k++) {
+    const b = r.pick(open);
+    const ang = r.range(0, TAU);
+    const v = U * r.range(B.vU[0], B.vU[1]);
+    app.fx.petals.push({
+      t0: app.clock.T, x0: b.x, y0: b.y, ...fallSpec(r),
+      sprite: r.pick(app.petals.sakura),
+      burst: { vx: Math.cos(ang) * v, vy: Math.sin(ang) * v - v * B.up, tau: B.tau },
+    });
+  }
+  const cap = MOTION.petals.max - MOTION.petals.ambient - BEATS.exhale.petalsMax;
+  if (app.fx.petals.length > cap) app.fx.petals.splice(0, app.fx.petals.length - cap);
+}
+
+// Position of petal p at age seconds, or null once it has faded on the ground.
+function pose(p, age, U, groundY, out) {
+  const P = MOTION.petals;
+  const S = SHAPE.petal;
+  let ox = 0, oy = 0, fall = age, lifted = 0;
+  if (p.lift) {
+    const l = p.lift;
+    const A = clamp01(age / l.dur);
+    const e = easeOutCubic(A);
+    const fade = 1 - A;
+    ox = l.dx * e + l.swirl * Math.sin(l.w * age) * fade;
+    oy = -l.dy * e + l.swirl * (1 - Math.cos(l.w * age)) * fade;
+    lifted = l.dur;
+    fall = Math.max(0, age - l.dur);
+  }
+  if (p.burst) {
+    const k = 1 - Math.exp(-age / p.burst.tau);
+    ox += p.burst.vx * p.burst.tau * k;
+    oy += p.burst.vy * p.burst.tau * k;
+  }
+  const vel = p.v * U * TUNE.petalFall;
+  const y0 = p.y0 + oy;
+  const yLand = groundY + p.land * U;
+  const landAt = Math.max(0, (yLand - y0) / vel);
+  const landed = fall >= landAt && age >= lifted;
+  const ft = landed ? landAt : fall;
+  out.x = p.x0 + ox + p.amp * U * Math.sin(TAU * p.hz * ft + p.ph) + P.windU * U * ft;
+  out.y = landed ? yLand : y0 + vel * ft;
+  const since = landed ? fall - landAt : 0;
+  if (since > P.landFade) return null;
+  out.a = landed ? 1 - since / P.landFade : clamp01(age / S.fadeIn);
+  out.th = p.rot + p.flip * ft;
+  out.size = p.size * U;
+  return out;
+}
+
+const tmp = { x: 0, y: 0, a: 0, th: 0, size: 0 };
+
+function drawPose(ctx, dpr, sprite, q) {
+  const S = SHAPE.petal;
+  const flip = Math.max(S.flipMin, Math.abs(Math.cos(q.th)));
+  const rot = q.th * MOTION.petals.spinWobble;
+  place(ctx, dpr, q.x, q.y, rot, 1, flip);
+  ctx.globalAlpha = q.a;
+  ctx.drawImage(sprite, -q.size / 2, (-q.size * S.aspect) / 2, q.size, q.size * S.aspect);
+}
+
+function drawPetals(ctx, app) {
+  const pet = app.petals;
+  const ch = app.cherry;
+  if (!pet || !ch) return;
+  const { dpr, L } = app;
+  const U = L.U;
+  const P = MOTION.petals;
+  const wake = app.show.mode === 'wake';
+  const s = wake ? app.s + WAKE.petalHead : app.s;
+  const sources = ch.blossoms.filter((b) => !b.bud);
+  if (sources.length && s >= BEATS.petalFall) {
+    const top = Math.min(...sources.map((b) => b.y));
+    for (const p of pet.ambient) {
+      const vel = p.v * U * TUNE.petalFall;
+      const period = (L.groundY + p.land * U - top) / vel + P.landFade + p.gap;
+      const start = BEATS.petalFall + (p.i / P.ambient) * period;
+      if (s < start) continue;
+      const k = Math.floor((s - start) / period);
+      const age = s - start - k * period;
+      const [h1, h2] = P.hash;
+      const b = sources[(((p.i + 1) * h1 + k * h2) >>> 0) % sources.length];
+      p.x0 = b.x;
+      p.y0 = b.y;
+      const q = pose(p, age, U, L.groundY, tmp);
+      if (q) drawPose(ctx, dpr, pet.sakura[p.i % pet.sakura.length], q);
+    }
+  }
+  if (!wake) {
+    for (const p of pet.exhale) {
+      const age = app.s - p.t0;
+      if (age < 0) continue;
+      const q = pose(p, age, U, L.groundY, tmp);
+      if (q) drawPose(ctx, dpr, p.sprite, q);
+    }
+  }
+  const T = app.clock.T;
+  const dyn = app.fx.petals;
+  for (let i = dyn.length - 1; i >= 0; i--) {
+    const p = dyn[i];
+    const q = pose(p, T - p.t0, U, L.groundY, tmp);
+    if (!q) { dyn.splice(i, 1); continue; }
+    drawPose(ctx, dpr, p.sprite, q);
+  }
+  resetTransform(ctx, dpr);
+  ctx.globalAlpha = 1;
+}
+
+function petalCount(app) {
+  return app.fx.petals.length;
+}
+
+return { petalSprite, buildPetals, shakePetals, drawPetals, petalCount };
+})();
+__m["choreo.js"] = (() => {
+// The beat sheet for the field: stem growth and blooms as pure functions of
+// show time, for the full show and the five second wake up.
+const { BEATS, WAKE, TUNE, MOTION, INPUT } = __m["config.js"];
+const { win, lerp, easeInOutSine, easeOutBack, cubicBezier } = __m["util.js"];
+
+let curve = null;
+let curveK = null;
+
+// Bloom easing is the brief's cubic bezier; the tuning overshoot scales its lift past 1.
+function bloomEase() {
+  if (curveK !== TUNE.overshoot) {
+    const [x1, y1, x2, y2] = MOTION.bloomBezier;
+    curve = cubicBezier(x1, 1 + (y1 - 1) * TUNE.overshoot, x2, y2);
+    curveK = TUNE.overshoot;
+  }
+  return curve;
+}
+
+const popEase = (x) => easeOutBack(x, MOTION.popOvershoot * TUNE.overshoot);
+
+// Wake up: every element reopens from 35% somewhere inside the first 3 seconds.
+function wakeStart(order, n) {
+  return n > 1 ? (order / (n - 1)) * (WAKE.span - WAKE.dur) : 0;
+}
+
+function flowerTimes(app) {
+  const s = app.s;
+  const fl = app.flowers;
+  const bloom = bloomEase();
+  const dim = lerp(1, INPUT.dimOpen, app.dimLevel);
+  if (app.show.mode === 'wake') {
+    const nr = fl.roses.length, nw = fl.wilds.length;
+    for (const f of fl.roses) {
+      f.grow = 1;
+      f.open = lerp(WAKE.startOpen, 1, bloom(win(s, wakeStart(f.order, nr), WAKE.dur * f.bloomMul)));
+    }
+    for (const f of fl.wilds) {
+      f.grow = 1;
+      f.open = lerp(WAKE.startOpen, 1, popEase(win(s, wakeStart(f.order, nw), WAKE.dur * f.bloomMul)));
+    }
+  } else {
+    const rs = BEATS.roseStems, ws = BEATS.wildStems, wp = BEATS.wildPop;
+    for (const f of fl.roses) {
+      const j = f.order;
+      f.grow = easeInOutSine(win(s, rs.start + j * rs.stagger, rs.dur));
+      f.open = bloom(win(s, BEATS.roseBloom.start + j * TUNE.bloomStagger, TUNE.bloomDuration * f.bloomMul));
+    }
+    for (const f of fl.wilds) {
+      const j = f.order;
+      f.grow = easeInOutSine(win(s, ws.start + j * ws.stagger, ws.dur));
+      f.open = popEase(win(s, wp.start + j * wp.stagger, wp.dur * f.bloomMul));
+    }
+  }
+  for (const f of fl.roses) f.openEff = f.open * dim;
+  for (const f of fl.wilds) f.openEff = f.open * dim;
+  app.openDim = dim;
+}
+
+// When each rose starts to bloom, in bloom order, for the sound phrase.
+function roseBloomTimes(app) {
+  return app.flowers.roses.slice().sort((a, b) => a.order - b.order).map((f) => BEATS.roseBloom.start + f.order * TUNE.bloomStagger);
+}
+
+return { bloomEase, popEase, wakeStart, flowerTimes, roseBloomTimes };
+})();
 __m["render.js"] = (() => {
 // The frame, back to front.
 const { PALETTE } = __m["config.js"];
@@ -1223,8 +2367,13 @@ const { readSafe, computeLayout } = __m["layout.js"];
 const { currentTod, buildTheme } = __m["theme.js"];
 const { buildBackground, buildStars, buildMoon } = __m["sky.js"];
 const { buildGrass } = __m["grass.js"];
-const { render } = __m["render.js"];
-const { update } = __m["update.js"];
+const { buildLeafSprite } = __m["stem.js"];
+const { createFlowers, placeFlowers, stemBases, updateFlowers, drawRoseLayer, drawWildLayer, headBoxes } = __m["flowers.js"];
+const { buildCherry, cherryTimes, updateCherry, drawCherry, blossomBoxes } = __m["cherry.js"];
+const { buildPetals, drawPetals } = __m["petals.js"];
+const { flowerTimes } = __m["choreo.js"];
+const { render, addLayer } = __m["render.js"];
+const { update, addStep } = __m["update.js"];
 const { makeStats, recordFrame, installTestHooks } = __m["testhooks.js"];
 
 const params = readParams(location.search);
@@ -1240,8 +2389,10 @@ const app = {
   show: { mode: 'full', start: 0 },
   state: 'INTRO', s: 0, prevS: 0, fadeIn: 0, overlay: 1, darken: 0, skyVis: 1, starReveal: 0,
   bg: null, bgPrev: null, bgMix: 1,
-  stars: [], moon: null, grass: null,
-  fx: { shooting: [] },
+  stars: [], moon: null, grass: null, leafSprite: null,
+  flowers: null, cherry: null, petals: null,
+  breath: 1, dimLevel: 0, openDim: 1, gold: params.gold,
+  fx: { shooting: [], petals: [] },
   stats: makeStats(),
   needsLayout: true,
 };
@@ -1249,13 +2400,27 @@ if (params.preview && params.t === null) app.show.start = -PREVIEW.showTime;
 
 app.tod = currentTod(params);
 app.theme = buildTheme(app.tod);
+app.flowers = createFlowers(app);
 
 function rebuildWorld() {
   app.bg = buildBackground(app);
   app.stars = buildStars(app);
   app.moon = buildMoon(app);
-  app.grass = buildGrass(app, []);
+  app.leafSprite = buildLeafSprite(app.theme);
+  placeFlowers(app);
+  app.cherry = buildCherry(app);
+  app.petals = buildPetals(app);
+  app.grass = buildGrass(app, stemBases(app));
 }
+
+addStep(flowerTimes);
+addStep(cherryTimes);
+addStep(updateFlowers);
+addStep(updateCherry);
+addLayer('mid', drawCherry);
+addLayer('mid', drawRoseLayer);
+addLayer('mid', drawWildLayer);
+addLayer('mid', drawPetals);
 
 function relayout() {
   const W = window.innerWidth;
@@ -1288,7 +2453,9 @@ document.addEventListener('visibilitychange', () => {
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 
-installTestHooks(app, {});
+installTestHooks(app, {
+  get heads() { return headBoxes(app).concat(blossomBoxes(app)); },
+});
 requestAnimationFrame(frame);
 
 return {  };

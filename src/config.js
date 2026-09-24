@@ -165,12 +165,12 @@ export const MOTION = {
     breezeHz: 0.05, breezeDepth: 0.4, headFollow: 0.6,
   },
   lean: { max: 0.07, response: 0.35, decay: 2, reachU: 5, fullU: 1.2 },
-  spring: { k: 140, c: 7, scale: 0.14, tiltDeg: 12, peak: 0.057, rest: 0.0005 },
+  spring: { k: 140, c: 7, scale: 0.14, tiltDeg: 12, peak: 0.057, rest: 0.0005, step: 0.008 },
   variance: { size: 0.08, bloomDur: 0.15, tiltDeg: 6, roseLayers: [5, 6] },
   petals: {
     fallU: [0.3, 0.5], driftHz: [0.3, 0.5], driftU: [0.25, 0.7], flip: [2, 5],
     max: 90, landFade: 6, ambient: 44, sizeU: [0.1, 0.15], landU: [0, 0.07],
-    windU: 0.06, spinWobble: 0.6,
+    windU: 0.06, spinWobble: 0.6, hash: [2654435761, 40503],
   },
   fireflies: { count: [14, 22], hz: [0.25, 0.5], driftU: [1, 2], wanderHz: [0.03, 0.08], sizeU: [0.18, 0.3] },
   pollen: { count: 26, driftU: [0.6, 1.6], riseU: 0.05, sizeU: [0.05, 0.1], alpha: 0.35 },
@@ -183,7 +183,7 @@ export const INPUT = {
   dimIgnoreS: 0.6, plantCap: 20, plantFade: 1.2, hearts: [5, 9], shake: [6, 10],
   idleS: 60, dimS: 6, wakeS: 1.2, dimOpen: 0.5, dimDark: 0.38, dimFireflies: 0.4,
   autoShooting: [18, 34], hitPad: 1.15, blossomHit: 1.8, branchHitU: 0.35,
-  plantMinU: 0.7, plantMaxU: 5.5,
+  plantMinU: 0.7, plantMaxU: 5.5, plantPopAt: 0.8, bloomedAt: 0.9,
 };
 
 export const HEART = {
@@ -195,7 +195,10 @@ export const HEART = {
   curveU: 1.6, moteRU: 0.16, moteAlpha: 0.9,
 };
 
-export const GOLD = { chance: 1 / 8, guaranteeBy: 4, glints: 6, glintHz: 0.55, spinHz: 0.03, glowAlpha: 0.3 };
+export const GOLD = {
+  chance: 1 / 8, guaranteeBy: 4, glints: 6, glintHz: 0.55, spinHz: 0.03, glowAlpha: 0.3, glowU: 1.5,
+  glintR: [0.3, 0.82], glintSize: 0.24, glintPow: 4, glintMin: 0.6, glintCut: 0.02, deep: 0.37,
+};
 
 export const SHOOTING = {
   dur: 1.1, lengthU: 2.6, travelU: 4.2, alpha: 0.75, dayAlpha: 0.35, angle: [0.35, 0.75],
@@ -216,8 +219,8 @@ export const LAYOUT = {
     { color: 'lavender', fx: 0.95, hy: 0.505 },
   ],
   roseOrder: [0, 4, 1, 3, 2],   // outside in, alternating left and right
-  wildCount: [10, 14], wildY: [0.66, 0.8], wildAvoidU: 0.5,
-  branch: { anchorY: 0.07, maxY: 0.25, reachW: 0.45, reachU: 6 },
+  wildCount: [10, 14], wildY: [0.66, 0.8], wildJitter: 0.3,
+  branch: { anchorY: 0.075, tipY: 0.165, maxY: 0.25, reachW: 0.45, reachU: 6, anchorU: 0.4, c1: [0.35, 0.05], c2: [0.3, -0.03] },
   edgeMarginPx: 6, swayMargin: 0.05,
 };
 
@@ -258,6 +261,59 @@ export const AUDIO = {
   chords: [
     [130.81, 164.81, 196], [110, 130.81, 164.81], [87.31, 110, 130.81], [98, 123.47, 146.83],
   ],
+};
+
+// Drawing proportions. Rose and wildflower sizes are fractions of head radius.
+export const SHAPE = {
+  stem: {
+    restLean: 0.06, c1Bend: 0.09, c1Follow: 0.15, c1Y: 0.34, c2Rest: 0.55, c2Follow: 0.58, c2Y: 0.7,
+    arcDrop: 0.9, headFollow: 0.6, budScale: 0.55, lineRatio: 1,
+  },
+  leaf: {
+    rose: { count: [2, 3], at: [0.2, 0.62], lenU: [0.5, 0.72] },
+    wild: { count: [0, 1], at: [0.25, 0.5], lenU: [0.24, 0.36] },
+    fantasy: { count: [3, 3], at: [0.16, 0.52], lenU: [0.8, 1.05] },
+    unfurlSpan: 0.28, fold: 0.12, open: [0.7, 1.05],
+    sprite: [48, 128], ctrl: [0.92, 0.78, 0.83, 0.23], rib: 0.85, ribAlpha: 0.35, ribW: 2.5, ribDark: 0.35,
+  },
+  rose: {
+    layerR: [1, 0.86, 0.72, 0.58, 0.45, 0.32], petals: [6, 5, 5, 5, 4, 4], twist: 0.62, lag: 0.12,
+    budR: 0.34, budShrink: 0.06, budStretch: 1.5, squash: 0.86, spread: 1.28,
+    ctrl: [0.2, 1, 0.72, 1.1, 0.96, 0.45, 1.06],
+    stops: [0, 0.42, 0.78, 1], deep: 0.62, base: 0.4, edge: 0.34, edgeTo: '#FFF1E4',
+    lineDark: 0.55, lineAlpha: 0.32, lineW: 0.025,
+    spiralR: 0.24, spiralTurns: 2.4, spiralW: 0.05, spiralSteps: 36, coreR: 0.07,
+    sepals: [-0.9, 0, 0.9], sepalLen: 0.8, sepalW: 0.26, sepalFade: 1.6, sepalDrop: 0.3,
+    goldStops: [0, 0.34, 0.56, 0.72, 0.86, 1],
+  },
+  // Wildflower types by palette index: petals, length, width, roundness of tip.
+  wild: [
+    { petals: 8, len: 1, w: 0.2, round: 0.6, center: 0.26, c: 0 },
+    { petals: 5, len: 0.95, w: 0.52, round: 1, center: 0.24, c: 0 },
+    { petals: 5, len: 0.92, w: 0.5, round: 0.9, center: 0.3, c: 1 },
+    { petals: 11, len: 1, w: 0.15, round: 0.5, center: 0.28, c: 0 },
+    { petals: 6, len: 1, w: 0.36, round: 0.2, center: 0.24, c: 1 },
+  ],
+  wildShade: { base: 0.3, edge: 0.18, dots: 5, dotR: 0.05, dotAt: 0.55, spin: 0.35 },
+  wildPetal: [0.3, 0.85, 0.35, 0.5],
+  blossom: {
+    petals: 5, notch: 0.2, w: 0.66, stamens: 7, stamenLen: 0.62, dotR: 0.075, stamenRot: 0.22,
+    lineW: 0.05, budLen: 1.5, budW: 0.8, budMix: 0.22, midAt: 0.44, midMix: 0.45,
+    ctrl: [0.3, 0.92, 1.15, 0.3],
+  },
+  branch: {
+    widthU: [0.2, 0.035], steps: 36, sag: 0.1, rise: 0.05,
+    twigs: [[0.3, -0.55, 0.36], [0.5, 0.45, 0.3], [0.68, -0.4, 0.28], [0.82, 0.5, 0.22]],
+    twigSteps: 12, twigWidth: 0.55, rimAlpha: 0.22, rimW: 0.35, rimMix: 0.3, rimAt: 0.45,
+    swayDeg: 0.6, swayHz: 0.13, shakeDeg: 2.2, blossomSide: 0.35, pad: 1.2,
+    mainShare: 0.5, tMin: [0.28, 0.25], spacing: 1.1,
+  },
+  petal: {
+    sprite: [30, 38], notch: 0.16, flipMin: 0.18, aspect: 1.27, fadeIn: 0.4, gap: [0.5, 3], srcSpread: 0.5,
+    ctrl: [0.95, 0.72, 0.9, 0.12], rim: 0.3, base: 0.28,
+    lift: { dur: 1.7, dxU: [0.8, 2.2], dyU: [0.9, 1.9], swirlU: [0.25, 0.6], w: [4, 7] },
+    burst: { vU: [0.6, 1.6], tau: 0.35, up: 0.4 },
+  },
 };
 
 export const STORAGE = { visits: 'ff.visits', gold: 'ff.goldSeen', seed: 'ff.seed' };
