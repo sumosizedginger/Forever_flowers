@@ -3,6 +3,7 @@
 import { WORLD, TOD, SHOOTING, COUNTS, SIZE, PALETTE, SPRITE, LAYOUT } from './config.js';
 import { TAU, mix, rgba, darker, clamp, clamp01, win, easeOutCubic, makeRng } from './util.js';
 import { makeCanvas, starSprite, streakSprite, glow, place, resetTransform, drawGlow } from './sprites.js';
+import { MIST, GROUND } from './config-ground.js';
 
 function ridgePath(g, W, H, spec, phases) {
   const total = spec.waves.reduce((a, w) => a + w[1], 0);
@@ -74,10 +75,14 @@ export function buildBackground(app) {
   g.fillStyle = theme.hills;
   ridgePath(g, W, H, WORLD.farHill, phases(WORLD.farHill));
   g.fill();
+  // mist lying in the valley between the hills, lit by the moon or the sky
+  const mistA = MIST.alpha[theme.name] || 0;
+  for (const [mx, my, rx, ry, a] of MIST.banks.slice(0, 2)) ellipseGlow(g, W * mx, H * my, W * rx, H * ry, theme.mist, mistA * a);
   const nearHill = mix(theme.hills, theme.ground, TOD.nearHillMix);
   g.fillStyle = nearHill;
   ridgePath(g, W, H, WORLD.nearHill, phases(WORLD.nearHill));
   g.fill();
+  for (const [mx, my, rx, ry, a] of MIST.banks.slice(2)) ellipseGlow(g, W * mx, H * my, W * rx, H * ry, theme.mist, mistA * a);
 
   for (const band of WORLD.bands) {
     const col = mix(mix(theme.grass[0], theme.grass[1], band.mix), nearHill, WORLD.bandHillMix * (1 - band.mix));
@@ -90,8 +95,10 @@ export function buildBackground(app) {
   const top = L.groundY - U * WORLD.groundTopU;
   const ground = g.createLinearGradient(0, top, 0, H);
   ground.addColorStop(0, rgba(theme.ground, 0));
-  ground.addColorStop(WORLD.groundStop, theme.ground);
-  ground.addColorStop(1, darker(theme.ground, WORLD.groundFade));
+  // the near ground stays green in the dark rather than falling to black
+  const soil = mix(theme.ground, theme.grass[1], GROUND.lift);
+  ground.addColorStop(WORLD.groundStop, soil);
+  ground.addColorStop(1, darker(soil, GROUND.fade));
   g.fillStyle = ground;
   g.fillRect(0, top, W, H - top);
   return c;

@@ -166,7 +166,7 @@ const TOD = {
       hills: PALETTE.hills, ground: PALETTE.ground, grass: PALETTE.grass,
       stem: PALETTE.stem, leaf: PALETTE.leaf, tint: PALETTE.zenith, tintAmt: 0,
       stars: 1, moon: 1, fireflies: 1, pollen: 0, sun: 0, sunColor: PALETTE.horizon,
-      glow: 1, darken: 0, autoShooting: true, themeColor: PALETTE.zenith,
+      glow: 1, darken: 0, autoShooting: true, themeColor: PALETTE.zenith, mist: '#6E64A8',
       // glows add light against the night; against lighter skies they blend so nothing reaches white
       glowBlend: 'lighter',
     },
@@ -175,21 +175,21 @@ const TOD = {
       hills: '#4A4570', ground: '#1C1B30', grass: ['#20293A', '#3A5646'],
       stem: '#355F42', leaf: ['#2A4E3E', '#4A7E5E'], tint: '#EFB39A', tintAmt: 0.12,
       stars: 0.25, moon: 0.32, fireflies: 0.3, pollen: 0, sun: 0.6, sunColor: '#EFB39A',
-      glow: 0.85, darken: 0, autoShooting: false, themeColor: '#34406E', glowBlend: 'source-over',
+      glow: 0.85, darken: 0, autoShooting: false, themeColor: '#34406E', glowBlend: 'source-over', mist: '#F2C9C0',
     },
     day: {
       sky: ['#6D9CC4', '#9DBED4', '#D2D8CD'], horizon: '#D2D8CD',
       hills: '#7E98A6', ground: '#34483A', grass: ['#2E4636', '#557A56'],
       stem: '#3F6C44', leaf: ['#33603C', '#5E9262'], tint: '#9DBED4', tintAmt: 0.14,
       stars: 0, moon: 0, fireflies: 0, pollen: 1, sun: 0, sunColor: '#D2D8CD',
-      glow: 0.6, darken: 0, autoShooting: false, themeColor: '#4F7390', glowBlend: 'source-over',
+      glow: 0.6, darken: 0, autoShooting: false, themeColor: '#4F7390', glowBlend: 'source-over', mist: '#E4EDF0',
     },
     eve: {
       sky: ['#2F2C5C', '#95506E', '#E8996A'], horizon: '#E8996A',
       hills: '#4A2F4E', ground: '#1C1422', grass: ['#1E2530', '#344C3E'],
       stem: '#33603A', leaf: ['#244A30', '#44784E'], tint: '#E8996A', tintAmt: 0.12,
       stars: 0.35, moon: 0, fireflies: 0.75, pollen: 0, sun: 1, sunColor: '#E8996A',
-      glow: 0.9, darken: 0, autoShooting: false, themeColor: '#2F2C5C', glowBlend: 'source-over',
+      glow: 0.9, darken: 0, autoShooting: false, themeColor: '#2F2C5C', glowBlend: 'source-over', mist: '#E8A890',
     },
   },
   sunRadiusU: 5, sunAlpha: 0.5, sunX: 0.28,
@@ -218,12 +218,6 @@ const WORLD = {
   groundFade: 0.45, groundTopU: 0.3, groundStop: 0.18,
   ridgeStepPx: 6,
   stars: { maxY: 0.66, pow: 1.35, moonClear: 2.6, sizeGlow: 3.2, depth: [0.25, 0.7], alpha: [0.35, 0.95], delay: [0, 1.8], topBias: 0.5, twinkleUp: 1, spacing: 1.1 },
-  front: {
-    perPx: 0.75, hU: [0.3, 1.1], wU: [0.06, 0.12], rootY: [0.874, 1.02], rootPow: 1.6,
-    shades: [[0.75, 0.12], [0.45, 0.3], [0.15, 0.5]],   // [grass mix, darken toward ground]
-    swayU: 0.06, swayHz: [0.25, 0.5], clumpSpreadU: 0.32, clumpHU: [0.6, 1.15], clumpRootY: [0.876, 0.9],
-    bowLean: 0.5, gustLean: 0.55, tipCurve: 0.45, baseCurve: 0.3,
-  },
   moon: {
     haloStops: [[0, 1], [0.35, 0.35], [1, 0]], haloInner: 0.9,
     light: [-0.3, -0.3, 0.1], edgeMix: 0.62,
@@ -818,7 +812,7 @@ const CUP = {
 const MEADOW = {
   base: 16, band: [0.792, 0.836], lift: [0.018, 0.042], rU: [0.1, 0.17], haze: 0.36, air: 0.5,
   species: ['daisy', 'cosmos', 'wild'],
-  stemW: 0.018, swayMul: 0.35, tufts: 3, tuftU: [0.06, 0.14], tuftW: 0.025, tuftLean: 0.4, edge: 0.03, jitter: 0.4,
+  stemW: 0.018, swayMul: 0.35, tuftHaze: 0.15, tufts: 3, tuftU: [0.06, 0.14], tuftW: 0.025, tuftLean: 0.4, edge: 0.03, jitter: 0.4,
 };
 
 // One new flower for every calendar day since her first visit.
@@ -834,13 +828,6 @@ const GARDEN = {
   sparkleU: 0.9, sparkleDur: 1.3, sparkleAlpha: 0.5, sparkleW: 1.5, sparkleSquash: 0.5,
   glints: 4, glintSize: 0.35, glintSpin: 1.2, glintBoost: 1.6,
   savePrecision: 10000, regrowStagger: 0.09,
-};
-
-// Foreground framing: dark fronds low in the corners and soft out of focus lights.
-const FRONT = {
-  fronds: [[-0.03, 1.01, 0.42, 2.7], [0.07, 1.03, 0.18, 2.1], [0.95, 1.02, -0.3, 2.4], [1.03, 1.0, -0.5, 2.9]],
-  frondDark: 0.5, frondSway: 0.04, frondHz: 0.11, rimMix: 0.3, rimAlpha: 0.22, rimW: 3,
-  bokeh: 6, bokehU: [0.35, 0.7], bokehAlpha: [0.07, 0.13], bokehY: [0.9, 0.99], bokehHz: [0.015, 0.04], bokehDriftU: 1.2,
 };
 
 const LIGHT = {
@@ -870,7 +857,7 @@ const SIDE = {
 };
 const CLEAR = { gapU: 0.42, gapR: 1.05, passes: 2 };
 
-return { FAV_PALETTE, FAVS, CUP, MEADOW, GARDEN, FRONT, LIGHT, SLEEP, HINT, AUTOHEART, SIDE, CLEAR };
+return { FAV_PALETTE, FAVS, CUP, MEADOW, GARDEN, LIGHT, SLEEP, HINT, AUTOHEART, SIDE, CLEAR };
 })();
 __m["theme.js"] = (() => {
 // Time of day. Night is the hero palette; the others tint the field toward
@@ -1054,12 +1041,54 @@ function dropCache(cache) { cache.key = null; cache.pending = null; cache.stable
 
 return { makeCanvas, glow, starSprite, sparkleSprite, streakSprite, place, resetTransform, drawGlow, makeHeadCache, cachedImage, dropCache };
 })();
+__m["config-ground.js"] = (() => {
+// The ground and the air: foreground grass, mist lying in the valleys, and the
+// lens layer of soft out of focus leaves, flowers and lights low in the corners.
+// Sizes are in flower units U, positions fractions of width and height.
+
+const GRASS = {
+  perPx: 1.6, hU: [0.24, 1.2], wU: [0.022, 0.05], nearWide: 1.8, rootY: [0.872, 1.03], rootPow: 1.5,
+  // back to front: [mix toward the light green, darken toward the ground]
+  shades: [[0.85, 0.04], [0.62, 0.14], [0.4, 0.26], [0.2, 0.38]],
+  tipMix: [0.24, 0.19, 0.14, 0.1], shineMix: 0.14, shineOver: 1.24, tip: 0.28,
+  curve: [-0.28, 0.28], swayU: 0.06, swayHz: [0.25, 0.5],
+  clumpSpreadU: 0.3, clumpHU: [0.55, 1.1], clumpRootY: [0.876, 0.9],
+  bowLean: 0.5, gustLean: 0.55, tipCurve: 0.5, bendCurve: 0.35, edge: 0.3,
+};
+
+// Mist in the valleys between the hills: [x, y, half width (of W), half height (of H), alpha].
+const MIST = {
+  banks: [[0.22, 0.752, 0.32, 0.018, 1], [0.72, 0.758, 0.36, 0.02, 0.9], [0.5, 0.79, 0.6, 0.016, 0.7], [0.1, 0.8, 0.25, 0.012, 0.6]],
+  alpha: { night: 0.2, dawn: 0.34, day: 0.26, eve: 0.26 },
+};
+
+// Out of focus foreground: blades and two flowers right at the lens, rendered
+// small and scaled up so they blur, tinted by the time of day, never black.
+const LENS = {
+  fronds: [[-0.03, 1.01, 0.42, 2.7], [0.07, 1.03, 0.18, 2.1], [0.95, 1.02, -0.3, 2.4], [1.03, 1, -0.5, 2.9]],
+  frondSway: 0.04, frondHz: 0.11,
+  small: [10, 34], sprite: [60, 200],     // blade rendered at small, drawn into sprite size: the blur
+  night: { mix: 0.35, lift: 0.1, rim: 0.3 }, day: { mix: 0.5, lift: 0.28, rim: 0.2 },
+  flowers: [
+    { species: 'daisy', x: 0.04, y: 0.985, rU: 1.05, rot: 0.3 },
+    { species: 'cosmos', x: 0.97, y: 0.975, rU: 1.2, rot: -0.4 },
+  ],
+  flowerPx: 14, flowerAlpha: { night: 0.7, day: 0.62 }, flowerSway: 0.03, flowerHz: 0.09,
+  bokeh: 7, bokehU: [0.3, 0.75], bokehAlpha: [0.08, 0.16], bokehY: [0.88, 0.99], bokehHz: [0.015, 0.04], bokehDriftU: 1.2,
+  bokehColors: { night: ['#FFE08A', '#C9B3F2', '#F7B6DA'], day: ['#FFF1E4', '#FFE08A'] },
+};
+
+const GROUND = { lift: 0.35, fade: 0.2 };
+
+return { GRASS, MIST, LENS, GROUND };
+})();
 __m["sky.js"] = (() => {
 // Sky, horizon glow, far hills and the layered field, baked once per layout
 // and time of day. Stars, moon and shooting stars are drawn per frame from sprites.
 const { WORLD, TOD, SHOOTING, COUNTS, SIZE, PALETTE, SPRITE, LAYOUT } = __m["config.js"];
 const { TAU, mix, rgba, darker, clamp, clamp01, win, easeOutCubic, makeRng } = __m["util.js"];
 const { makeCanvas, starSprite, streakSprite, glow, place, resetTransform, drawGlow } = __m["sprites.js"];
+const { MIST, GROUND } = __m["config-ground.js"];
 
 function ridgePath(g, W, H, spec, phases) {
   const total = spec.waves.reduce((a, w) => a + w[1], 0);
@@ -1131,10 +1160,14 @@ function buildBackground(app) {
   g.fillStyle = theme.hills;
   ridgePath(g, W, H, WORLD.farHill, phases(WORLD.farHill));
   g.fill();
+  // mist lying in the valley between the hills, lit by the moon or the sky
+  const mistA = MIST.alpha[theme.name] || 0;
+  for (const [mx, my, rx, ry, a] of MIST.banks.slice(0, 2)) ellipseGlow(g, W * mx, H * my, W * rx, H * ry, theme.mist, mistA * a);
   const nearHill = mix(theme.hills, theme.ground, TOD.nearHillMix);
   g.fillStyle = nearHill;
   ridgePath(g, W, H, WORLD.nearHill, phases(WORLD.nearHill));
   g.fill();
+  for (const [mx, my, rx, ry, a] of MIST.banks.slice(2)) ellipseGlow(g, W * mx, H * my, W * rx, H * ry, theme.mist, mistA * a);
 
   for (const band of WORLD.bands) {
     const col = mix(mix(theme.grass[0], theme.grass[1], band.mix), nearHill, WORLD.bandHillMix * (1 - band.mix));
@@ -1147,8 +1180,10 @@ function buildBackground(app) {
   const top = L.groundY - U * WORLD.groundTopU;
   const ground = g.createLinearGradient(0, top, 0, H);
   ground.addColorStop(0, rgba(theme.ground, 0));
-  ground.addColorStop(WORLD.groundStop, theme.ground);
-  ground.addColorStop(1, darker(theme.ground, WORLD.groundFade));
+  // the near ground stays green in the dark rather than falling to black
+  const soil = mix(theme.ground, theme.grass[1], GROUND.lift);
+  ground.addColorStop(WORLD.groundStop, soil);
+  ground.addColorStop(1, darker(soil, GROUND.fade));
   g.fillStyle = ground;
   g.fillRect(0, top, W, H - top);
   return c;
@@ -1320,63 +1355,92 @@ function gust(app, x) {
 return { breeze, seedBow, gust };
 })();
 __m["grass.js"] = (() => {
-// Dark foreground grass drawn in front of every stem base. Blades are built
-// once per layout and batched into one path per shade each frame.
-const { WORLD, MOTION, COUNTS } = __m["config.js"];
+// Foreground grass in front of every stem base: thin curved blades in a few
+// shades, darker and taller toward her, their tips catching the moon or sun.
+// The breeze shows as a brighter band rolling across the tips. Blades are
+// built once per layout and batched into a few paths each frame.
+const { MOTION, COUNTS } = __m["config.js"];
+const { GRASS } = __m["config-ground.js"];
 const { TAU, mix, makeRng, clamp01, lerp } = __m["util.js"];
 const { breeze, seedBow, gust } = __m["wind.js"];
 
 function buildGrass(app, bases) {
-  const { L, theme } = app;
+  const { L, theme, light } = app;
   const { W, H, U } = L;
-  const f = WORLD.front;
+  const G = GRASS;
   const rng = makeRng(app.seed ^ 0x62a5);
-  const shades = f.shades.length;
-  const blades = f.shades.map(() => []);
+  const n = G.shades.length;
+  const blades = G.shades.map(() => []);
   const add = (x, y, h) => {
     const depth = clamp01((y - L.groundY) / (H - L.groundY));
-    const i = Math.min(shades - 1, Math.floor(depth * shades));
-    blades[i].push({
-      x, y, h, w: U * rng.range(f.wU[0], f.wU[1]) / 2,
-      hz: rng.range(f.swayHz[0], f.swayHz[1]),
-      ph: x * MOTION.sway.phasePerPx + rng.range(0, TAU),
+    blades[Math.min(n - 1, Math.floor(depth * n))].push({
+      x, y, h, w: (U * rng.range(G.wU[0], G.wU[1]) * lerp(1, G.nearWide, depth)) / 2,
+      bend: rng.range(G.curve[0], G.curve[1]) * h,
+      hz: rng.range(G.swayHz[0], G.swayHz[1]), ph: x * MOTION.sway.phasePerPx + rng.range(0, TAU),
     });
   };
-  const n = Math.round(W * f.perPx);
-  for (let i = 0; i < n; i++) {
-    const y = H * lerp(f.rootY[0], f.rootY[1], Math.pow(rng.next(), f.rootPow));
+  const count = Math.round(W * G.perPx);
+  for (let i = 0; i < count; i++) {
+    const y = H * lerp(G.rootY[0], G.rootY[1], Math.pow(rng.next(), G.rootPow));
     const depth = clamp01((y - L.groundY) / (H - L.groundY));
-    add(rng.range(0, W), y, U * lerp(f.hU[0], f.hU[1], (depth + rng.next()) / 2));
+    add(rng.range(0, W), y, U * lerp(G.hU[0], G.hU[1], (depth + rng.next()) / 2));
   }
   for (const bx of bases) {
     for (let k = 0; k < COUNTS.grassClump; k++) {
-      add(bx + rng.range(-1, 1) * U * f.clumpSpreadU, H * rng.range(f.clumpRootY[0], f.clumpRootY[1]), U * rng.range(f.clumpHU[0], f.clumpHU[1]));
+      add(bx + rng.range(-1, 1) * U * G.clumpSpreadU, H * rng.range(G.clumpRootY[0], G.clumpRootY[1]), U * rng.range(G.clumpHU[0], G.clumpHU[1]));
     }
   }
-  const colors = f.shades.map(([gm, dk]) => mix(mix(theme.grass[0], theme.grass[1], gm), theme.ground, dk));
-  return { blades, colors };
+  const colors = G.shades.map(([gm, dk]) => mix(mix(theme.grass[0], theme.grass[1], gm), theme.ground, dk));
+  const tips = colors.map((c, i) => mix(c, light.rimColor, G.tipMix[i]));
+  const shine = colors.map((c, i) => mix(c, light.rimColor, G.tipMix[i] + G.shineMix));
+  const scratch = blades.map((l) => ({ leans: new Float32Array(l.length), lit: new Uint8Array(l.length) }));
+  return { blades, colors, tips, shine, scratch };
+}
+
+// One blade as a curved sliver; `part` draws only the top of it, for the lit tip.
+function blade(ctx, b, lean, part) {
+  const tx = b.x + lean + b.bend, ty = b.y - b.h;
+  if (part) {
+    const k = 1 - GRASS.tip;
+    const bx = b.x + (lean * GRASS.tipCurve + b.bend * GRASS.bendCurve) * k, by = b.y - b.h * k;
+    const w = b.w * GRASS.tip;
+    ctx.moveTo(bx - w, by);
+    ctx.quadraticCurveTo(bx - w * GRASS.edge + (tx - bx) * GRASS.tipCurve, by - (by - ty) * GRASS.tipCurve, tx, ty);
+    ctx.quadraticCurveTo(bx + w * GRASS.edge + (tx - bx) * GRASS.tipCurve, by - (by - ty) * GRASS.tipCurve, bx + w, by);
+    return;
+  }
+  const cx = b.x + lean * GRASS.tipCurve + b.bend * GRASS.bendCurve, cy = b.y - b.h * GRASS.tipCurve;
+  ctx.moveTo(b.x - b.w, b.y);
+  ctx.quadraticCurveTo(cx - b.w * GRASS.edge, cy, tx, ty);
+  ctx.quadraticCurveTo(cx + b.w * GRASS.edge, cy, b.x + b.w, b.y);
 }
 
 function drawGrass(ctx, app) {
   const g = app.grass;
   if (!g) return;
-  const f = WORLD.front;
+  const G = GRASS;
   const T = app.clock.T;
-  const U = app.L.U;
-  const sway = U * f.swayU;
+  const sway = app.L.U * G.swayU;
   for (let s = 0; s < g.blades.length; s++) {
+    const list = g.blades[s];
+    const { leans, lit } = g.scratch[s];
+    for (let i = 0; i < list.length; i++) {
+      const b = list[i];
+      const br = breeze(b.x, T);
+      const bow = seedBow(app, b.x) * G.bowLean + gust(app, b.x) * G.gustLean;
+      leans[i] = sway * Math.sin(TAU * b.hz * T + b.ph) * br + bow * b.h;
+      lit[i] = br > G.shineOver ? 1 : 0;
+    }
     ctx.fillStyle = g.colors[s];
     ctx.beginPath();
-    for (const b of g.blades[s]) {
-      const bow = seedBow(app, b.x) * f.bowLean + gust(app, b.x) * f.gustLean;
-      const lean = sway * Math.sin(TAU * b.hz * T + b.ph) * breeze(b.x, T) + bow * b.h;
-      const tipX = b.x + lean;
-      const tipY = b.y - b.h;
-      ctx.moveTo(b.x - b.w, b.y);
-      ctx.quadraticCurveTo(b.x - b.w * f.baseCurve + lean * f.tipCurve, b.y - b.h * f.tipCurve, tipX, tipY);
-      ctx.quadraticCurveTo(b.x + b.w * f.baseCurve + lean * f.tipCurve, b.y - b.h * f.tipCurve, b.x + b.w, b.y);
-    }
+    for (let i = 0; i < list.length; i++) blade(ctx, list[i], leans[i], false);
     ctx.fill();
+    for (const on of [0, 1]) {
+      ctx.fillStyle = on ? g.shine[s] : g.tips[s];
+      ctx.beginPath();
+      for (let i = 0; i < list.length; i++) if (lit[i] === on) blade(ctx, list[i], leans[i], true);
+      ctx.fill();
+    }
   }
 }
 
@@ -2987,8 +3051,8 @@ function drawMeadowLayer(ctx, app) {
   const th = app.hazeTheme;
   strokeStems(ctx, list, MEADOW.stemW * L.U, th.stem);
   drawHeads(ctx, app, list, th);
-  // small tufts in front of each base so the far stems sit in the grass
-  ctx.fillStyle = th.grass[1];
+  // small tufts in front of each base so the far stems sit in the grass, as dark as the grass there
+  ctx.fillStyle = mix(app.theme.grass[1], app.theme.hills, MEADOW.tuftHaze);
   ctx.beginPath();
   for (const f of list) for (const t of f.tufts) {
     const x = f.x + t.dx * L.U, y = f.baseY + t.dy * L.U, h = t.h * L.U, w = MEADOW.tuftW * L.U;
@@ -3353,46 +3417,66 @@ function drawHint(ctx, app) {
 return { hintPose, drawHint };
 })();
 __m["front.js"] = (() => {
-// The near side of the field: a few dark fronds rising from the bottom corners
-// and soft out of focus lights drifting low, so the scene has a foreground.
-const { FRONT } = __m["config-garden.js"];
-const { SHAPE, PALETTE } = __m["config.js"];
-const { TAU, makeRng, mix, darker, rgba } = __m["util.js"];
+// The near side of the field, right at the lens: soft out of focus blades
+// rising from the bottom corners, two blurred flowers, and drifting lights.
+// Each is rendered small and scaled up, which blurs it for free, and tinted by
+// the time of day so nothing turns into a black cutout under a light sky.
+const { LENS } = __m["config-ground.js"];
+const { SHAPE } = __m["config.js"];
+const { TAU, makeRng, mix } = __m["util.js"];
 const { makeCanvas, glow, drawGlow, place, resetTransform } = __m["sprites.js"];
+const { makePose } = __m["light3d.js"];
+const { renderHead } = __m["petal3d.js"];
+const { daisyModel, daisyParts, cosmosModel, cosmosParts } = __m["models.js"];
 
-function frondSprite(theme) {
-  const [w, h] = SHAPE.leaf.sprite;
-  const [a, b, cc, d] = SHAPE.leaf.ctrl;
+const isDay = (theme) => theme.stars < 0.5;
+
+function frondSprite(theme, light) {
+  const T = isDay(theme) ? LENS.day : LENS.night;
+  const [w, h] = LENS.small;
   const c = makeCanvas(w, h);
   const g = c.getContext('2d');
+  const [a, b, cc, d] = SHAPE.leaf.ctrl;
   const m = w / 2;
-  g.fillStyle = darker(mix(theme.grass[0], theme.ground, FRONT.frondDark), FRONT.frondDark);
+  const body = mix(mix(theme.grass[0], theme.leaf[0], T.mix), theme.leaf[1], T.lift);
+  const grad = g.createLinearGradient(0, 0, w, 0);
+  grad.addColorStop(0, body);
+  grad.addColorStop(1, mix(body, light.rimColor, T.rim));
+  g.fillStyle = grad;
   g.beginPath();
   g.moveTo(m, h);
   g.bezierCurveTo(m + m * a, h * b, m + m * cc, h * d, m, 0);
   g.bezierCurveTo(m - m * cc, h * d, m - m * a, h * b, m, h);
   g.fill();
-  g.strokeStyle = rgba(mix(theme.grass[1], theme.moonRim, FRONT.rimMix), FRONT.rimAlpha);
-  g.lineWidth = FRONT.rimW;
-  g.beginPath();
-  g.moveTo(m, 0);
-  g.bezierCurveTo(m + m * cc, h * d, m + m * a, h * b, m, h);
-  g.stroke();
   return c;
+}
+
+function lensFlower(app, spec, rng) {
+  const px = LENS.flowerPx;
+  const c = makeCanvas(px * 4, px * 4);
+  const g = c.getContext('2d');
+  const f = { petalRot: rng.range(0, TAU), color: rng.int(0, 2) };
+  f.model = spec.species === 'daisy' ? daisyModel(rng) : cosmosModel(rng);
+  const parts = spec.species === 'daisy' ? daisyParts(f, 1, app.theme, true) : cosmosParts(f, 1, app.theme, true);
+  g.translate(px * 2, px * 2);
+  renderHead(g, parts, makePose(f.model.pitch, f.model.yaw), app.light, px);
+  return { ...spec, canvas: c, ph: rng.range(0, TAU) };
 }
 
 function buildFront(app) {
   const { L, theme } = app;
   const rng = makeRng(app.seed ^ 0xf207);
-  const fronds = FRONT.fronds.map(([fx, fy, lean, lenU]) => ({
+  const fronds = LENS.fronds.map(([fx, fy, lean, lenU]) => ({
     x: L.W * fx, y: L.H * fy, lean, len: lenU * L.U, ph: rng.range(0, TAU),
   }));
-  const bokeh = Array.from({ length: FRONT.bokeh }, () => ({
-    x: rng.range(0, L.W), y: L.H * rng.range(FRONT.bokehY[0], FRONT.bokehY[1]),
-    r: L.U * rng.range(FRONT.bokehU[0], FRONT.bokehU[1]), a: rng.range(FRONT.bokehAlpha[0], FRONT.bokehAlpha[1]),
-    hz: rng.range(FRONT.bokehHz[0], FRONT.bokehHz[1]), ph: rng.range(0, TAU),
+  const colors = isDay(theme) ? LENS.bokehColors.day : LENS.bokehColors.night;
+  const bokeh = Array.from({ length: LENS.bokeh }, () => ({
+    x: rng.range(0, L.W), y: L.H * rng.range(LENS.bokehY[0], LENS.bokehY[1]),
+    r: L.U * rng.range(LENS.bokehU[0], LENS.bokehU[1]), a: rng.range(LENS.bokehAlpha[0], LENS.bokehAlpha[1]),
+    hz: rng.range(LENS.bokehHz[0], LENS.bokehHz[1]), ph: rng.range(0, TAU), sprite: glow(rng.pick(colors)),
   }));
-  return { fronds, bokeh, sprite: frondSprite(theme) };
+  const flowers = LENS.flowers.map((spec) => lensFlower(app, spec, rng));
+  return { fronds, bokeh, flowers, sprite: frondSprite(theme, app.light) };
 }
 
 function drawFront(ctx, app) {
@@ -3400,23 +3484,31 @@ function drawFront(ctx, app) {
   if (!fr) return;
   const { dpr, L } = app;
   const T = app.clock.T;
-  const [sw, sh] = SHAPE.leaf.sprite;
+  const [sw, sh] = LENS.small;
   for (const f of fr.fronds) {
-    const rot = f.lean + FRONT.frondSway * Math.sin(TAU * FRONT.frondHz * T + f.ph);
+    const rot = f.lean + LENS.frondSway * Math.sin(TAU * LENS.frondHz * T + f.ph);
     const w = (f.len * sw) / sh;
     place(ctx, dpr, f.x, f.y, rot, 1, 1);
     ctx.drawImage(fr.sprite, -w / 2, -f.len, w, f.len);
   }
+  const fa = isDay(app.theme) ? LENS.flowerAlpha.day : LENS.flowerAlpha.night;
+  ctx.globalAlpha = fa * app.fadeIn;
+  for (const f of fr.flowers) {
+    const r = f.rU * L.U;
+    place(ctx, dpr, L.W * f.x, L.H * f.y, f.rot + LENS.flowerSway * Math.sin(TAU * LENS.flowerHz * T + f.ph), 1, 1);
+    ctx.drawImage(f.canvas, -r * 2, -r * 2, r * 4, r * 4);
+  }
+  ctx.globalAlpha = 1;
   resetTransform(ctx, dpr);
   // out of focus lights blend normally: they soften what is behind them, never add to white
-  const spr = glow(PALETTE.firefly);
-  const vis = app.theme.fireflies;
+  const vis = Math.max(app.theme.fireflies, app.theme.pollen * LENS.bokehAlpha[0]);
   if (vis <= 0.01) return;
   for (const b of fr.bokeh) {
-    const x = b.x + Math.sin(TAU * b.hz * T + b.ph) * FRONT.bokehDriftU * L.U;
-    drawGlow(ctx, spr, x, b.y, b.r, b.a * vis * app.fadeIn);
+    const x = b.x + Math.sin(TAU * b.hz * T + b.ph) * LENS.bokehDriftU * L.U;
+    drawGlow(ctx, b.sprite, x, b.y, b.r, b.a * vis * app.fadeIn);
   }
 }
+
 
 return { buildFront, drawFront };
 })();

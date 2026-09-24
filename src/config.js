@@ -58,7 +58,7 @@ export const TOD = {
       hills: PALETTE.hills, ground: PALETTE.ground, grass: PALETTE.grass,
       stem: PALETTE.stem, leaf: PALETTE.leaf, tint: PALETTE.zenith, tintAmt: 0,
       stars: 1, moon: 1, fireflies: 1, pollen: 0, sun: 0, sunColor: PALETTE.horizon,
-      glow: 1, darken: 0, autoShooting: true, themeColor: PALETTE.zenith,
+      glow: 1, darken: 0, autoShooting: true, themeColor: PALETTE.zenith, mist: '#6E64A8',
       // glows add light against the night; against lighter skies they blend so nothing reaches white
       glowBlend: 'lighter',
     },
@@ -67,21 +67,21 @@ export const TOD = {
       hills: '#4A4570', ground: '#1C1B30', grass: ['#20293A', '#3A5646'],
       stem: '#355F42', leaf: ['#2A4E3E', '#4A7E5E'], tint: '#EFB39A', tintAmt: 0.12,
       stars: 0.25, moon: 0.32, fireflies: 0.3, pollen: 0, sun: 0.6, sunColor: '#EFB39A',
-      glow: 0.85, darken: 0, autoShooting: false, themeColor: '#34406E', glowBlend: 'source-over',
+      glow: 0.85, darken: 0, autoShooting: false, themeColor: '#34406E', glowBlend: 'source-over', mist: '#F2C9C0',
     },
     day: {
       sky: ['#6D9CC4', '#9DBED4', '#D2D8CD'], horizon: '#D2D8CD',
       hills: '#7E98A6', ground: '#34483A', grass: ['#2E4636', '#557A56'],
       stem: '#3F6C44', leaf: ['#33603C', '#5E9262'], tint: '#9DBED4', tintAmt: 0.14,
       stars: 0, moon: 0, fireflies: 0, pollen: 1, sun: 0, sunColor: '#D2D8CD',
-      glow: 0.6, darken: 0, autoShooting: false, themeColor: '#4F7390', glowBlend: 'source-over',
+      glow: 0.6, darken: 0, autoShooting: false, themeColor: '#4F7390', glowBlend: 'source-over', mist: '#E4EDF0',
     },
     eve: {
       sky: ['#2F2C5C', '#95506E', '#E8996A'], horizon: '#E8996A',
       hills: '#4A2F4E', ground: '#1C1422', grass: ['#1E2530', '#344C3E'],
       stem: '#33603A', leaf: ['#244A30', '#44784E'], tint: '#E8996A', tintAmt: 0.12,
       stars: 0.35, moon: 0, fireflies: 0.75, pollen: 0, sun: 1, sunColor: '#E8996A',
-      glow: 0.9, darken: 0, autoShooting: false, themeColor: '#2F2C5C', glowBlend: 'source-over',
+      glow: 0.9, darken: 0, autoShooting: false, themeColor: '#2F2C5C', glowBlend: 'source-over', mist: '#E8A890',
     },
   },
   sunRadiusU: 5, sunAlpha: 0.5, sunX: 0.28,
@@ -110,12 +110,6 @@ export const WORLD = {
   groundFade: 0.45, groundTopU: 0.3, groundStop: 0.18,
   ridgeStepPx: 6,
   stars: { maxY: 0.66, pow: 1.35, moonClear: 2.6, sizeGlow: 3.2, depth: [0.25, 0.7], alpha: [0.35, 0.95], delay: [0, 1.8], topBias: 0.5, twinkleUp: 1, spacing: 1.1 },
-  front: {
-    perPx: 0.75, hU: [0.3, 1.1], wU: [0.06, 0.12], rootY: [0.874, 1.02], rootPow: 1.6,
-    shades: [[0.75, 0.12], [0.45, 0.3], [0.15, 0.5]],   // [grass mix, darken toward ground]
-    swayU: 0.06, swayHz: [0.25, 0.5], clumpSpreadU: 0.32, clumpHU: [0.6, 1.15], clumpRootY: [0.876, 0.9],
-    bowLean: 0.5, gustLean: 0.55, tipCurve: 0.45, baseCurve: 0.3,
-  },
   moon: {
     haloStops: [[0, 1], [0.35, 0.35], [1, 0]], haloInner: 0.9,
     light: [-0.3, -0.3, 0.1], edgeMix: 0.62,

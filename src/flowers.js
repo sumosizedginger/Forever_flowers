@@ -315,8 +315,8 @@ export function drawMeadowLayer(ctx, app) {
   const th = app.hazeTheme;
   strokeStems(ctx, list, MEADOW.stemW * L.U, th.stem);
   drawHeads(ctx, app, list, th);
-  // small tufts in front of each base so the far stems sit in the grass
-  ctx.fillStyle = th.grass[1];
+  // small tufts in front of each base so the far stems sit in the grass, as dark as the grass there
+  ctx.fillStyle = mix(app.theme.grass[1], app.theme.hills, MEADOW.tuftHaze);
   ctx.beginPath();
   for (const f of list) for (const t of f.tufts) {
     const x = f.x + t.dx * L.U, y = f.baseY + t.dy * L.U, h = t.h * L.U, w = MEADOW.tuftW * L.U;

@@ -68,7 +68,7 @@ export const CUP = {
 export const MEADOW = {
   base: 16, band: [0.792, 0.836], lift: [0.018, 0.042], rU: [0.1, 0.17], haze: 0.36, air: 0.5,
   species: ['daisy', 'cosmos', 'wild'],
-  stemW: 0.018, swayMul: 0.35, tufts: 3, tuftU: [0.06, 0.14], tuftW: 0.025, tuftLean: 0.4, edge: 0.03, jitter: 0.4,
+  stemW: 0.018, swayMul: 0.35, tuftHaze: 0.15, tufts: 3, tuftU: [0.06, 0.14], tuftW: 0.025, tuftLean: 0.4, edge: 0.03, jitter: 0.4,
 };
 
 // One new flower for every calendar day since her first visit.
@@ -84,13 +84,6 @@ export const GARDEN = {
   sparkleU: 0.9, sparkleDur: 1.3, sparkleAlpha: 0.5, sparkleW: 1.5, sparkleSquash: 0.5,
   glints: 4, glintSize: 0.35, glintSpin: 1.2, glintBoost: 1.6,
   savePrecision: 10000, regrowStagger: 0.09,
-};
-
-// Foreground framing: dark fronds low in the corners and soft out of focus lights.
-export const FRONT = {
-  fronds: [[-0.03, 1.01, 0.42, 2.7], [0.07, 1.03, 0.18, 2.1], [0.95, 1.02, -0.3, 2.4], [1.03, 1.0, -0.5, 2.9]],
-  frondDark: 0.5, frondSway: 0.04, frondHz: 0.11, rimMix: 0.3, rimAlpha: 0.22, rimW: 3,
-  bokeh: 6, bokehU: [0.35, 0.7], bokehAlpha: [0.07, 0.13], bokehY: [0.9, 0.99], bokehHz: [0.015, 0.04], bokehDriftU: 1.2,
 };
 
 export const LIGHT = {
