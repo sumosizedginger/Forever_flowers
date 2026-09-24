@@ -28,8 +28,8 @@ function vary(rng, f) {
   f.cache = makeHeadCache();
 }
 
-function makeWild(rng, type, fx, hy) {
-  const f = { kind: 'wild', type, fx, hy };
+function makeWild(rng, type, fx, fy) {
+  const f = { kind: 'wild', type, fx, fy };
   vary(rng, f);
   f.rMul = rng.next();
   f.leaves = makeLeaves(rng, SHAPE.leaf.wild);
@@ -39,7 +39,7 @@ function makeWild(rng, type, fx, hy) {
 export function createFlowers(app) {
   const rng = makeRng(app.seed ^ 0xf10e);
   const roses = LAYOUT.roses.map((spec, i) => {
-    const f = { kind: 'rose', idx: i, colorName: spec.color, fx: spec.fx, hy: spec.hy };
+    const f = { kind: 'rose', idx: i, colorName: spec.color, fx: spec.fx, fy: spec.hy };
     vary(rng, f);
     f.layers = rng.pick(MOTION.variance.roseLayers);
     f.order = LAYOUT.roseOrder.indexOf(i);
@@ -83,11 +83,11 @@ export function placeFlowers(app) {
   for (const f of fl.roses) {
     f.r = SIZE.rose.rU * U * f.size;
     f.gold = f.colorName === 'crimson' && app.gold;
-    placeOne(L, f, L.fieldL + f.fx * L.fieldW, L.H * f.hy);
+    placeOne(L, f, L.fieldL + f.fx * L.fieldW, L.H * f.fy);
   }
   for (const f of fl.wilds) {
     f.r = lerp(SIZE.wild.rU[0], SIZE.wild.rU[1], f.rMul) * U * f.size;
-    placeOne(L, f, L.wildL + f.fx * L.wildW, L.H * f.hy);
+    placeOne(L, f, L.wildL + f.fx * L.wildW, L.H * f.fy);
   }
   for (const f of fl.planted) {
     f.r = lerp(SIZE.wild.rU[0], SIZE.wild.rU[1], f.rMul) * U * f.size;
@@ -132,6 +132,7 @@ export function plant(app, x, y) {
   if (alive.length >= INPUT.plantCap) alive[0].fading = app.clock.T;
   const f = makeWild(rng, rng.int(0, PALETTE.wild.length - 1), 0, 0);
   f.kind = 'planted';
+  f.idx = fl.planted.length;
   f.px = x / app.L.W;
   f.py = y / app.L.H;
   f.t0 = app.clock.T;
@@ -193,9 +194,8 @@ export function drawRoseLayer(ctx, app) {
     else draw(ctx);
     resetTransform(ctx, dpr);
     if (f.gold && open > 0) {
-      ctx.globalCompositeOperation = 'lighter';
+      // Glints sit on light gold, so they blend normally rather than add toward white.
       drawGlints(ctx, app, f, starSprite(PALETTE.gold.glint));
-      ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 1;
     }
   }

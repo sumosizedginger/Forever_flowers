@@ -2,7 +2,7 @@
 // motes spiral in, the petals stretch. Let go at full charge and it flares,
 // then 64 motes fly out into a heart that beats at 72 bpm, and drift away.
 import { HEART, HEART_CURVE, INPUT, PALETTE, SIZE } from './config.js';
-import { TAU, lerp, clamp01, smooth, smoothstep, easeInOutCubic, easeOutCubic, easeInQuad, heartXY, rgba, mod, makeRng } from './util.js';
+import { TAU, lerp, clamp01, smooth, smoothstep, easeInOutCubic, easeOutCubic, easeInQuad, heartXY, rgba, mix, mod, makeRng } from './util.js';
 import { glow, drawGlow } from './sprites.js';
 
 // Timeline from release, derived from the brief's durations.
@@ -13,7 +13,7 @@ const T_END = T_FADE + HEART.fade;
 export const NOVA_LENGTH = T_END;
 
 export function makeHeart() {
-  return { phase: 'idle', active: false, charge: 0, full: false, stretch: 0, flare: 0, beat: 0, pressT: 0, releaseT: 0, shape: null, motes: [] };
+  return { phase: 'idle', active: false, charge: 0, full: false, stretch: 0, flare: 0, beat: 0, moteHide: 0, pressT: 0, releaseT: 0, shape: null, motes: [] };
 }
 
 // 64 points spaced evenly along the heart outline, in curve units.
@@ -118,6 +118,8 @@ export function updateHeart(app, dt) {
     const r = T - h.releaseT;
     h.stretch = HEART.stretch * (1 - smooth(r / T_FLY));
     h.flare = r < T_FLY ? smooth(r / T_FLY) : 1 - smooth((r - T_FLY) / HEART.flareRelax);
+    // the orbiting motes step aside while the heart's own motes are out
+    h.moteHide = r < T_FADE ? smooth(r / T_FLY) : 1 - smooth((r - T_FADE) / HEART.fade);
     h.beat = 0;
     if (r >= T_HOLD && r < T_FADE) {
       const period = 60 / HEART.bpm;
@@ -129,6 +131,7 @@ export function updateHeart(app, dt) {
       h.phase = 'idle';
       h.flare = 0;
       h.stretch = 0;
+      h.moteHide = 0;
       if (app.state === 'NOVA') app.state = 'LIVE';
     }
   } else {
@@ -206,9 +209,20 @@ function drawNova(ctx, app) {
     }
     pos.push(p >= 1 ? [x, y, a] : null);
     drawGlow(ctx, glow(m.color), x, y, HEART.moteRU * U * (1 + (h.beat / HEART.lub) * HEART.beatGlow), a);
-    drawGlow(ctx, glow(PALETTE.core[0]), x, y, HEART.coreU * U, a * HEART.coreAlpha);
   }
+  // bright centers blend normally so a mote never adds up to white
   ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = mix(PALETTE.hearts[1], PALETTE.fantasyEdge, HEART.coreMix);
+  ctx.beginPath();
+  for (let i = 0; i < pos.length; i++) {
+    const q = pos[i];
+    if (!q || q[2] <= 0.01) continue;
+    ctx.moveTo(q[0] + HEART.coreU * U, q[1]);
+    ctx.arc(q[0], q[1], HEART.coreU * U, 0, TAU);
+  }
+  ctx.globalAlpha = HEART.coreAlpha * (1 - fade);
+  ctx.fill();
+  ctx.globalAlpha = 1;
   ctx.strokeStyle = rgba(PALETTE.hearts[1], HEART.lineAlpha * (1 - fade));
   ctx.lineWidth = HEART.lineWidthPx;
   ctx.beginPath();

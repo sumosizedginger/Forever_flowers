@@ -110,6 +110,8 @@ export function buildStars(app) {
     const y = Math.pow(rng.next(), st.pow) * H * st.maxY;
     if (Math.hypot(x - L.moon.x, y - L.moon.y) < L.moon.r * st.moonClear) continue;
     const core = rng.range(SIZE.starPx[0], SIZE.starPx[1]);
+    // stars add light, so two never overlap
+    if (stars.some((o) => Math.hypot(o.x - x, o.y - y) < (o.r + core * st.sizeGlow) * st.spacing)) continue;
     stars.push({
       x, y, r: core * st.sizeGlow,
       a: rng.range(st.alpha[0], st.alpha[1]) * (1 - (y / (H * st.maxY)) * st.topBias),
@@ -151,7 +153,8 @@ export function buildMoon(app) {
   const [lx, ly, li] = m.light;
   const disc = g.createRadialGradient(lx * r, ly * r, li * r, 0, 0, r);
   disc.addColorStop(0, rgba(PALETTE.moon, 1));
-  disc.addColorStop(1, mix(PALETTE.moon, PALETTE.moonHalo, m.edgeMix));
+  // edge and rim sit a shade darker: blending two light hues can lift lightness past both
+  disc.addColorStop(1, darker(mix(PALETTE.moon, PALETTE.moonHalo, m.edgeMix), m.edgeDark));
   g.fillStyle = disc;
   g.beginPath();
   g.arc(0, 0, r, 0, TAU);
@@ -162,7 +165,7 @@ export function buildMoon(app) {
     g.arc(cx * r, cy * r, cr * r, 0, TAU);
     g.fill();
   }
-  g.strokeStyle = rgba(PALETTE.moonHalo, m.rimAlpha);
+  g.strokeStyle = rgba(darker(PALETTE.moonHalo, m.edgeDark), m.rimAlpha);
   g.lineWidth = r * m.rimW;
   g.beginPath();
   g.arc(0, 0, r * m.rimAt, 0, TAU);

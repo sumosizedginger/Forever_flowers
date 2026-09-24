@@ -43,6 +43,7 @@ export const PALETTE = {
   butterflies: [['#A9D3F5', '#9B7CFF'], ['#F7B6DA', '#FF7AD9']],
   buttonInk: '#FFE1F0', buttonBg: '#16103A',
   maxLightness: 0.95,   // nothing anywhere above 95% HSL lightness
+  capLightness: 0.94,   // colors are capped a little lower so 8 bit rounding never crosses it
 };
 
 // Time of day. Hours are [from, to) on her local clock.
@@ -63,21 +64,21 @@ export const TOD = {
       hills: '#2E2A4E', ground: '#120F22', grass: ['#141C2A', '#223A38'],
       stem: '#2F5A3E', leaf: ['#22473A', '#3E7456'], tint: '#EFB39A', tintAmt: 0.1,
       stars: 0.25, moon: 0.5, fireflies: 0.3, pollen: 0, sun: 0.6, sunColor: '#EFB39A',
-      glow: 0.85, darken: 0.08, autoShooting: false, themeColor: '#34406E',
+      glow: 0.85, darken: 0.14, autoShooting: false, themeColor: '#34406E',
     },
     day: {
       sky: ['#6D9CC4', '#9DBED4', '#D2D8CD'], horizon: '#D2D8CD',
       hills: '#6F8C99', ground: '#16241E', grass: ['#17281F', '#2A4A36'],
       stem: '#335F38', leaf: ['#244C2E', '#44804E'], tint: '#9DBED4', tintAmt: 0.06,
       stars: 0, moon: 0, fireflies: 0, pollen: 1, sun: 0, sunColor: '#D2D8CD',
-      glow: 0.6, darken: 0.14, autoShooting: false, themeColor: '#2A3F52',
+      glow: 0.6, darken: 0.26, autoShooting: false, themeColor: '#2A3F52',
     },
     eve: {
       sky: ['#2F2C5C', '#95506E', '#E8996A'], horizon: '#E8996A',
       hills: '#34203C', ground: '#120A18', grass: ['#131820', '#22322C'],
       stem: '#2F5A36', leaf: ['#20452C', '#3C7248'], tint: '#E8996A', tintAmt: 0.1,
       stars: 0.35, moon: 0.5, fireflies: 0.75, pollen: 0, sun: 1, sunColor: '#E8996A',
-      glow: 0.9, darken: 0.05, autoShooting: false, themeColor: '#2F2C5C',
+      glow: 0.9, darken: 0.14, autoShooting: false, themeColor: '#2F2C5C',
     },
   },
   sunRadiusU: 5, sunAlpha: 0.5, sunX: 0.28,
@@ -104,18 +105,18 @@ export const WORLD = {
   backBlades: { perPx: 0.55, hU: [0.1, 0.26], wU: 0.03, alpha: 0.5, lift: 0.12, lean: 0.3, depth: 0.6, ctrl: [0.4, 0.6, 0.3, 0.5] },
   groundFade: 0.45, groundTopU: 0.3, groundStop: 0.18,
   ridgeStepPx: 6,
-  stars: { maxY: 0.66, pow: 1.35, moonClear: 2.6, sizeGlow: 3.2, depth: [0.25, 0.7], alpha: [0.35, 0.95], delay: [0, 1.8], topBias: 0.5, twinkleUp: 1 },
+  stars: { maxY: 0.66, pow: 1.35, moonClear: 2.6, sizeGlow: 3.2, depth: [0.25, 0.7], alpha: [0.35, 0.95], delay: [0, 1.8], topBias: 0.5, twinkleUp: 1, spacing: 1.1 },
   front: {
-    perPx: 0.75, hU: [0.25, 0.95], wU: [0.06, 0.12], rootY: [0.874, 1.02], rootPow: 1.6,
-    shades: [[0.45, 0.2], [0.15, 0.42], [0, 0.62]],   // [grass mix, darken toward ground]
-    swayU: 0.06, swayHz: [0.25, 0.5], clumpSpreadU: 0.32, clumpHU: [0.45, 0.9], clumpRootY: [0.876, 0.9],
+    perPx: 0.75, hU: [0.3, 1.1], wU: [0.06, 0.12], rootY: [0.874, 1.02], rootPow: 1.6,
+    shades: [[0.75, 0.12], [0.45, 0.3], [0.15, 0.5]],   // [grass mix, darken toward ground]
+    swayU: 0.06, swayHz: [0.25, 0.5], clumpSpreadU: 0.32, clumpHU: [0.6, 1.15], clumpRootY: [0.876, 0.9],
     bowLean: 0.5, gustLean: 0.55, tipCurve: 0.45, baseCurve: 0.3,
   },
   moon: {
     haloStops: [[0, 1], [0.35, 0.35], [1, 0]], haloInner: 0.9,
     light: [-0.3, -0.3, 0.1], edgeMix: 0.62,
     craters: [[-0.3, -0.2, 0.18], [0.25, 0.1, 0.13], [-0.05, 0.38, 0.1], [0.35, -0.32, 0.08]],
-    craterDark: 0.35, craterAlpha: 0.07, rimAlpha: 0.35, rimW: 0.04, rimAt: 0.98,
+    craterDark: 0.35, craterAlpha: 0.07, rimAlpha: 0.35, rimW: 0.04, rimAt: 0.98, edgeDark: 0.07,
   },
 };
 
@@ -194,7 +195,7 @@ export const HEART = {
   lineAlpha: 0.25, lineWidthPx: 1, fade: 1.8, fallU: 1.1, notchU: 1.45,
   curveU: 1.6, curveMin: 0.5, moteRU: 0.16, moteAlpha: 0.9, showR: [1.25, 1.65],
   ringAlpha: 0.55, ringColor: '#FFE08A', dotU: 0.22, dotAlpha: 0.6, spin: 1.25, chargeInner: 1.3,
-  relaxS: 0.12, beatGlow: 0.5, driftU: 0.3, samples: 720, coreU: 0.07, coreAlpha: 0.8,
+  relaxS: 0.12, beatGlow: 0.5, driftU: 0.3, samples: 720, coreU: 0.05, coreAlpha: 0.85, coreMix: 0.5,
 };
 
 export const GOLD = {
@@ -233,9 +234,10 @@ export const UI = {
 };
 
 export const SIZE = {
-  rose: { rU: 0.62, stemW: 0.07 },
-  fantasy: { rU: 1.3, stemW: 0.11, hitU: 1.2, haloU: 3.3, coreU: 0.3 },
-  wild: { rU: [0.2, 0.3], stemW: 0.04 },
+  rose: { rU: 0.7, stemW: 0.07 },
+  // the heart outline is 5.2U wide and must clear the petals, which caps the head at 1.3U
+  fantasy: { rU: 1.3, stemW: 0.11, haloU: 4.2, coreU: 0.3 },
+  wild: { rU: [0.25, 0.36], stemW: 0.04 },
   blossomU: [0.17, 0.23], budU: 0.08,
   leafU: [0.45, 0.75], heartU: [0.18, 0.28],
   butterflyU: 0.36, starPx: [0.8, 2.1],
@@ -330,10 +332,10 @@ export const FANTASY = {
   ],
   squash: 0.9, budSpread: 0.13, budLen: 0.42, budSwell: 0.22, ringDur: 1.9,
   sprite: [72, 180], alpha: 0.86, cycleS: 14, petalPhase: 0.55, ringPhase: 0.33,
-  deep: 0.28, midAt: 0.45, edgeMix: 0.3, glowAt: 0.45, glowR: 0.42, glowMix: 0.55, glowAlpha: 0.42,
+  deep: 0.28, midAt: 0.45, edgeMix: 0.42, glowAt: 0.45, glowR: 0.42, glowMix: 0.55, glowAlpha: 0.42,
   veins: [[0, 0.82], [-0.28, 0.66], [0.28, 0.66]], veinDark: 0.55, veinAlpha: 0.42, veinW: 2, veinTip: 0.6, rimW: 2.4, rimAlpha: 0.9,
   budHalo: [0.05, 0.16], budGlowAlpha: 0.5,
-  coreStops: [[0, 1], [0.5, 0.95], [1, 0]], corePx: 64, coreGlowU: 0.85, coreGlowAlpha: 0.32, coreFlareSize: 0.5,
+  coreStops: [[0, 1], [0.5, 0.95], [1, 0]], corePx: 64, coreGlowU: 1, coreGlowAlpha: 0.35, coreFlareSize: 0.5,
   flicker: [[1.7, 0.05], [3.1, 0.03]],
   stemGlowMix: 0.35, stemGlowAlpha: 0.32, stemGlowW: 0.3,
   motes: 7, moteRU: [1.5, 1.95], moteHz: [0.08, 0.16], moteSizeU: [0.07, 0.12], moteAlpha: 0.75, moteFade: 1,
@@ -360,8 +362,8 @@ export const FIREFLY = { haloMul: 2.4, haloAlpha: 0.3, coreMul: 0.55, coreAlpha:
 export const POLLEN = { yRange: [0.3, 0.86], hz: [0.03, 0.07], riseU: 0.12, riseMul: [0.5, 1], sizeU: [0.035, 0.07], alpha: 0.35 };
 
 export const BUTTERFLY = {
-  flapHz: [5.5, 7.5], spanU: 0.36, enterS: 4.5, region: [0.3, 0.72], wanderHz: [[0.043, 0.071], [0.052, 0.089]],
-  bob: [0.9, 0.12], tilt: 0.35, glowAlpha: 0.12, glowU: 0.9, wingAlpha: 0.88, bodyW: 0.07, bodyL: 0.42,
+  flapHz: [5.5, 7.5], spanU: 0.5, enterS: 4.5, region: [0.3, 0.72], wanderHz: [[0.043, 0.071], [0.052, 0.089]],
+  bob: [0.9, 0.12], tilt: 0.35, glowAlpha: 0.2, glowU: 0.9, wingAlpha: 0.95, bodyW: 0.07, bodyL: 0.42,
   upper: [1, 0.72], lower: [0.68, 0.55], fold: 0.22, edgeMix: 0.22, body: '#2C1A26', px: 96,
   // wing outlines as [x, y] multiples of the wing size: bezier c1, c2, end, then quadratic control
   up: [[0.4, -1], [1, -1.1], [0.9, -0.3], [0.6, 0]],

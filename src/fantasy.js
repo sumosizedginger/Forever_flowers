@@ -223,6 +223,11 @@ export function drawFantasy(ctx, app) {
   const hr = SIZE.fantasy.haloU * U;
   drawGlow(ctx, S.halos[ha], cx, cy, hr, haloA * (1 - hw));
   drawGlow(ctx, S.halos[(ha + 1) % nC], cx, cy, hr, haloA * hw);
+  // the burning core's glow sits behind the glass so it lights the petals from inside
+  let flick = 1;
+  for (const [hz, amt] of F.flicker) flick += amt * Math.sin(TAU * hz * T);
+  const coreMul = 1 + HEART.flareCore * flare;
+  if (f.core > 0) drawGlow(ctx, S.coreGlow, cx, cy, F.coreGlowU * U * coreMul, F.coreGlowAlpha * f.core * flick * glowMul * coreMul);
   ctx.globalCompositeOperation = 'source-over';
 
   // petals, back ring first
@@ -249,22 +254,16 @@ export function drawFantasy(ctx, app) {
   }
   resetTransform(ctx, dpr);
 
-  // the burning core: glow first, then the core itself on top
+  // the burning core itself, over the glass
   if (f.core > 0) {
-    let flick = 1;
-    for (const [hz, amt] of F.flicker) flick += amt * Math.sin(TAU * hz * T);
-    const coreMul = 1 + HEART.flareCore * flare;
-    ctx.globalCompositeOperation = 'lighter';
-    drawGlow(ctx, S.coreGlow, cx, cy, F.coreGlowU * U * coreMul, F.coreGlowAlpha * f.core * flick * glowMul * coreMul);
-    ctx.globalCompositeOperation = 'source-over';
-    const cr = SIZE.fantasy.coreU * U * f.scale * lerp(1, coreMul, F.coreFlareSize);
+    const cr = SIZE.fantasy.coreU * U * f.scale * lerp(1, coreMul, F.coreFlareSize) * flick;
     ctx.globalAlpha = clamp01(f.core);
     ctx.drawImage(S.core, cx - cr, cy - cr, cr * 2, cr * 2);
     ctx.globalAlpha = 1;
   }
 
   // motes orbiting outside the petals
-  const mv = clamp01((f.core - 1 + F.moteFade) / F.moteFade) * f.core;
+  const mv = clamp01((f.core - 1 + F.moteFade) / F.moteFade) * f.core * (1 - (hs.moteHide || 0));
   if (mv > 0) {
     ctx.globalCompositeOperation = 'lighter';
     for (const m of f.motes) {

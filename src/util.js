@@ -128,8 +128,8 @@ function hslToRgb(h, s, l) {
 export function safe(hex) {
   const [r, g, b] = hexToRgb(hex);
   const [h, s, l] = rgbToHsl(r, g, b);
-  if (l <= PALETTE.maxLightness) return rgbToHex(r, g, b);
-  const [r2, g2, b2] = hslToRgb(h, s, PALETTE.maxLightness);
+  if (l <= PALETTE.capLightness) return rgbToHex(r, g, b);
+  const [r2, g2, b2] = hslToRgb(h, s, PALETTE.capLightness);
   return rgbToHex(r2, g2, b2);
 }
 export function lightnessOf(r, g, b) { return rgbToHsl(r, g, b)[2]; }
