@@ -349,7 +349,9 @@ const AUDIO = {
   rosePhrase: ['E5', 'G5', 'A5', 'C6', 'D6'],
   fantasyArp: ['C5', 'E5', 'G5', 'C6', 'E6'],
   goldChime: ['G5', 'C6', 'E6', 'G6'], goldSpacing: 0.07,
-  novaChord: ['C5', 'G5', 'E6'],
+  novaChord: ['C5', 'G5', 'C6', 'E6'], novaSpacing: 0.09,
+  shakeNotes: ['D6', 'E6', 'G6'], starNote: 'G6',
+  floor: 0.0001, tail: 0.05, lookahead: 0.5,
   chords: [
     [130.81, 164.81, 196], [110, 130.81, 164.81], [87.31, 110, 130.81], [98, 123.47, 146.83],
   ],
@@ -3363,6 +3365,321 @@ function updateInput(app, dt) {
 
 return { makeInput, enterDim, wake, resolveTap, attachInput, updateInput };
 })();
+__m["life.js"] = (() => {
+// Living with it: visits, the wake up on return, the golden rose roll, her
+// local clock, and replay. Storage is optional; everything works without it.
+const { STORAGE, GOLD, TOD } = __m["config.js"];
+const { todFromHour, buildTheme } = __m["theme.js"];
+
+const store = {
+  get(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* storage blocked is fine */ } },
+};
+
+function prefersReducedMotion() {
+  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+}
+
+function bootLife(params) {
+  const reduced = prefersReducedMotion();
+  const visits = (parseInt(store.get(STORAGE.visits) || '0', 10) || 0) + 1;
+  store.set(STORAGE.visits, String(visits));
+
+  let seed;
+  if (params.seed !== null) seed = params.seed >>> 0;
+  else {
+    const kept = parseInt(store.get(STORAGE.seed), 10);
+    seed = Number.isFinite(kept) ? kept >>> 0 : (Math.random() * 4294967296) >>> 0;
+    store.set(STORAGE.seed, String(seed));
+  }
+
+  // Test params never roll gold on their own, so frozen frames stay comparable.
+  const testing = params.seed !== null || params.t !== null || params.preview;
+  let gold = params.gold;
+  if (!gold && !testing) {
+    const seen = store.get(STORAGE.gold) === '1';
+    gold = Math.random() < GOLD.chance || (!seen && visits >= GOLD.guaranteeBy);
+    if (gold) store.set(STORAGE.gold, '1');
+  }
+
+  let mode = 'full';
+  if (!params.full && !params.preview && (reduced || visits > 1)) mode = 'wake';
+  return { seed, visits, gold, mode, reduced };
+}
+
+// Recheck her clock every minute; crossfade the sky when the time of day turns.
+function watchClock(app, rebuild) {
+  let last = performance.now();
+  return () => {
+    if (app.params.tod) return;
+    const now = performance.now();
+    if (now - last < TOD.recheckS * 1000) return;
+    last = now;
+    const tod = todFromHour(new Date().getHours());
+    if (tod === app.tod) return;
+    app.bgPrev = app.bg;
+    app.bgMix = 0;
+    app.tod = tod;
+    app.theme = buildTheme(tod);
+    setThemeColor(app.theme.themeColor);
+    rebuild();
+  };
+}
+
+function setThemeColor(color) {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', color);
+}
+
+return { store, bootLife, watchClock, setThemeColor };
+})();
+__m["audio.js"] = (() => {
+// Web Audio only, no files, off until she turns it on. Bells are a sine plus an
+// inharmonic partial through a feedback delay into a lowpass; a soft triangle
+// pad drifts through C, Am, F, G underneath.
+const { AUDIO, BEATS, WAKE, TUNE, FANTASY } = __m["config.js"];
+const { wakeStart } = __m["choreo.js"];
+
+function makeAudio(app) {
+  const A = AUDIO;
+  let ctx = null;
+  let master, bells, padBus;
+  let on = false;
+  let nextChord = 0, chordIdx = 0, padVoices = [];
+
+  function init() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return false;
+    ctx = new AC();
+    master = ctx.createGain();
+    master.gain.value = 0;
+    master.connect(ctx.destination);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = A.lowpass;
+    lp.connect(master);
+    bells = ctx.createGain();
+    bells.connect(lp);
+    const delay = ctx.createDelay(1);
+    delay.delayTime.value = A.delay;
+    const fb = ctx.createGain();
+    fb.gain.value = A.feedback;
+    bells.connect(delay);
+    delay.connect(fb);
+    fb.connect(delay);
+    delay.connect(lp);
+    const padLp = ctx.createBiquadFilter();
+    padLp.type = 'lowpass';
+    padLp.frequency.value = A.pad.lowpass;
+    padBus = ctx.createGain();
+    padBus.gain.value = A.pad.gain;
+    padLp.connect(padBus);
+    padBus.connect(master);
+    padBus.input = padLp;
+    return true;
+  }
+
+  // One bell voice; the two partials together never exceed the voice ceiling.
+  function bell(name, scale, when) {
+    if (!on || !ctx) return;
+    const f = A.notes[name];
+    if (!f) return;
+    const t = Math.max(ctx.currentTime, when || 0);
+    const peak = Math.min(A.bellGain * (scale || 1), A.voiceMax);
+    const parts = [[1, 1], [A.partial, A.partialGain]];
+    const sum = parts.reduce((s, p) => s + p[1], 0);
+    for (const [ratio, g] of parts) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = f * ratio;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime((peak * g) / sum, t + A.attack);
+      env.gain.exponentialRampToValueAtTime(A.floor, t + A.attack + A.decay);
+      osc.connect(env);
+      env.connect(bells);
+      osc.start(t);
+      osc.stop(t + A.attack + A.decay + A.tail);
+    }
+  }
+
+  function arp(names, spacing, scale) {
+    if (!on || !ctx) return;
+    names.forEach((n, i) => bell(n, scale, ctx.currentTime + i * spacing));
+  }
+
+  function chord(freqs, at) {
+    const P = A.pad;
+    const voices = freqs.map((fr, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = fr;
+      osc.detune.value = (i - 1) * P.detune;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, at);
+      g.gain.linearRampToValueAtTime(1 / freqs.length, at + P.attack);
+      osc.connect(g);
+      g.connect(padBus.input);
+      osc.start(at);
+      return { osc, g };
+    });
+    for (const v of padVoices) {
+      v.g.gain.cancelScheduledValues(at);
+      v.g.gain.setValueAtTime(v.g.gain.value, at);
+      v.g.gain.linearRampToValueAtTime(0, at + P.release);
+      v.osc.stop(at + P.release + A.tail);
+    }
+    padVoices = voices;
+  }
+
+  function tickPad() {
+    if (!on || !ctx) return;
+    const now = ctx.currentTime;
+    if (now + A.lookahead >= nextChord) {
+      chord(A.chords[chordIdx % A.chords.length], Math.max(now, nextChord));
+      chordIdx++;
+      nextChord = Math.max(now, nextChord) + A.pad.chordS;
+    }
+  }
+
+  function setOn(v) {
+    if (v && !ctx && !init()) return false;
+    on = v;
+    if (!ctx) return false;
+    const now = ctx.currentTime;
+    master.gain.cancelScheduledValues(now);
+    master.gain.setValueAtTime(master.gain.value, now);
+    if (v) {
+      if (ctx.state !== 'running') ctx.resume();
+      master.gain.linearRampToValueAtTime(A.master, now + A.fadeS);
+      nextChord = now;
+    } else {
+      master.gain.linearRampToValueAtTime(0, now + A.fadeS);
+    }
+    return on;
+  }
+
+  // Notes tied to the show: the rose phrase, wildflower shimmer, the fantasy arpeggio.
+  function showEvents() {
+    const list = [];
+    const fl = app.flowers;
+    const wake = app.show.mode === 'wake';
+    const byOrder = fl.roses.slice().sort((a, b) => a.order - b.order);
+    byOrder.forEach((f, j) => {
+      const at = wake ? wakeStart(f.order, fl.roses.length) : BEATS.roseBloom.start + j * TUNE.bloomStagger;
+      list.push([at, () => bell(A.rosePhrase[j % A.rosePhrase.length])]);
+    });
+    fl.wilds.forEach((f) => {
+      const at = wake ? wakeStart(f.order, fl.wilds.length) : BEATS.wildPop.start + f.order * BEATS.wildPop.stagger;
+      list.push([at, () => bell(A.scale[f.order % A.scale.length], A.wildScale)]);
+    });
+    const fAt = wake ? WAKE.fantasy[0] : BEATS.fantasyOpen.start;
+    list.push([fAt, () => arp(A.fantasyArp, A.fantasySpacing)]);
+    return list;
+  }
+
+  function step() {
+    tickPad();
+    if (!on) return;
+    const s = app.s, prev = app.prevS;
+    if (s <= prev) return;
+    for (const [at, play] of showEvents()) if (prev < at && s >= at && s - at < A.pingWindow) play();
+  }
+
+  const pickNote = () => A.scale[Math.floor(app.live.next() * A.scale.length)];
+
+  return {
+    get on() { return on; },
+    setOn,
+    step,
+    suspend(hidden) {
+      if (!ctx) return;
+      if (hidden) ctx.suspend();
+      else if (on) ctx.resume();
+    },
+    tap: () => bell(pickNote()),
+    gold: () => arp(A.goldChime, A.goldSpacing),
+    fantasy: () => arp(A.fantasyArp, A.fantasySpacing),
+    shake: () => arp(A.shakeNotes, A.goldSpacing, A.wildScale),
+    plant: () => bell(pickNote(), A.wildScale),
+    star: () => bell(A.starNote, A.wildScale),
+    nova: () => arp(A.novaChord, A.novaSpacing),
+  };
+}
+
+return { makeAudio };
+})();
+__m["ui.js"] = (() => {
+// The only interface: two quiet round buttons, sound and replay, top right.
+// Hidden during the intro, real buttons with labels and keyboard focus.
+const { UI, BEATS, PALETTE } = __m["config.js"];
+const { rgba } = __m["util.js"];
+const { wake } = __m["input.js"];
+
+function setupUI(app, onReplay) {
+  const css = document.documentElement.style;
+  const px = (v) => `${v}px`;
+  css.setProperty('--btn-size', px(UI.size));
+  css.setProperty('--btn-gap', px(UI.gap));
+  css.setProperty('--btn-margin', px(UI.margin));
+  css.setProperty('--btn-icon', px(UI.icon));
+  css.setProperty('--btn-fade', `${BEATS.buttonsFade}s`);
+  css.setProperty('--btn-opacity', String(UI.opacity));
+  css.setProperty('--btn-dim-opacity', String(UI.dimOpacity));
+  css.setProperty('--btn-bg', rgba(PALETTE.buttonBg, UI.bgAlpha));
+  css.setProperty('--btn-line', rgba(PALETTE.buttonInk, UI.lineAlpha));
+  css.setProperty('--btn-ink', rgba(PALETTE.buttonInk, UI.inkAlpha));
+  css.setProperty('--btn-focus', rgba(PALETTE.buttonInk, UI.focusAlpha));
+
+  const el = document.getElementById('ui');
+  const snd = document.getElementById('snd');
+  const rep = document.getElementById('rep');
+  // The first touch while dim only wakes, buttons included.
+  el.addEventListener('pointerdown', () => {
+    app.input.idle = 0;
+    if (app.state === 'DIM') wake(app);
+  }, true);
+  const blocked = () => {
+    if (app.state === 'DIM') { wake(app); return true; }
+    return app.clock.T < app.input.ignoreUntil;
+  };
+  const sync = () => {
+    const on = !!(app.audio && app.audio.on);
+    snd.setAttribute('aria-pressed', on ? 'true' : 'false');
+    snd.setAttribute('aria-label', on ? 'Turn sound off' : 'Turn sound on');
+  };
+  snd.addEventListener('click', () => {
+    if (blocked()) return;
+    app.input.idle = 0;
+    if (app.audio) app.audio.setOn(!app.audio.on);
+    sync();
+  });
+  rep.addEventListener('click', () => {
+    if (blocked()) return;
+    rep.blur();
+    onReplay();
+  });
+  sync();
+  return { el, shown: false, dim: false };
+}
+
+function updateUI(app) {
+  const ui = app.ui;
+  if (!ui) return;
+  const show = app.introDone && app.state !== 'INTRO' && !app.params.preview;
+  if (show !== ui.shown) {
+    ui.shown = show;
+    ui.el.classList.toggle('on', show);
+  }
+  const dim = app.state === 'DIM';
+  if (dim !== ui.dim) {
+    ui.dim = dim;
+    ui.el.classList.toggle('dim', dim);
+  }
+}
+
+return { setupUI, updateUI };
+})();
 __m["render.js"] = (() => {
 // The frame, back to front.
 const { PALETTE } = __m["config.js"];
@@ -3513,9 +3830,12 @@ const { buildButterflies, drawButterflies } = __m["butterflies.js"];
 const { drawHearts, heartCount } = __m["hearts.js"];
 const { makeHeart, layoutHeart, updateHeart, drawHeartSecret, heartPhase, startNova, heartBox, NOVA_LENGTH } = __m["heart.js"];
 const { makeInput, attachInput, updateInput, enterDim } = __m["input.js"];
-const { plantedCount } = __m["flowers.js"];
+const { plantedCount, allFlowers } = __m["flowers.js"];
 const { fantasyRadius } = __m["fantasy.js"];
 const { flowerTimes, showTimes } = __m["choreo.js"];
+const { bootLife, watchClock, setThemeColor } = __m["life.js"];
+const { makeAudio } = __m["audio.js"];
+const { setupUI, updateUI } = __m["ui.js"];
 const { render, addLayer } = __m["render.js"];
 const { update, addStep } = __m["update.js"];
 const { makeStats, recordFrame, installTestHooks } = __m["testhooks.js"];
@@ -3523,19 +3843,20 @@ const { makeStats, recordFrame, installTestHooks } = __m["testhooks.js"];
 const params = readParams(location.search);
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d', { alpha: false });
-const seed = params.seed !== null ? params.seed >>> 0 : (Math.random() * 4294967296) >>> 0;
+const life = bootLife(params);
+const seed = life.seed;
 
 const app = {
-  params, canvas, ctx, seed,
+  params, canvas, ctx, seed, reduced: life.reduced, visits: life.visits,
   dpr: 1, L: null, tod: null, theme: null,
   live: makeRng(seed ^ 0x11fe),
   clock: makeClock(params.t),
-  show: { mode: 'full', start: 0 },
+  show: { mode: life.mode, start: 0 },
   state: 'INTRO', s: 0, prevS: 0, fadeIn: 0, overlay: 1, darken: 0, skyVis: 1, starReveal: 0,
   bg: null, bgPrev: null, bgMix: 1,
   stars: [], moon: null, grass: null, leafSprite: null,
   flowers: null, cherry: null, petals: null, fantasy: null, fireflies: null, butterflies: null,
-  breath: 1, dimLevel: 0, openDim: 1, gold: params.gold,
+  breath: 1, dimLevel: 0, openDim: 1, gold: life.gold, introDone: false,
   fx: { shooting: [], petals: [], hearts: [] },
   input: makeInput(), heart: makeHeart(),
   stats: makeStats(),
@@ -3545,8 +3866,10 @@ if (params.preview && params.t === null) app.show.start = -PREVIEW.showTime;
 
 app.tod = currentTod(params);
 app.theme = buildTheme(app.tod);
+setThemeColor(app.theme.themeColor);
 app.flowers = createFlowers(app);
 app.fantasy = createFantasy(app);
+app.audio = makeAudio(app);
 
 function rebuildWorld() {
   app.bg = buildBackground(app);
@@ -3563,6 +3886,29 @@ function rebuildWorld() {
   layoutHeart(app);
 }
 
+// Replay returns to the intro and clears planted flowers.
+function replay() {
+  app.show.mode = app.reduced ? 'wake' : 'full';
+  app.show.start = app.clock.T;
+  app.s = 0;
+  app.prevS = 0;
+  app.state = 'INTRO';
+  app.introDone = false;
+  app.flowers.planted.length = 0;
+  app.fx.hearts.length = 0;
+  app.fx.petals.length = 0;
+  app.fx.shooting.length = 0;
+  app.heart = makeHeart();
+  app.input = makeInput();
+  app.dimLevel = 0;
+  app.darken = 0;
+  for (const f of allFlowers(app).concat(app.fantasy)) { f.spring.x = 0; f.spring.v = 0; f.leanPx = 0; }
+  rebuildWorld();
+}
+
+app.ui = setupUI(app, replay);
+const clockStep = watchClock(app, rebuildWorld);
+
 addStep(showTimes);
 addStep(updateInput);
 addStep(updateHeart);
@@ -3572,6 +3918,9 @@ addStep(cherryTimes);
 addStep(updateFlowers);
 addStep(updateFantasy);
 addStep(updateCherry);
+addStep(() => app.audio.step());
+addStep(updateUI);
+addStep(clockStep);
 addLayer('mid', drawCherry);
 addLayer('mid', drawPollen);
 addLayer('mid', drawFireflies);
@@ -3611,6 +3960,7 @@ if (window.visualViewport) window.visualViewport.addEventListener('resize', onRe
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseClock(app.clock);
   else resumeClock(app.clock);
+  app.audio.suspend(document.hidden);
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -3626,6 +3976,10 @@ installTestHooks(app, {
   get moonBox() { const m = app.L.moon; return { x: m.x - m.r, y: m.y - m.r, w: m.r * 2, h: m.r * 2 }; },
   get fantasy() { return { x: app.fantasy.hx, y: app.fantasy.hy, r: fantasyRadius(app) }; },
   get gold() { return app.gold; },
+  get sound() { return app.audio.on; },
+  get buttons() { return app.ui.shown; },
+  get visits() { return app.visits; },
+  replay: () => replay(),
   novaLength: NOVA_LENGTH,
   triggerHeart: (at) => startNova(app, at || 0),
   forceDim: () => enterDim(app),

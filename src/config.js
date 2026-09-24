@@ -259,7 +259,9 @@ export const AUDIO = {
   rosePhrase: ['E5', 'G5', 'A5', 'C6', 'D6'],
   fantasyArp: ['C5', 'E5', 'G5', 'C6', 'E6'],
   goldChime: ['G5', 'C6', 'E6', 'G6'], goldSpacing: 0.07,
-  novaChord: ['C5', 'G5', 'E6'],
+  novaChord: ['C5', 'G5', 'C6', 'E6'], novaSpacing: 0.09,
+  shakeNotes: ['D6', 'E6', 'G6'], starNote: 'G6',
+  floor: 0.0001, tail: 0.05, lookahead: 0.5,
   chords: [
     [130.81, 164.81, 196], [110, 130.81, 164.81], [87.31, 110, 130.81], [98, 123.47, 146.83],
   ],

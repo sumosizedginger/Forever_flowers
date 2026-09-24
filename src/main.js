@@ -17,9 +17,12 @@ import { buildButterflies, drawButterflies } from './butterflies.js';
 import { drawHearts, heartCount } from './hearts.js';
 import { makeHeart, layoutHeart, updateHeart, drawHeartSecret, heartPhase, startNova, heartBox, NOVA_LENGTH } from './heart.js';
 import { makeInput, attachInput, updateInput, enterDim } from './input.js';
-import { plantedCount } from './flowers.js';
+import { plantedCount, allFlowers } from './flowers.js';
 import { fantasyRadius } from './fantasy.js';
 import { flowerTimes, showTimes } from './choreo.js';
+import { bootLife, watchClock, setThemeColor } from './life.js';
+import { makeAudio } from './audio.js';
+import { setupUI, updateUI } from './ui.js';
 import { render, addLayer } from './render.js';
 import { update, addStep } from './update.js';
 import { makeStats, recordFrame, installTestHooks } from './testhooks.js';
@@ -27,19 +30,20 @@ import { makeStats, recordFrame, installTestHooks } from './testhooks.js';
 const params = readParams(location.search);
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d', { alpha: false });
-const seed = params.seed !== null ? params.seed >>> 0 : (Math.random() * 4294967296) >>> 0;
+const life = bootLife(params);
+const seed = life.seed;
 
 const app = {
-  params, canvas, ctx, seed,
+  params, canvas, ctx, seed, reduced: life.reduced, visits: life.visits,
   dpr: 1, L: null, tod: null, theme: null,
   live: makeRng(seed ^ 0x11fe),
   clock: makeClock(params.t),
-  show: { mode: 'full', start: 0 },
+  show: { mode: life.mode, start: 0 },
   state: 'INTRO', s: 0, prevS: 0, fadeIn: 0, overlay: 1, darken: 0, skyVis: 1, starReveal: 0,
   bg: null, bgPrev: null, bgMix: 1,
   stars: [], moon: null, grass: null, leafSprite: null,
   flowers: null, cherry: null, petals: null, fantasy: null, fireflies: null, butterflies: null,
-  breath: 1, dimLevel: 0, openDim: 1, gold: params.gold,
+  breath: 1, dimLevel: 0, openDim: 1, gold: life.gold, introDone: false,
   fx: { shooting: [], petals: [], hearts: [] },
   input: makeInput(), heart: makeHeart(),
   stats: makeStats(),
@@ -49,8 +53,10 @@ if (params.preview && params.t === null) app.show.start = -PREVIEW.showTime;
 
 app.tod = currentTod(params);
 app.theme = buildTheme(app.tod);
+setThemeColor(app.theme.themeColor);
 app.flowers = createFlowers(app);
 app.fantasy = createFantasy(app);
+app.audio = makeAudio(app);
 
 function rebuildWorld() {
   app.bg = buildBackground(app);
@@ -67,6 +73,29 @@ function rebuildWorld() {
   layoutHeart(app);
 }
 
+// Replay returns to the intro and clears planted flowers.
+function replay() {
+  app.show.mode = app.reduced ? 'wake' : 'full';
+  app.show.start = app.clock.T;
+  app.s = 0;
+  app.prevS = 0;
+  app.state = 'INTRO';
+  app.introDone = false;
+  app.flowers.planted.length = 0;
+  app.fx.hearts.length = 0;
+  app.fx.petals.length = 0;
+  app.fx.shooting.length = 0;
+  app.heart = makeHeart();
+  app.input = makeInput();
+  app.dimLevel = 0;
+  app.darken = 0;
+  for (const f of allFlowers(app).concat(app.fantasy)) { f.spring.x = 0; f.spring.v = 0; f.leanPx = 0; }
+  rebuildWorld();
+}
+
+app.ui = setupUI(app, replay);
+const clockStep = watchClock(app, rebuildWorld);
+
 addStep(showTimes);
 addStep(updateInput);
 addStep(updateHeart);
@@ -76,6 +105,9 @@ addStep(cherryTimes);
 addStep(updateFlowers);
 addStep(updateFantasy);
 addStep(updateCherry);
+addStep(() => app.audio.step());
+addStep(updateUI);
+addStep(clockStep);
 addLayer('mid', drawCherry);
 addLayer('mid', drawPollen);
 addLayer('mid', drawFireflies);
@@ -115,6 +147,7 @@ if (window.visualViewport) window.visualViewport.addEventListener('resize', onRe
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseClock(app.clock);
   else resumeClock(app.clock);
+  app.audio.suspend(document.hidden);
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -130,6 +163,10 @@ installTestHooks(app, {
   get moonBox() { const m = app.L.moon; return { x: m.x - m.r, y: m.y - m.r, w: m.r * 2, h: m.r * 2 }; },
   get fantasy() { return { x: app.fantasy.hx, y: app.fantasy.hy, r: fantasyRadius(app) }; },
   get gold() { return app.gold; },
+  get sound() { return app.audio.on; },
+  get buttons() { return app.ui.shown; },
+  get visits() { return app.visits; },
+  replay: () => replay(),
   novaLength: NOVA_LENGTH,
   triggerHeart: (at) => startNova(app, at || 0),
   forceDim: () => enterDim(app),
